@@ -112,7 +112,7 @@ function HELPER_getOrdinal(n) {
  * @param {Date} currentDate The date to start from.
  * @returns {Date} The date of the previous Sunday.
  */
-function getPreviousSunday(currentDate) {
+function HELPER_getPreviousSunday(currentDate) {
   const prevSunday = new Date(currentDate.getTime());
   prevSunday.setDate(prevSunday.getDate() - prevSunday.getDay()); // 0 is Sunday, so this finds it
   return prevSunday;
