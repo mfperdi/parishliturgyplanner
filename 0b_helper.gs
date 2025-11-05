@@ -117,3 +117,69 @@ function HELPER_getPreviousSunday(currentDate) {
   prevSunday.setDate(prevSunday.getDate() - prevSunday.getDay()); // 0 is Sunday, so this finds it
   return prevSunday;
 }
+
+/**
+ * Checks if a given date is a "protected" day that prevents other celebrations.
+ * Protected days include: Sundays of Lent, Holy Week, Easter Octave.
+ * @param {Date} date The date to check.
+ * @param {object} dates The liturgical dates object.
+ * @returns {boolean} True if the date is protected.
+ */
+function HELPER_isProtectedDay(date, dates) {
+  const dateTime = date.getTime();
+  const dayOfWeek = date.getDay();
+  
+  // 1. Sundays of Lent (but not Palm Sunday, which is handled separately)
+  if (dayOfWeek === 0 && date >= dates.ashWednesday && date < dates.palmSunday) {
+    return true;
+  }
+  
+  // 2. Palm Sunday through Holy Saturday (Holy Week)
+  if (date >= dates.palmSunday && date <= dates.holySaturday) {
+    return true;
+  }
+  
+  // 3. Easter Octave (Easter Sunday through Divine Mercy Sunday, inclusive)
+  if (date >= dates.easter && date <= dates.divineMercySunday) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Finds the next available date for transferring a celebration.
+ * The target is the next Monday, unless that Monday is also protected.
+ * @param {Date} originalDate The original date of the celebration.
+ * @param {object} dates The liturgical dates object.
+ * @returns {Date} The transfer target date.
+ */
+function HELPER_findTransferDate(originalDate, dates) {
+  // Start with the next Monday
+  let targetDate = new Date(originalDate.getTime());
+  const daysUntilMonday = (8 - targetDate.getDay()) % 7 || 7; // If already Monday, go to next Monday
+  targetDate.setDate(targetDate.getDate() + daysUntilMonday);
+  
+  // Keep checking if the target is also protected
+  let maxAttempts = 30; // Safety limit to prevent infinite loops
+  while (HELPER_isProtectedDay(targetDate, dates) && maxAttempts > 0) {
+    // Move to the next Monday
+    targetDate.setDate(targetDate.getDate() + 7);
+    maxAttempts--;
+  }
+  
+  if (maxAttempts === 0) {
+    Logger.log("WARNING: Could not find a transfer date after 30 attempts. Using last attempted date.");
+  }
+  
+  return targetDate;
+}
+
+/**
+ * Formats a date as "M/D" for use as a map key.
+ * @param {Date} date The date to format.
+ * @returns {string} The formatted date key (e.g., "3/25").
+ */
+function HELPER_formatDateKey(date) {
+  return (date.getMonth() + 1) + "/" + date.getDate();
+}
