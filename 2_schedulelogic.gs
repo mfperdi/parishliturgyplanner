@@ -56,16 +56,21 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
     // For each role in the template, create a new row
     for (const role of roles) {
-      const newRow = new Array(CONSTANTS.COLS.ASSIGNMENTS.NOTES).fill("");
+      const newRow = new Array(CONSTANTS.COLS.ASSIGNMENTS.FAMILY_GROUP).fill("");
       
       newRow[assignCols.DATE - 1] = mass.date; // The specific date of the mass
       newRow[assignCols.TIME - 1] = mass.time;
       newRow[assignCols.MASS_NAME - 1] = mass.description;
+      newRow[assignCols.LITURGICAL_CELEBRATION - 1] = mass.liturgicalCelebration;
       newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName; // e.g., "1st Reading"
       newRow[assignCols.MINISTRY_SKILL - 1] = role.skill; // e.g., "Lector"
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] = "";
       newRow[assignCols.STATUS - 1] = "Unassigned";
+      newRow[assignCols.NOTES - 1] = mass.notes || "";
+      newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
+      newRow[assignCols.MONTH_YEAR - 1] = monthString;
+      newRow[assignCols.FAMILY_GROUP - 1] = "";
       
       newAssignmentRows.push(newRow);
     }
@@ -160,7 +165,7 @@ function SCHEDULE_buildTemplateMap() {
  * Finds all recurring and special masses for a given month.
  * @param {number} month The month (0-indexed).
  * @param {number} year The year.
- * @returns {Array<object>} An array of mass objects {date, time, description, templateName}.
+ * @returns {Array<object>} An array of mass objects {date, time, description, templateName, liturgicalCelebration, notes, eventId}.
  */
 function SCHEDULE_findMassesForMonth(month, year) {
   const masses = [];
@@ -170,6 +175,22 @@ function SCHEDULE_findMassesForMonth(month, year) {
   
   const recCols = CONSTANTS.COLS.RECURRING_MASSES;
   const specCols = CONSTANTS.COLS.SPECIAL_MASSES;
+  const calCols = CONSTANTS.COLS.CALENDAR;
+
+  // Build a map of calendar data for quick lookup
+  const calendarMap = new Map();
+  for (const row of calData) {
+    const calDate = new Date(row[calCols.DATE - 1]);
+    if (calDate.getMonth() === month && calDate.getFullYear() === year) {
+      const dateKey = HELPER_formatDateKey(calDate);
+      calendarMap.set(dateKey, {
+        celebration: row[calCols.LITURGICAL_CELEBRATION - 1],
+        season: row[calCols.SEASON - 1],
+        rank: row[calCols.RANK - 1],
+        color: row[calCols.COLOR - 1]
+      });
+    }
+  }
 
   // --- 1. Find Recurring Masses ---
   const daysInMonth = new Date(year, month + 1, 0).getDate(); // Get last day of month
@@ -177,6 +198,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDate = new Date(year, month, day);
     const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' }); // e.g., "Sunday"
+    const dateKey = HELPER_formatDateKey(currentDate);
     
     for (const row of recurringData) {
       const isActive = row[recCols.IS_ACTIVE - 1];
@@ -184,22 +206,27 @@ function SCHEDULE_findMassesForMonth(month, year) {
       
       const recurringDay = row[recCols.DAY_OF_WEEK - 1];
       if (recurringDay === dayOfWeek) {
+        // Get the liturgical celebration from the calendar
+        const calInfo = calendarMap.get(dateKey);
+        
         // We have a match
         masses.push({
-          date: currentDate,
+          date: new Date(currentDate),
           time: row[recCols.TIME - 1],
           description: row[recCols.DESCRIPTION - 1] || dayOfWeek,
-          templateName: row[recCols.TEMPLATE_NAME - 1]
+          templateName: row[recCols.TEMPLATE_NAME - 1],
+          liturgicalCelebration: calInfo ? calInfo.celebration : "",
+          notes: row[recCols.NOTES - 1] || "",
+          eventId: row[recCols.EVENT_ID - 1] || ""
         });
       }
     }
   }
   
   // --- 2. Find Special Masses ---
-  // A special mass on a specific date (e.g., 12/25/2026) overrides
-  // any recurring masses for that day.
+  // A special mass on a specific date overrides any recurring masses for that day.
   
-  // First, build a map of celebration names to EventIDs from the SpecialMasses sheet
+  // First, build a map of EventIDs to special mass rows
   const specialMassEventIdMap = new Map();
   for (const row of specialData) {
      const isActive = row[specCols.IS_ACTIVE - 1];
@@ -212,19 +239,17 @@ function SCHEDULE_findMassesForMonth(month, year) {
      specialMassEventIdMap.set(eventId, row);
   }
 
-  // Now, loop through the *LiturgicalCalendar* for the month
-  const calCols = CONSTANTS.COLS.CALENDAR;
-  for (const calRow of calData) {
-    const calDate = new Date(calRow[calCols.DATE - 1]);
-    if (calDate.getMonth() !== month || calDate.getFullYear() !== year) {
-      continue; // Skip dates not in our month
-    }
+  // Now, loop through the calendar for the month and look for special masses
+  for (const [dateKey, calInfo] of calendarMap.entries()) {
+    const celebrationName = calInfo.celebration;
     
-    const celebrationName = calRow[calCols.LITURGICAL_CELEBRATION - 1];
-    
-    // Check if this celebration name exists as an EventID in our map
+    // Check if this celebration name exists as an EventID in our special mass map
     if (specialMassEventIdMap.has(celebrationName)) {
       const specialMassRow = specialMassEventIdMap.get(celebrationName);
+      
+      // Parse the date from the dateKey (format: "M/D")
+      const [monthNum, dayNum] = dateKey.split('/').map(n => parseInt(n, 10));
+      const calDate = new Date(year, monthNum - 1, dayNum);
       
       // Found a special mass!
       // First, remove any *recurring* masses for this same day
@@ -239,10 +264,22 @@ function SCHEDULE_findMassesForMonth(month, year) {
         date: calDate,
         time: specialMassRow[specCols.TIME - 1],
         description: specialMassRow[specCols.DESCRIPTION - 1] || celebrationName,
-        templateName: specialMassRow[specCols.TEMPLATE_NAME - 1]
+        templateName: specialMassRow[specCols.TEMPLATE_NAME - 1],
+        liturgicalCelebration: celebrationName,
+        notes: specialMassRow[specCols.NOTES - 1] || "",
+        eventId: specialMassRow[specCols.EVENT_ID - 1] || ""
       });
     }
   }
+
+  // Sort masses by date and time
+  masses.sort((a, b) => {
+    if (a.date.getTime() !== b.date.getTime()) {
+      return a.date.getTime() - b.date.getTime();
+    }
+    // If same date, sort by time
+    return a.time.localeCompare(b.time);
+  });
 
   Logger.log(`> Found ${masses.length} total masses to schedule.`);
   return masses;
