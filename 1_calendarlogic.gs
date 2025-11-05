@@ -9,6 +9,8 @@
 
 /**
  * Main function to generate the liturgical calendar for the year.
+ * Uses a two-pass system: First pass builds the base calendar,
+ * second pass handles transfers and omissions.
  * Writes the results to the 'LiturgicalCalendar' sheet.
  * @returns {string} A success message.
  */
@@ -25,197 +27,171 @@ function CALENDAR_generateLiturgicalCalendar() {
   const saintsData = HELPER_readSheetData(CONSTANTS.SHEETS.SAINTS_CALENDAR);
 
   // 2. Calculate all critical (moveable) feast dates
-  // This function is in 1a_CalendarDates.gs
   const dates = CALENDAR_calculateLiturgicalDates(scheduleYear, config);
   
   // 3. Build lookup maps for overrides and saints
   const overrideMap = CALENDAR_buildOverrideMap(overrideData, scheduleYear);
   const saintMap = CALENDAR_buildSaintMap(saintsData, calendarRegion);
   
-  // 4. --- Main Generation Loop ---
+  // 4. FIRST PASS: Generate the base calendar (without transfers)
   Logger.log(`Starting calendar generation for ${scheduleYear}...`);
-  const newCalendarRows = [];
-  const calCols = CONSTANTS.COLS.CALENDAR;
+  const calendarMap = new Map(); // Key: date string, Value: row data
   
-  let currentDate = new Date(scheduleYear, 0, 1); // Start on Jan 1
-  const endDate = new Date(scheduleYear, 11, 31);   // End on Dec 31
+  let currentDate = new Date(scheduleYear, 0, 1);
+  const endDate = new Date(scheduleYear, 11, 31);
   
   while (currentDate <= endDate) {
-    const dayOfWeek = currentDate.getDay(); // 0=Sun, 1=Mon...
-    const dayKey = (currentDate.getMonth() + 1) + "/" + currentDate.getDate(); // "M/D"
+    const dayOfWeek = currentDate.getDay();
+    const dayKey = HELPER_formatDateKey(currentDate);
     
-    // --- A. Check for a manual override ---
-    const override = overrideMap.get(dayKey);
-    
-    // --- B. Get the seasonal and saint celebrations ---
-    
-    // This function is in 1b_CalendarSeasons.gs
+    // Get seasonal celebration
     const seasonal = CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates);
     
+    // Check for override
+    const override = overrideMap.get(dayKey);
+    
+    // Check for saint
     const saint = saintMap.get(dayKey);
-
-    // --- C. Get numerical ranks for comparison ---
-    // We must translate the text ranks (e.g., "Solemnity") to numbers (e.g., 1)
-    const seasonalRankNum = HELPER_translateRank(seasonal.rank);
-    const saintRankNum = saint ? HELPER_translateRank(saint.rank) : 99; // 99 = no saint
     
-    // --- D. Determine the final celebration (Override > Saint > Seasonal) ---
-    let finalCelebration;
-    let optionalMemorial = ""; // For the new column
+    // Create the calendar entry for this day
+    const entry = CALENDAR_resolveDay(currentDate, seasonal, saint, override, dates);
     
-    if (override) {
-      // 1. Override always wins
-      // We take the celebration info from the override,
-      // but keep the season from the seasonal calculation.
-      finalCelebration = {
-        celebration: override.celebration,
-        rank: override.rank,
-        color: override.color,
-        season: seasonal.season // Use the *actual* season
-      };
-      
-    } else if (saint && saintRankNum === 4) {
-      // 2. Optional Memorial (Rank 4) - ALWAYS goes to the Optional Memorial column
-      // The weekday/seasonal celebration is shown in the main column
-      finalCelebration = seasonal;
-      optionalMemorial = saint.celebration;
-      
-    } else if (saint && (saintRankNum < seasonalRankNum)) {
-      // 3. Saint's rank is higher (lower number) than the season
-      // Use the saint's info, but keep the seasonal season.
-      finalCelebration = {
-        celebration: saint.celebration,
-        rank: saint.rank,
-        color: saint.color,
-        season: seasonal.season // Use the *actual* season
-      };
-      
-    } else if (saint && seasonal.season === "Lent" && saintRankNum === 3 && seasonalRankNum === 3) {
-      // 4. Special rule: Lenten Weekday (Rank 3) beats a Memorial (Rank 3)
-      finalCelebration = seasonal;
+    calendarMap.set(dayKey, entry);
     
-    } else {
-      // 5. Seasonal day wins (default case)
-      finalCelebration = seasonal;
-    }
-    
-    // --- E. Build the row for the sheet ---
-    const newRow = new Array(calCols.COLOR).fill(""); 
-    
-    newRow[calCols.DATE - 1] = new Date(currentDate);
-    newRow[calCols.WEEKDAY - 1] = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-    newRow[calCols.LITURGICAL_CELEBRATION - 1] = finalCelebration.celebration;
-    newRow[calCols.OPTIONAL_MEMORIAL - 1] = optionalMemorial; // Populate new column
-    newRow[calCols.SEASON - 1] = finalCelebration.season;
-    newRow[calCols.RANK - 1] = finalCelebration.rank; // This will be the text (e.g., "Solemnity")
-    newRow[calCols.COLOR - 1] = finalCelebration.color;
-    
-    newCalendarRows.push(newRow);
-    
-    // Go to the next day
     currentDate.setDate(currentDate.getDate() + 1);
   }
   
-  // 5. --- Write to Sheet ---
-  // Clear all content from row 2 down (preserves header/filters)
+  // 5. SECOND PASS: Handle transfers and omissions
+  Logger.log("Processing transfers and omissions...");
+  const transfersToProcess = CALENDAR_findTransfersAndOmissions(calendarMap, dates, scheduleYear);
+  
+  // Apply transfers
+  for (const transfer of transfersToProcess) {
+    const targetKey = HELPER_formatDateKey(transfer.targetDate);
+    const targetEntry = calendarMap.get(targetKey);
+    
+    if (targetEntry) {
+      // The transferred celebration goes into the main column
+      // The original weekday/seasonal goes to Optional Memorial (if it was lower rank)
+      if (targetEntry.rank === "Weekday") {
+        targetEntry.optionalMemorial = targetEntry.celebration; // Save the weekday
+      }
+      
+      targetEntry.celebration = transfer.celebration;
+      targetEntry.rank = transfer.rank;
+      targetEntry.color = transfer.color;
+    }
+  }
+  
+  // 6. Convert the map to an array for writing to the sheet
+  const newCalendarRows = [];
+  const calCols = CONSTANTS.COLS.CALENDAR;
+  
+  currentDate = new Date(scheduleYear, 0, 1);
+  while (currentDate <= endDate) {
+    const dayKey = HELPER_formatDateKey(currentDate);
+    const entry = calendarMap.get(dayKey);
+    
+    if (entry) {
+      const newRow = new Array(calCols.COLOR).fill("");
+      
+      newRow[calCols.DATE - 1] = new Date(currentDate);
+      newRow[calCols.WEEKDAY - 1] = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
+      newRow[calCols.LITURGICAL_CELEBRATION - 1] = entry.celebration;
+      newRow[calCols.OPTIONAL_MEMORIAL - 1] = entry.optionalMemorial || "";
+      newRow[calCols.SEASON - 1] = entry.season;
+      newRow[calCols.RANK - 1] = entry.rank;
+      newRow[calCols.COLOR - 1] = entry.color;
+      
+      newCalendarRows.push(newRow);
+    }
+    
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  // 7. Write to sheet
   if (calSheet.getMaxRows() > 1) {
     calSheet.getRange(2, 1, calSheet.getMaxRows() - 1, calSheet.getMaxColumns()).clearContent();
   }
   
-  // Write the new data
   if (newCalendarRows.length > 0) {
     calSheet.getRange(2, 1, newCalendarRows.length, newCalendarRows[0].length).setValues(newCalendarRows);
   }
   
   Logger.log(`Successfully generated ${newCalendarRows.length} days for the ${scheduleYear} calendar.`);
-  return `Successfully generated the ${scheduleYear} liturgical calendar.`;
+  Logger.log(`Processed ${transfersToProcess.length} transfers.`);
+  return `Successfully generated the ${scheduleYear} liturgical calendar with ${transfersToProcess.length} transfers.`;
 }
 
 /**
- * Builds a Map of manual overrides for the year.
- * @param {Array<Array<any>>} overrideData Data from 'CalendarOverrides' sheet.
- *@param {number} scheduleYear The year being scheduled.
- * @returns {Map<string, object>} A map where key is "M/D"
- * and value is { celebration, rank, color, season }.
+ * Resolves the celebration for a single day (without considering transfers).
+ * @param {Date} date The date.
+ * @param {object} seasonal The seasonal celebration.
+ * @param {object} saint The saint celebration (or null).
+ * @param {object} override The override celebration (or null).
+ * @param {object} dates The liturgical dates.
+ * @returns {object} An entry object with celebration details.
  */
-function CALENDAR_buildOverrideMap(overrideData, scheduleYear) {
-  const map = new Map();
-  const overrideCols = CONSTANTS.COLS.OVERRIDES;
+function CALENDAR_resolveDay(date, seasonal, saint, override, dates) {
+  const entry = {
+    date: date,
+    celebration: "",
+    optionalMemorial: "",
+    season: seasonal.season,
+    rank: "",
+    color: ""
+  };
   
-  for (const row of overrideData) {
-    const month = parseInt(row[overrideCols.MONTH - 1], 10);
-    const day = parseInt(row[overrideCols.DAY - 1], 10);
-    const celebration = row[overrideCols.LITURGICAL_CELEBRATION - 1];
-    const rank = row[overrideCols.RANK - 1];
-    const color = row[overrideCols.COLOR - 1];
-    let calendar = row[overrideCols.CALENDAR - 1]; // e.g., "Parish"
-
-    if (!month || !day || !celebration || !rank) continue;
-    
-    const key = month + "/" + day;
-    
-    map.set(key, {
-      celebration: celebration,
-      rank: rank, // Keep as text
-      color: color,
-      season: calendar || "Override" // This is used to show *source*
-    });
-  }
-  Logger.log(`Built override map with ${map.size} entries.`);
-  return map;
-}
-
-/**
- * Builds a Map of all saints and fixed feasts for the year.
- * @param {Array<Array<any>>} saintsData Data from 'SaintsCalendar' sheet.
- * @param {string} calendarRegion The region to filter by (e.g., "USA").
- * @returns {Map<string, object>} A map where key is "M/D"
- * and value is { celebration, rank, color, season: 'Saints' }.
- */
-function CALENDAR_buildSaintMap(saintsData, calendarRegion) {
-  const map = new Map();
-  const saintsCols = CONSTANTS.COLS.SAINTS_CALENDAR;
+  const seasonalRankNum = HELPER_translateRank(seasonal.rank);
+  const saintRankNum = saint ? HELPER_translateRank(saint.rank) : 99;
+  const isProtected = HELPER_isProtectedDay(date, dates);
   
-  for (const row of saintsData) {
-    const month = parseInt(row[saintsCols.MONTH - 1], 10);
-    const day = parseInt(row[saintsCols.DAY - 1], 10);
-    const celebration = row[saintsCols.LITURGICAL_CELEBRATION - 1];
-    const rank = row[saintsCols.RANK - 1];
-    const color = row[saintsCols.COLOR - 1];
-    let calendarName = row[saintsCols.CALENDAR - 1];
-    if (!calendarName) calendarName = "General Roman Calendar"; // Default
-
-    if (!month || !day || !celebration || !rank) continue;
-    
-    // Add the saint if they are "General Roman Calendar", match the user's region,
-    // or are explicitly for the Parish or Diocese.
-    if (calendarName === "General Roman Calendar" || 
-        calendarName === calendarRegion || 
-        calendarName === "Parish" || 
-        calendarName === "Diocese of Sacramento") { // This should be dynamic, but hardcoded for now
-      
-      const key = month + "/" + day;
-      
-      const newSaint = {
-        celebration: celebration,
-        rank: rank, // Keep as text (e.g., "Solemnity")
-        color: color,
-        season: "Saints"
-      };
-      
-      // Check if a saint already exists for this day
-      if (map.has(key)) {
-        // A saint is already on this day. Compare ranks.
-        const existingSaint = map.get(key);
-        // New saint's rank is higher (lower number), so it replaces the existing one
-        if (HELPER_translateRank(newSaint.rank) < HELPER_translateRank(existingSaint.rank)) {
-          map.set(key, newSaint);
-        }
-      } else {
-        map.set(key, newSaint);
-      }
-    }
+  // Priority 1: Override always wins
+  if (override) {
+    entry.celebration = override.celebration;
+    entry.rank = override.rank;
+    entry.color = override.color;
+    entry.season = seasonal.season;
+    return entry;
   }
-  Logger.log(`Built saints map with ${map.size} entries for region: ${calendarRegion}.`);
-  return map;
-}
+  
+  // Priority 2: Protected days (Sundays of Lent, Holy Week, Easter Octave)
+  // These days ALWAYS show their seasonal celebration
+  // Saints on these days will be handled in the transfer pass
+  if (isProtected) {
+    entry.celebration = seasonal.celebration;
+    entry.rank = seasonal.rank;
+    entry.color = seasonal.color;
+    // Note: We do NOT add saints here - they'll be transferred or omitted
+    return entry;
+  }
+  
+  // Priority 3: Optional Memorials always go to the side column
+  if (saint && saintRankNum === 4) {
+    entry.celebration = seasonal.celebration;
+    entry.rank = seasonal.rank;
+    entry.color = seasonal.color;
+    entry.optionalMemorial = saint.celebration;
+    return entry;
+  }
+  
+  // Priority 4: Higher-ranked saint overrides seasonal
+  if (saint && saintRankNum < seasonalRankNum) {
+    entry.celebration = saint.celebration;
+    entry.rank = saint.rank;
+    entry.color = saint.color;
+    return entry;
+  }
+  
+  // Priority 5: Lenten weekday beats Memorial
+  if (saint && seasonal.season === "Lent" && saintRankNum === 3 && seasonalRankNum === 3) {
+    entry.celebration = seasonal.celebration;
+    entry.rank = seasonal.rank;
+    entry.color = seasonal.color;
+    return entry;
+  }
+  
+  // Default: Seasonal celebration
+  entry.celebration = seasonal.celebration;
+  entry.rank = seasonal.rank;
+  ent
