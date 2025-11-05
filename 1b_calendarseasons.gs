@@ -163,7 +163,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
     return { celebration: "The Most Holy Body and Blood of Christ (Corpus Christi)", season: season, rank: "Solemnity", color: "White" };
   }
   if (currentDate.getTime() === dates.christTheKing.getTime()) {
-    return { celebration: "Our Lord Jesus Christ, King of the Universe", season: season, rank: "Solem" };
+    return { celebration: "Our Lord Jesus Christ, King of the Universe", season: season, rank: "Solemnity", color: "White" };
   }
 
   // Sundays in Ordinary Time
@@ -185,12 +185,12 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   let ordWeek;
   if (currentDate < dates.ashWednesday) {
       // Get week number based on *preceding Sunday*
-    const precedingSunday = HELPER_getPreviousSunday(currentDate);
+    const precedingSunday = getPreviousSunday(currentDate);
     // Week 1 is the Baptism of the Lord
     ordWeek = getWeek(dates.baptism, precedingSunday) + 1;
   } else {
     // Get week number based on *preceding Sunday*
-    const precedingSunday = HELPER_getPreviousSunday(currentDate);
+    const precedingSunday = getPreviousSunday(currentDate);
     const weeksFromEnd = Math.floor((dates.christTheKing.getTime() - precedingSunday.getTime()) / oneDay / 7);
     ordWeek = 34 - weeksFromEnd;
   }
