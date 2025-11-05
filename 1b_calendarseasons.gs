@@ -185,12 +185,12 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   let ordWeek;
   if (currentDate < dates.ashWednesday) {
       // Get week number based on *preceding Sunday*
-    const precedingSunday = getPreviousSunday(currentDate);
+    const precedingSunday = HELPER_getPreviousSunday(currentDate);
     // Week 1 is the Baptism of the Lord
     ordWeek = getWeek(dates.baptism, precedingSunday) + 1;
   } else {
     // Get week number based on *preceding Sunday*
-    const precedingSunday = getPreviousSunday(currentDate);
+    const precedingSunday = HELPER_getPreviousSunday(currentDate);
     const weeksFromEnd = Math.floor((dates.christTheKing.getTime() - precedingSunday.getTime()) / oneDay / 7);
     ordWeek = 34 - weeksFromEnd;
   }
