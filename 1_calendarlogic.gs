@@ -50,7 +50,6 @@ function CALENDAR_generateLiturgicalCalendar() {
     // --- B. Get the seasonal and saint celebrations ---
     
     // This function is in 1b_CalendarSeasons.gs
-    // *** THIS IS THE FIX: Added dayOfWeek ***
     const seasonal = CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates);
     
     const saint = saintMap.get(dayKey);
@@ -75,8 +74,14 @@ function CALENDAR_generateLiturgicalCalendar() {
         season: seasonal.season // Use the *actual* season
       };
       
+    } else if (saint && saintRankNum === 4) {
+      // 2. Optional Memorial (Rank 4) - ALWAYS goes to the Optional Memorial column
+      // The weekday/seasonal celebration is shown in the main column
+      finalCelebration = seasonal;
+      optionalMemorial = saint.celebration;
+      
     } else if (saint && (saintRankNum < seasonalRankNum)) {
-      // 2. Saint's rank is higher (lower number) than the season
+      // 3. Saint's rank is higher (lower number) than the season
       // Use the saint's info, but keep the seasonal season.
       finalCelebration = {
         celebration: saint.celebration,
@@ -86,28 +91,12 @@ function CALENDAR_generateLiturgicalCalendar() {
       };
       
     } else if (saint && seasonal.season === "Lent" && saintRankNum === 3 && seasonalRankNum === 3) {
-      // 3. Special rule: Lenten Weekday (Rank 3) beats a Memorial (Rank 3)
+      // 4. Special rule: Lenten Weekday (Rank 3) beats a Memorial (Rank 3)
       finalCelebration = seasonal;
-      // We check if the demoted saint is an Optional Memorial (Rank 4)
-      // (This rule is now superseded by rule #5, but kept for robustness)
-      if (saintRankNum === 4) { 
-          optionalMemorial = saint.celebration;
-      }
-      
-    } else if (saint && saintRankNum === 4 && seasonalRankNum === 7) {
-      // 4. Special Rule (Your Request): Weekday (7) beats an Optional Memorial (4)
-      // The seasonal weekday wins the main column
-      finalCelebration = seasonal;
-      // The demoted saint goes in the Optional Memorial column
-      optionalMemorial = saint.celebration;
     
     } else {
-      // 5. Seasonal day wins
+      // 5. Seasonal day wins (default case)
       finalCelebration = seasonal;
-      // Check if this seasonal day *also* had an optional memorial
-      if (saint && saintRankNum === 4) {
-         optionalMemorial = saint.celebration;
-      }
     }
     
     // --- E. Build the row for the sheet ---
