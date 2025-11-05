@@ -194,4 +194,146 @@ function CALENDAR_resolveDay(date, seasonal, saint, override, dates) {
   // Default: Seasonal celebration
   entry.celebration = seasonal.celebration;
   entry.rank = seasonal.rank;
-  ent
+  entry.color = seasonal.color;
+  
+  return entry;
+}
+
+/**
+ * Finds all saints that need to be transferred or omitted due to protected days.
+ * @param {Map} calendarMap The calendar map (will be modified).
+ * @param {object} dates The liturgical dates.
+ * @param {number} year The schedule year.
+ * @returns {Array} An array of transfer objects.
+ */
+function CALENDAR_findTransfersAndOmissions(calendarMap, dates, year) {
+  const transfers = [];
+  
+  // Go through each day of the year
+  let currentDate = new Date(year, 0, 1);
+  const endDate = new Date(year, 11, 31);
+  
+  while (currentDate <= endDate) {
+    const dayKey = HELPER_formatDateKey(currentDate);
+    const entry = calendarMap.get(dayKey);
+    
+    // Check if this is a protected day
+    if (HELPER_isProtectedDay(currentDate, dates)) {
+      // Get the saint for this day from the global saint map
+      // We need to rebuild the saint map here (not ideal, but works)
+      const saintsData = HELPER_readSheetData(CONSTANTS.SHEETS.SAINTS_CALENDAR);
+      const config = HELPER_readConfig();
+      const calendarRegion = config["Calendar Region"];
+      const saintMap = CALENDAR_buildSaintMap(saintsData, calendarRegion);
+      
+      const saint = saintMap.get(dayKey);
+      
+      if (saint) {
+        const saintRankNum = HELPER_translateRank(saint.rank);
+        
+        // Solemnities are transferred
+        if (saintRankNum === 1) {
+          const targetDate = HELPER_findTransferDate(currentDate, dates);
+          
+          transfers.push({
+            originalDate: new Date(currentDate),
+            targetDate: targetDate,
+            celebration: saint.celebration,
+            rank: saint.rank,
+            color: saint.color
+          });
+          
+          Logger.log(`Transferring "${saint.celebration}" from ${dayKey} to ${HELPER_formatDateKey(targetDate)}`);
+        }
+        // Feasts and Memorials (ranks 2 and 3) are omitted - do nothing
+        // Optional Memorials (rank 4) are already handled in resolveDay
+      }
+    }
+    
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return transfers;
+}
+
+/**
+ * Builds a Map of manual overrides for the year.
+ * @param {Array<Array<any>>} overrideData Data from 'CalendarOverrides' sheet.
+ * @param {number} scheduleYear The year being scheduled.
+ * @returns {Map<string, object>} A map where key is "M/D".
+ */
+function CALENDAR_buildOverrideMap(overrideData, scheduleYear) {
+  const map = new Map();
+  const overrideCols = CONSTANTS.COLS.OVERRIDES;
+  
+  for (const row of overrideData) {
+    const month = parseInt(row[overrideCols.MONTH - 1], 10);
+    const day = parseInt(row[overrideCols.DAY - 1], 10);
+    const celebration = row[overrideCols.LITURGICAL_CELEBRATION - 1];
+    const rank = row[overrideCols.RANK - 1];
+    const color = row[overrideCols.COLOR - 1];
+    let calendar = row[overrideCols.CALENDAR - 1];
+
+    if (!month || !day || !celebration || !rank) continue;
+    
+    const key = month + "/" + day;
+    
+    map.set(key, {
+      celebration: celebration,
+      rank: rank,
+      color: color,
+      season: calendar || "Override"
+    });
+  }
+  Logger.log(`Built override map with ${map.size} entries.`);
+  return map;
+}
+
+/**
+ * Builds a Map of all saints and fixed feasts for the year.
+ * @param {Array<Array<any>>} saintsData Data from 'SaintsCalendar' sheet.
+ * @param {string} calendarRegion The region to filter by (e.g., "USA").
+ * @returns {Map<string, object>} A map where key is "M/D".
+ */
+function CALENDAR_buildSaintMap(saintsData, calendarRegion) {
+  const map = new Map();
+  const saintsCols = CONSTANTS.COLS.SAINTS_CALENDAR;
+  
+  for (const row of saintsData) {
+    const month = parseInt(row[saintsCols.MONTH - 1], 10);
+    const day = parseInt(row[saintsCols.DAY - 1], 10);
+    const celebration = row[saintsCols.LITURGICAL_CELEBRATION - 1];
+    const rank = row[saintsCols.RANK - 1];
+    const color = row[saintsCols.COLOR - 1];
+    let calendarName = row[saintsCols.CALENDAR - 1];
+    if (!calendarName) calendarName = "General Roman Calendar";
+
+    if (!month || !day || !celebration || !rank) continue;
+    
+    if (calendarName === "General Roman Calendar" || 
+        calendarName === calendarRegion || 
+        calendarName === "Parish" || 
+        calendarName === "Diocese of Sacramento") {
+      
+      const key = month + "/" + day;
+      
+      const newSaint = {
+        celebration: celebration,
+        rank: rank,
+        color: color,
+        season: "Saints"
+      };
+      
+      if (map.has(key)) {
+        const existingSaint = map.get(key);
+        if (HELPER_translateRank(newSaint.rank) < HELPER_translateRank(existingSaint.rank)) {
+          map.set(key, newSaint);
+        }
+      } else {
+        map.set(key, newSaint);
+      }
+    }
+  }
+  Logger.log(`Built saints map with ${map.size} entries for region: ${calendarRegion}.`);
+  return map;
+}
