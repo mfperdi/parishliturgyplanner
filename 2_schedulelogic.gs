@@ -56,7 +56,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
     // For each role in the template, create a new row
     for (const role of roles) {
-      const newRow = new Array(CONSTANT.COLS.ASSIGNMENTS.NOTES).fill("");
+      const newRow = new Array(CONSTANTS.COLS.ASSIGNMENTS.NOTES).fill("");
       
       newRow[assignCols.DATE - 1] = mass.date; // The specific date of the mass
       newRow[assignCols.TIME - 1] = mass.time;
@@ -148,7 +148,7 @@ function SCHEDULE_buildTemplateMap() {
     }
 
     templateMap.get(templateName).push({
-      roleName: row[templateCols.ROLE_NAME - 1],
+      roleName: row[templateCols.MINISTRY_ROLE - 1],
       skill: row[templateCols.MINISTRY_SKILL - 1]
     });
   }
@@ -164,12 +164,12 @@ function SCHEDULE_buildTemplateMap() {
  */
 function SCHEDULE_findMassesForMonth(month, year) {
   const masses = [];
-  const recurringData = HELPER_readSheetData(CONSTANTS.SHEETS.RECURRING);
-  const specialData = HELPER_readSheetData(CONSTANTS.SHEETS.SPECIAL);
+  const recurringData = HELPER_readSheetData(CONSTANTS.SHEETS.RECURRING_MASSES);
+  const specialData = HELPER_readSheetData(CONSTANTS.SHEETS.SPECIAL_MASSES);
   const calData = HELPER_readSheetData(CONSTANTS.SHEETS.CALENDAR);
   
-  const recCols = CONSTANTS.COLS.RECURRING;
-  const specCols = CONSTANTS.COLS.SPECIAL;
+  const recCols = CONSTANTS.COLS.RECURRING_MASSES;
+  const specCols = CONSTANTS.COLS.SPECIAL_MASSES;
 
   // --- 1. Find Recurring Masses ---
   const daysInMonth = new Date(year, month + 1, 0).getDate(); // Get last day of month
