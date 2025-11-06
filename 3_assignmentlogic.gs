@@ -4,7 +4,7 @@
  * ====================================================================
  * This file contains all logic for "Step 2: Auto-Assign Volunteers".
  * It reads the "Unassigned" roles and intelligently assigns them
- * based on volunteer skills, preferences, and time off.
+ * based on volunteer skills, preferences, time off, and FamilyTeam grouping.
  */
 
 /**
@@ -32,14 +32,12 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
   // 2. Read all required data
   const volunteerData = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
   const timeoffData = HELPER_readSheetData(CONSTANTS.SHEETS.TIMEOFFS);
-  const templateMap = SCHEDULE_buildTemplateMap(); // Read templates for skill lookup
   
   // 3. Build lookup maps
   const volunteers = ASSIGNMENT_buildVolunteerMap(volunteerData);
   const timeoffMap = ASSIGNMENT_buildTimeoffMap(timeoffData, month, scheduleYear);
   
   // 4. Get all assignments for the *entire year* to calculate frequency
-  // We get all rows at once for efficiency.
   const allAssignmentData = assignmentsSheet.getRange(2, 1, assignmentsSheet.getLastRow() - 1, assignmentsSheet.getLastColumn()).getValues();
   
   // 5. Get the specific "Unassigned" rows for the selected month
@@ -72,49 +70,57 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
   // 6. Build volunteer assignment counts for frequency tracking
   const assignmentCounts = ASSIGNMENT_buildAssignmentCounts(allAssignmentData);
   
-  // 7. --- The Core Assignment Loop ---
+  // 7. Build a map of team assignments for this month (to keep teams together)
+  const teamAssignments = ASSIGNMENT_buildTeamAssignmentMap(allAssignmentData, month, scheduleYear);
+  
+  // 8. --- The Core Assignment Loop ---
   let assignmentsMade = 0;
   let assignmentsSkipped = 0;
   
-  // We loop by *sheet row index* so we can write back to the correct row
   for (let i = 0; i < unassignedRowIndexes.length; i++) {
     const sheetRowIndex = unassignedRowIndexes[i];
     const rowData = unassignedRows[i];
     
-    const roleToFill = rowData[assignCols.MINISTRY_ROLE - 1]; // e.g., "Lector 1"
+    const skillToFill = rowData[assignCols.MINISTRY_SKILL - 1];
     const massDate = new Date(rowData[assignCols.DATE - 1]);
-    
-    // NEW: Look up the skill for this role from the template
-    const skillToFill = ASSIGNMENT_getSkillForRole(roleToFill, templateMap);
+    const massTime = rowData[assignCols.TIME - 1];
     
     // Find a volunteer for this role
     const assignedVolunteer = ASSIGNMENT_findVolunteerForRole(
       skillToFill,
       massDate,
+      massTime,
       volunteers,
       timeoffMap,
-      assignmentCounts
+      assignmentCounts,
+      teamAssignments
     );
     
     if (assignedVolunteer) {
-      // 8. --- Write the assignment to the sheet ---
-      // We write one by one to make sure our assignmentCounts stay accurate
-      // This is slower but safer for this algorithm.
+      // 9. Write the assignment to the sheet
       assignmentsSheet.getRange(sheetRowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(assignedVolunteer.id);
       assignmentsSheet.getRange(sheetRowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(assignedVolunteer.name);
       assignmentsSheet.getRange(sheetRowIndex, assignCols.STATUS).setValue("Assigned");
+      assignmentsSheet.getRange(sheetRowIndex, assignCols.FAMILY_TEAM).setValue(assignedVolunteer.familyTeam || "");
       
-      // 9. Update our local tracking data
-      // This is critical so the *next* loop iteration knows this person was assigned
+      // 10. Update our local tracking data
       if (!assignmentCounts.has(assignedVolunteer.id)) {
          assignmentCounts.set(assignedVolunteer.id, { total: 0, recent: new Date(0) });
       }
       assignmentCounts.get(assignedVolunteer.id).total++;
-      assignmentCounts.get(assignedVolunteer.id).recent = massDate; // Mark them as "just assigned"
+      assignmentCounts.get(assignedVolunteer.id).recent = massDate;
+      
+      // 11. Update team assignments tracking
+      if (assignedVolunteer.familyTeam) {
+        const massKey = HELPER_formatDateKey(massDate) + "|" + massTime;
+        if (!teamAssignments.has(assignedVolunteer.familyTeam)) {
+          teamAssignments.set(assignedVolunteer.familyTeam, new Set());
+        }
+        teamAssignments.get(assignedVolunteer.familyTeam).add(massKey);
+      }
       
       assignmentsMade++;
     } else {
-      // Could not find anyone for this slot
       assignmentsSkipped++;
     }
   }
@@ -122,7 +128,6 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
   Logger.log(`Finished auto-assignment. Made: ${assignmentsMade}, Skipped: ${assignmentsSkipped}`);
   return `Assignment complete! Filled ${assignmentsMade} roles. ${assignmentsSkipped} roles remain unassigned.`;
 }
-
 
 /**
  * Builds a map of volunteer objects from the sheet data for fast lookups.
@@ -144,7 +149,7 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
       id: id,
       name: row[cols.FULL_NAME - 1],
       email: row[cols.EMAIL - 1],
-      family: row[cols.FAMILY_GROUP - 1] || null,
+      familyTeam: row[cols.FAMILY_TEAM - 1] || null,
       ministries: ministries, // Stored as lowercase
       massPrefs: massPrefs
     });
@@ -171,21 +176,20 @@ function ASSIGNMENT_buildTimeoffMap(timeoffData, month, year) {
     const startDate = new Date(row[cols.START_DATE - 1]);
     const endDate = new Date(row[cols.END_DATE - 1]);
     
-    if (!name || !type || !startDate.getTime() || !endDate.getTime()) continue; // Check for valid dates
+    if (!name || !type || !startDate.getTime() || !endDate.getTime()) continue;
 
     if (!timeoffMap.has(name)) {
       timeoffMap.set(name, []);
     }
     
     // Add all dates in the range to the map
-    // FIX: Don't mutate the original dates
-    let currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-    let zonedEndDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+    let currentDate = new Date(startDate.setHours(0,0,0,0));
+    let zonedEndDate = new Date(endDate.setHours(0,0,0,0));
     
     while (currentDate <= zonedEndDate) {
       // Only add dates that are in the month we are scheduling
       if (currentDate.getMonth() === month && currentDate.getFullYear() === year) {
-        timeoffMap.get(name).push(new Date(currentDate.getTime())); // Add a *copy* of the date
+        timeoffMap.get(name).push(new Date(currentDate.getTime()));
       }
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -212,7 +216,7 @@ function ASSIGNMENT_buildAssignmentCounts(allAssignmentData) {
     
     if (id && status === "Assigned") {
       if (!counts.has(id)) {
-        counts.set(id, { total: 0, recent: new Date(0) }); // Start with a very old date
+        counts.set(id, { total: 0, recent: new Date(0) });
       }
       counts.get(id).total++;
       if (date > counts.get(id).recent) {
@@ -225,39 +229,60 @@ function ASSIGNMENT_buildAssignmentCounts(allAssignmentData) {
 }
 
 /**
- * Helper function to look up the skill required for a given ministry role.
- * @param {string} roleName The role name (e.g., "Lector 1")
- * @param {Map} templateMap The map of all templates
- * @returns {string} The skill name (e.g., "Lector")
+ * Builds a map of which FamilyTeams have been assigned to which masses.
+ * This helps keep teams together at the same Mass.
+ * @param {Array<Array<any>>} allAssignmentData 2D array from 'Assignments' sheet.
+ * @param {number} month The month being scheduled (0-indexed).
+ * @param {number} year The year being scheduled.
+ * @returns {Map<string, Set<string>>} A map where key is FamilyTeam name
+ * and value is a Set of mass keys (date|time).
  */
-function ASSIGNMENT_getSkillForRole(roleName, templateMap) {
-  // Search through all templates to find this role
-  for (const [templateName, roles] of templateMap.entries()) {
-    const role = roles.find(r => r.roleName === roleName);
-    if (role) return role.skill;
-  }
+function ASSIGNMENT_buildTeamAssignmentMap(allAssignmentData, month, year) {
+  const teamMap = new Map();
+  const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
   
-  // Fallback: If not found in any template, try to extract from the role name
-  // "Lector 1" → "Lector", "EM - Captain" → "EM"
-  Logger.log(`Warning: Role "${roleName}" not found in any template. Using fallback extraction.`);
-  return roleName.replace(/\s*\d+$/, '').replace(/\s*-\s*.*$/, '').trim();
+  for (const row of allAssignmentData) {
+    if (!row[assignCols.DATE - 1]) continue;
+    const date = new Date(row[assignCols.DATE - 1]);
+    const status = row[assignCols.STATUS - 1];
+    const familyTeam = row[assignCols.FAMILY_TEAM - 1];
+    
+    // Only track assigned roles in the current month
+    if (date.getMonth() === month && 
+        date.getFullYear() === year && 
+        status === "Assigned" && 
+        familyTeam) {
+      
+      const massKey = HELPER_formatDateKey(date) + "|" + row[assignCols.TIME - 1];
+      
+      if (!teamMap.has(familyTeam)) {
+        teamMap.set(familyTeam, new Set());
+      }
+      teamMap.get(familyTeam).add(massKey);
+    }
+  }
+  Logger.log(`Built team assignment map for ${teamMap.size} teams.`);
+  return teamMap;
 }
 
 /**
  * The core scheduling algorithm. Finds the "best" volunteer for a single role.
+ * Considers FamilyTeam grouping to keep teams together.
  * @param {string} skillToFill The name of the ministry skill needed (e.g., "Lector").
  * @param {Date} massDate The date of the mass.
+ * @param {string} massTime The time of the mass.
  * @param {Map} volunteers The main volunteer map.
  * @param {Map} timeoffMap The timeoff map.
  * @param {Map} assignmentCounts The frequency map.
- * @returns {object|null} The volunteer object {id, name} or null if none found.
+ * @param {Map} teamAssignments Map of team assignments to this mass.
+ * @returns {object|null} The volunteer object {id, name, familyTeam} or null if none found.
  */
-function ASSIGNMENT_findVolunteerForRole(skillToFill, massDate, volunteers, timeoffMap, assignmentCounts) {
+function ASSIGNMENT_findVolunteerForRole(skillToFill, massDate, massTime, volunteers, timeoffMap, assignmentCounts, teamAssignments) {
   
   let candidates = [];
-  // FIX: Don't mutate the original date
-  const massDateZeroed = new Date(massDate.getFullYear(), massDate.getMonth(), massDate.getDate());
+  const massDateZeroed = new Date(massDate.setHours(0,0,0,0));
   const skillLower = skillToFill.toLowerCase();
+  const massKey = HELPER_formatDateKey(massDate) + "|" + massTime;
   
   // --- 1. Filter: Find all volunteers who *can* do the job ---
   for (const vol of volunteers.values()) {
@@ -279,13 +304,10 @@ function ASSIGNMENT_findVolunteerForRole(skillToFill, massDate, volunteers, time
       continue;
     }
 
-    // C. Check if already assigned on this day (or very recently)
+    // C. Check if already assigned on this day
     const counts = assignmentCounts.get(vol.id) || { total: 0, recent: new Date(0) };
-    
-    // Check if their last assignment was this exact day
-    // We use .getTime() for a precise date comparison
     if (counts.recent.getTime() === massDateZeroed.getTime()) {
-       continue; // Already assigned today, skip
+       continue; // Already assigned today
     }
     
     // This volunteer is a valid candidate
@@ -295,7 +317,7 @@ function ASSIGNMENT_findVolunteerForRole(skillToFill, massDate, volunteers, time
     });
   }
   
-  if (candidates.length === 0) return null; // No one is qualified or available
+  if (candidates.length === 0) return null;
 
   // --- 2. Score: Rank the qualified candidates ---
   for (const candidate of candidates) {
@@ -303,27 +325,26 @@ function ASSIGNMENT_findVolunteerForRole(skillToFill, massDate, volunteers, time
     const counts = assignmentCounts.get(vol.id) || { total: 0, recent: new Date(0) };
 
     // A. Penalize for high frequency (spread the work)
-    // Subtract points based on how many assignments they already have
-    candidate.score -= counts.total * 5; // Each assignment = -5 points
+    candidate.score -= counts.total * 5;
     
-    // B. Bonus for Mass Preference (we don't have this data yet, but can add)
-    // We'd need to link the mass (e.g., "Sunday 9:00 AM") to an EventID
-    // and check `vol.massPrefs`. For now, we skip this.
-
-    // C. Bonus for Family Group (try to group families)
-    // This is complex: we'd need to check if another family member is
-    // *already assigned* to this *same mass*.
-    // For now, we skip this to keep the logic simpler.
+    // B. BONUS for FamilyTeam grouping (CRITICAL FEATURE)
+    if (vol.familyTeam && teamAssignments.has(vol.familyTeam)) {
+      // Check if this team is already assigned to this same mass
+      if (teamAssignments.get(vol.familyTeam).has(massKey)) {
+        // HUGE bonus to keep teams together!
+        candidate.score += 1000;
+      }
+    }
   }
   
   // --- 3. Sort: Find the best candidate ---
-  candidates.sort((a, b) => b.score - a.score); // Sort descending by score
+  candidates.sort((a, b) => b.score - a.score);
   
-  // The best volunteer is the one at the top of the list
   const bestVolunteer = candidates[0].vol;
   
   return {
     id: bestVolunteer.id,
-    name: bestVolunteer.name
+    name: bestVolunteer.name,
+    familyTeam: bestVolunteer.familyTeam
   };
 }
