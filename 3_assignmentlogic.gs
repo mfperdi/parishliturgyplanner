@@ -96,9 +96,9 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
       // 8. --- Write the assignment to the sheet ---
       // We write one by one to make sure our assignmentCounts stay accurate
       // This is slower but safer for this algorithm.
-      assignmentsSheet.getRange(sheetRowIndex, assignCols.ASSIGNED_VOLUNTEER_ID - 1).setValue(assignedVolunteer.id);
-      assignmentsSheet.getRange(sheetRowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME - 1).setValue(assignedVolunteer.name);
-      assignmentsSheet.getRange(sheetRowIndex, assignCols.STATUS - 1).setValue("Assigned");
+      assignmentsSheet.getRange(sheetRowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(assignedVolunteer.id);
+      assignmentsSheet.getRange(sheetRowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(assignedVolunteer.name);
+      assignmentsSheet.getRange(sheetRowIndex, assignCols.STATUS).setValue("Assigned");
       
       // 9. Update our local tracking data
       // This is critical so the *next* loop iteration knows this person was assigned
@@ -174,8 +174,9 @@ function ASSIGNMENT_buildTimeoffMap(timeoffData, month, year) {
     }
     
     // Add all dates in the range to the map
-    let currentDate = new Date(startDate.setHours(0,0,0,0));
-    let zonedEndDate = new Date(endDate.setHours(0,0,0,0));
+    // FIX: Don't mutate the original dates
+    let currentDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    let zonedEndDate = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
     
     while (currentDate <= zonedEndDate) {
       // Only add dates that are in the month we are scheduling
@@ -232,7 +233,8 @@ function ASSIGNMENT_buildAssignmentCounts(allAssignmentData) {
 function ASSIGNMENT_findVolunteerForRole(skillToFill, massDate, volunteers, timeoffMap, assignmentCounts) {
   
   let candidates = [];
-  const massDateZeroed = new Date(massDate.setHours(0,0,0,0));
+  // FIX: Don't mutate the original date
+  const massDateZeroed = new Date(massDate.getFullYear(), massDate.getMonth(), massDate.getDate());
   const skillLower = skillToFill.toLowerCase();
   
   // --- 1. Filter: Find all volunteers who *can* do the job ---
