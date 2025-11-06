@@ -21,20 +21,27 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   // Helper to get week number (1-based)
   // We use Math.ceil to correctly handle the start of a week.
   // (date - start) / 7 days = weeks passed. Ceil goes to next int.
-  // Adding 1/10th of a day to the start handles timezone shifts.
   const getWeek = (start, end) => Math.ceil(((end.getTime() - start.getTime()) / oneDay + 1) / 7);
 
   // 1. --- Christmas Season (Part 1: Jan) ---
   if (currentDate >= dates.maryMotherOfGod && currentDate < dates.baptism) {
-    // Note: Mary, Epiphany, etc., are now handled by SaintsCalendar.
-    // This function just needs to provide the "default" seasonal name.
     
-    // Handle 2nd Sunday after Christmas
-    if (dayOfWeek === 0 && currentDate > dates.maryMotherOfGod && currentDate < dates.epiphany && currentDate > new Date(currentDate.getFullYear(), 0, 1) ) {
-        return { celebration: "2nd Sunday after Christmas", season: "Christmas", rank: "Feast", color: "White" };
+    // Special High-Ranked Days in Christmas Season
+    if (currentDate.getTime() === dates.epiphany.getTime()) {
+      return { celebration: "The Epiphany of the Lord", season: "Christmas", rank: "Solemnity", color: "White" };
     }
     
-    // Weekdays in Christmas
+    // Handle 2nd Sunday after Christmas (only if before Epiphany and after Jan 1)
+    if (dayOfWeek === 0 && currentDate > dates.maryMotherOfGod && currentDate < dates.epiphany) {
+      return { celebration: "2nd Sunday after Christmas", season: "Christmas", rank: "Feast", color: "White" };
+    }
+    
+    // Handle Sundays between Epiphany and Baptism of the Lord
+    if (dayOfWeek === 0 && currentDate > dates.epiphany && currentDate < dates.baptism) {
+      return { celebration: "Sunday after Epiphany", season: "Christmas", rank: "Feast", color: "White" };
+    }
+    
+    // Weekdays in Christmas Season
     const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
     if (currentDate < dates.epiphany) {
       return { celebration: `${weekdayName} before Epiphany`, season: "Christmas", rank: "Weekday", color: "White" };
@@ -42,6 +49,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       return { celebration: `${weekdayName} after Epiphany`, season: "Christmas", rank: "Weekday", color: "White" };
     }
   }
+  
   if (currentDate.getTime() === dates.baptism.getTime()) {
     return { celebration: "The Baptism of the Lord", season: "Christmas", rank: "Feast", color: "White" };
   }
@@ -139,15 +147,19 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   
   // 5. --- Christmas Season (Part 2: Dec) ---
   if (currentDate >= dates.christmasDay) {
-    // Note: Christmas Day is handled by SaintsCalendar
+    // Christmas Day itself (Solemnity)
+    if (currentDate.getTime() === dates.christmasDay.getTime()) {
+      return { celebration: "The Nativity of the Lord (Christmas)", season: "Christmas", rank: "Solemnity", color: "White" };
+    }
     
-    // Handle Sundays in Christmas Octave
-     if (dayOfWeek === 0) {
+    // Handle Holy Family (Sunday in the Octave of Christmas, or Dec 30 if no Sunday)
+    if (dayOfWeek === 0 && currentDate > dates.christmasDay && currentDate <= new Date(currentDate.getFullYear(), 11, 31)) {
       return { celebration: "The Holy Family of Jesus, Mary and Joseph", season: "Christmas", rank: "Feast", color: "White" };
     }
-    // Weekdays in Christmas Octave
+    
+    // Weekdays in Christmas Octave (Dec 26-31)
     const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-    return { celebration: `${weekdayName} in the Octave of Christmas`, season: "Christmas", rank: "Solemnity", color: "White" };
+    return { celebration: `${weekdayName} in the Octave of Christmas`, season: "Christmas", rank: "Weekday", color: "White" };
   }
 
   // 6. --- Ordinary Time ---
