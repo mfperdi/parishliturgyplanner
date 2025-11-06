@@ -1,199 +1,138 @@
 /**
  * ====================================================================
- * 1b. CALENDAR SEASONAL LOGIC
+ * HELPERS.GS
  * ====================================================================
- * This file contains the logic to determine the "Proper of Time"
- * (the seasonal celebration) for any given date.
+ * This file contains re-usable functions that are called by many
+ * different logic modules.
  */
 
 /**
- * Determines the "Proper of Time" (seasonal) celebration for a given date.
- * This is the "default" celebration before saints are considered.
- * @param {Date} currentDate The date to check.
- * @param {number} dayOfWeek The day of the week (0=Sun).
- * @param {object} dates The map of calculated moveable feast dates.
- * @returns {object} { celebration, season, rank, color }
+ * Reads all data from a given sheet, skipping the header row.
+ * @param {string} sheetName The name of the sheet to read.
+ * @returns {Array<Array<any>>} A 2D array of the data.
  */
-function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
-  
-  const oneDay = 86400000; // milliseconds in one day
-  
-  // Helper to get week number (1-based)
-  // We use Math.ceil to correctly handle the start of a week.
-  // (date - start) / 7 days = weeks passed. Ceil goes to next int.
-  // Adding 1/10th of a day to the start handles timezone shifts.
-  const getWeek = (start, end) => Math.ceil(((end.getTime() - start.getTime()) / oneDay + 1) / 7);
-
-  // 1. --- Christmas Season (Part 1: Jan) ---
-  if (currentDate >= dates.maryMotherOfGod && currentDate < dates.baptism) {
-    // Note: Mary, Epiphany, etc., are now handled by SaintsCalendar.
-    // This function just needs to provide the "default" seasonal name.
-    
-    // Handle 2nd Sunday after Christmas
-    if (dayOfWeek === 0 && currentDate > dates.maryMotherOfGod && currentDate < dates.epiphany && currentDate > new Date(currentDate.getFullYear(), 0, 1) ) {
-        return { celebration: "2nd Sunday after Christmas", season: "Christmas", rank: "Feast", color: "White" };
-    }
-    
-    // Weekdays in Christmas
-    const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-    if (currentDate < dates.epiphany) {
-      return { celebration: `${weekdayName} before Epiphany`, season: "Christmas", rank: "Weekday", color: "White" };
-    } else {
-      return { celebration: `${weekdayName} after Epiphany`, season: "Christmas", rank: "Weekday", color: "White" };
-    }
-  }
-  if (currentDate.getTime() === dates.baptism.getTime()) {
-    return { celebration: "The Baptism of the Lord", season: "Christmas", rank: "Feast", color: "White" };
-  }
-
-  // 2. --- Lent Season ---
-  if (currentDate >= dates.ashWednesday && currentDate < dates.easter) {
-    if (currentDate.getTime() === dates.ashWednesday.getTime()) {
-      return { celebration: "Ash Wednesday", season: "Lent", rank: "Weekday", color: "Violet" };
-    }
-    if (currentDate.getTime() === dates.palmSunday.getTime()) {
-      return { celebration: "Palm Sunday of the Passion of the Lord", season: "Lent", rank: "Solemnity", color: "Red" };
-    }
-    if (currentDate > dates.palmSunday && currentDate < dates.holyThursday) {
-      const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-      return { celebration: `${weekdayName} of Holy Week`, season: "Lent", rank: "Memorial", color: "Violet" };
-    }
-    if (currentDate.getTime() === dates.holyThursday.getTime()) {
-      return { celebration: "Holy Thursday", season: "Triduum", rank: "Triduum", color: "White" };
-    }
-    if (currentDate.getTime() === dates.goodFriday.getTime()) {
-      return { celebration: "Good Friday of the Passion of the Lord", season: "Triduum", rank: "Triduum", color: "Red" };
-    }
-     if (currentDate.getTime() === dates.holySaturday.getTime()) {
-      return { celebration: "Holy Saturday", season: "Triduum", rank: "Triduum", color: "White" };
-    }
-    
-    // Sundays of Lent
-    if (dayOfWeek === 0) {
-      // Get week number *relative to 1st Sunday of Lent*
-      const firstSundayOfLent = new Date(dates.ashWednesday.getTime() + (7 - dates.ashWednesday.getDay()) * oneDay);
-      const lentWeek = getWeek(firstSundayOfLent, currentDate) + 1; // +1 because Ash Wednesday week is "Week 0"
-      return { celebration: `${HELPER_getOrdinal(lentWeek)} Sunday of Lent`, season: "Lent", rank: "Sunday of Lent", color: "Violet" };
-    }
-    
-    // Weekdays of Lent
-    const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-    // Get week number *relative to Ash Wednesday*
-    const lentWeek = getWeek(dates.ashWednesday, currentDate);
-    if (currentDate > dates.ashWednesday && lentWeek === 1) {
-        return { celebration: `${weekdayName} after Ash Wednesday`, season: "Lent", rank: "Memorial", color: "Violet" };
-    }
-    return { celebration: `${weekdayName} of the ${HELPER_getOrdinal(lentWeek)} Week of Lent`, season: "Lent", rank: "Memorial", color: "Violet" };
+function HELPER_readSheetData(sheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    Logger.log(`HELPER_readSheetData: Sheet not found: ${sheetName}`);
+    throw new Error(`Sheet not found: '${sheetName}'. Please check your sheet names.`);
   }
   
-  // 3. --- Easter Season ---
-  if (currentDate >= dates.easter && currentDate <= dates.pentecost) {
-    if (currentDate.getTime() === dates.easter.getTime()) {
-      return { celebration: "Easter Sunday of the Resurrection of the Lord", season: "Easter", rank: "Solemnity", color: "White" };
-    }
-    if (currentDate.getTime() === dates.divineMercySunday.getTime()) {
-      return { celebration: "2nd Sunday of Easter (or of Divine Mercy)", season: "Easter", rank: "Sunday of Easter", color: "White" };
-    }
-    if (currentDate.getTime() === dates.ascension.getTime()) {
-      return { celebration: "The Ascension of the Lord", season: "Easter", rank: "Solemnity", color: "White" };
-    }
-    if (currentDate.getTime() === dates.pentecost.getTime()) {
-      return { celebration: "Pentecost Sunday", season: "Easter", rank: "Solemnity", color: "Red" };
-    }
-
-    // Sundays of Easter
-    if (dayOfWeek === 0) {
-      const easterWeek = getWeek(dates.easter, currentDate);
-      return { celebration: `${HELPER_getOrdinal(easterWeek)} Sunday of Easter`, season: "Easter", rank: "Sunday of Easter", color: "White" };
-    }
-    
-    // Weekdays of Easter (Octave and Regular)
-    const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-    const easterWeek = getWeek(dates.easter, currentDate);
-    if (easterWeek === 1) {
-        return { celebration: `${weekdayName} in the Octave of Easter`, season: "Easter", rank: "Easter Octave", color: "White" };
-    }
-    return { celebration: `${weekdayName} of the ${HELPER_getOrdinal(easterWeek)} Week of Easter`, season: "Easter", rank: "Weekday", color: "White" };
-  }
-
-  // 4. --- Advent Season ---
-  if (currentDate >= dates.firstSundayOfAdvent && currentDate < dates.christmasDay) {
-      // Sundays of Advent
-    if (dayOfWeek === 0) {
-      const adventWeek = getWeek(dates.firstSundayOfAdvent, currentDate);
-      return { celebration: `${HELPER_getOrdinal(adventWeek)} Sunday of Advent`, season: "Advent", rank: "Sunday of Advent", color: "Violet" };
-    }
-    
-    // Weekdays of Advent
-    const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-    
-    // Special naming for Dec 17-24
-    if (currentDate.getMonth() === 11 && currentDate.getDate() >= 17) {
-        const monthName = currentDate.toLocaleDateString(undefined, { month: 'long' });
-        return { celebration: `${weekdayName}, ${monthName} ${currentDate.getDate()}`, season: "Advent", rank: "Weekday", color: "Violet" };
-    }
-    
-    const adventWeek = getWeek(dates.firstSundayOfAdvent, currentDate);
-    return { celebration: `${weekdayName} of the ${HELPER_getOrdinal(adventWeek)} Week of Advent`, season: "Advent", rank: "Weekday", color: "Violet" };
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    // Logger.log(`HELPER_readSheetData: No data in ${sheetName}.`);
+    return []; // No data below the header
   }
   
-  // 5. --- Christmas Season (Part 2: Dec) ---
-  if (currentDate >= dates.christmasDay) {
-    // Note: Christmas Day is handled by SaintsCalendar
+  // Read from row 2, column 1, to the last row and last column
+  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  // Logger.log(`HELPER_readSheetData: Read ${data.length} rows from ${sheetName}.`);
+  return data;
+}
+
+/**
+ * Reads the 'Config' sheet and returns a key-value object.
+ * @returns {object} A map of settings, e.g., { "Year to Schedule": 2026 }
+ */
+function HELPER_readConfig() {
+  const configData = HELPER_readSheetData(CONSTANTS.SHEETS.CONFIG);
+  const config = {};
+  const configCols = CONSTANTS.COLS.CONFIG;
+  
+  for (const row of configData) {
+    const setting = row[configCols.SETTING - 1];
+    let value = row[configCols.VALUE - 1];
     
-    // Handle Sundays in Christmas Octave
-     if (dayOfWeek === 0) {
-      return { celebration: "The Holy Family of Jesus, Mary and Joseph", season: "Christmas", rank: "Feast", color: "White" };
+    // Auto-convert TRUE/FALSE strings to booleans
+    if (String(value).toUpperCase() === "TRUE") {
+      value = true;
+    } else if (String(value).toUpperCase() === "FALSE") {
+      value = false;
     }
-    // Weekdays in Christmas Octave
-    const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-    return { celebration: `${weekdayName} in the Octave of Christmas`, season: "Christmas", rank: "Solemnity", color: "White" };
-  }
-
-  // 6. --- Ordinary Time ---
-  // If it's none of the above, it's Ordinary Time.
-  const season = "Ordinary Time";
-  const color = "Green";
-  
-  // These are moveable feasts that are *part* of Ordinary Time
-  if (currentDate.getTime() === dates.trinitySunday.getTime()) {
-    return { celebration: "The Most Holy Trinity", season: season, rank: "Solemnity", color: "White" };
-  }
-  if (currentDate.getTime() === dates.corpusChristi.getTime()) {
-    return { celebration: "The Most Holy Body and Blood of Christ (Corpus Christi)", season: season, rank: "Solemnity", color: "White" };
-  }
-  if (currentDate.getTime() === dates.christTheKing.getTime()) {
-    return { celebration: "Our Lord Jesus Christ, King of the Universe", season: season, rank: "Solemnity", color: "White" };
-  }
-
-  // Sundays in Ordinary Time
-  if (dayOfWeek === 0) {
-    let ordWeek;
-    if (currentDate < dates.ashWednesday) {
-      // Week 1 is the Baptism of the Lord
-      ordWeek = getWeek(dates.baptism, currentDate) + 1;
-    } else {
-      // Count backwards from 34th week (Christ the King)
-      const weeksFromEnd = Math.floor((dates.christTheKing.getTime() - currentDate.getTime()) / oneDay / 7);
-      ordWeek = 34 - weeksFromEnd;
+    
+    if (setting) {
+      config[setting] = value;
     }
-    return { celebration: `${HELPER_getOrdinal(ordWeek)} Sunday in Ordinary Time`, season: season, rank: "Sunday in Ordinary Time", color: color };
   }
+  // Logger.log(`HELPER_readConfig: Config loaded: ${JSON.stringify(config)}`);
+  return config;
+}
 
-  // Weekdays in Ordinary Time
-  const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-  let ordWeek;
-  if (currentDate < dates.ashWednesday) {
-      // Get week number based on *preceding Sunday*
-    const precedingSunday = HELPER_getPreviousSunday(currentDate);
-    // Week 1 is the Baptism of the Lord
-    ordWeek = getWeek(dates.baptism, precedingSunday) + 1;
-  } else {
-    // Get week number based on *preceding Sunday*
-    const precedingSunday = HELPER_getPreviousSunday(currentDate);
-    const weeksFromEnd = Math.floor((dates.christTheKing.getTime() - precedingSunday.getTime()) / oneDay / 7);
-    ordWeek = 34 - weeksFromEnd;
+/**
+ * Translates a liturgical rank (text) into a number for comparison.
+ * Lower number = higher precedence.
+ * @param {string} rankName The text rank (e.g., "Solemnity", "Feast").
+ * @returns {number} The numerical rank (1-99).
+ */
+function HELPER_translateRank(rankName) {
+  if (!rankName || typeof rankName !== 'string') {
+    return 99; // Default to lowest rank
   }
   
-  return { celebration: `${weekdayName} of the ${HELPER_getOrdinal(ordWeek)} Week in Ordinary Time`, season: season, rank: "Weekday", color: color };
+  switch (rankName.toLowerCase()) {
+    // --- Highest Ranks ---
+    case "triduum":
+      return 1;
+    case "solemnity":
+      return 1;
+    
+    // --- Special High-Ranked Sundays ---
+    case "sunday of advent":
+      return 2; // Sundays of Advent, Lent, Easter are very high
+    case "sunday of lent":
+      return 2;
+    case "sunday of easter":
+      return 2;
+    case "easter octave":
+      return 2;
+    
+    // --- Feasts ---
+    case "feast":
+      return 3;
+    
+    // --- Sundays in Ordinary Time ---
+    case "sunday in ordinary time":
+      return 4; // Higher than memorials, lower than feasts
+    
+    // --- Memorials ---
+    case "memorial":
+      return 5;
+    case "lent": // Lenten Weekday
+      return 5; 
+    case "advent weekday (dec 17-24)":
+      return 5; // Higher rank than other weekdays
+    
+    // --- Optional Memorials ---
+    case "optional memorial":
+      return 6;
+    
+    // --- Default Weekday ---
+    case "weekday":
+    default:
+      return 7; // Rank 7 for Ordinary Time/Advent/Easter weekdays
+  }
+}
+
+/**
+ * Converts a number to its ordinal string (e.g., 1 -> "1st", 2 -> "2nd").
+ * @param {number} n The number to convert.
+ * @returns {string} The ordinal string.
+ */
+function HELPER_getOrdinal(n) {
+  if (n === null || isNaN(n)) return ""; // Safety check
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/**
+ * Finds the date of the preceding Sunday for a given date.
+ * @param {Date} currentDate The date to start from.
+ * @returns {Date} The date of the previous Sunday.
+ */
+function HELPER_getPreviousSunday(currentDate) {
+  const prevSunday = new Date(currentDate.getTime());
+  prevSunday.setDate(prevSunday.getDate() - prevSunday.getDay()); // 0 is Sunday, so this finds it
+  return prevSunday;
 }
