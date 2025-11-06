@@ -32,6 +32,7 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
   // 2. Read all required data
   const volunteerData = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
   const timeoffData = HELPER_readSheetData(CONSTANTS.SHEETS.TIMEOFFS);
+  const templateMap = SCHEDULE_buildTemplateMap(); // Read templates for skill lookup
   
   // 3. Build lookup maps
   const volunteers = ASSIGNMENT_buildVolunteerMap(volunteerData);
@@ -80,8 +81,11 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
     const sheetRowIndex = unassignedRowIndexes[i];
     const rowData = unassignedRows[i];
     
-    const skillToFill = rowData[assignCols.MINISTRY_SKILL - 1]; // e.g., "Lector"
+    const roleToFill = rowData[assignCols.MINISTRY_ROLE - 1]; // e.g., "Lector 1"
     const massDate = new Date(rowData[assignCols.DATE - 1]);
+    
+    // NEW: Look up the skill for this role from the template
+    const skillToFill = ASSIGNMENT_getSkillForRole(roleToFill, templateMap);
     
     // Find a volunteer for this role
     const assignedVolunteer = ASSIGNMENT_findVolunteerForRole(
@@ -220,6 +224,24 @@ function ASSIGNMENT_buildAssignmentCounts(allAssignmentData) {
   return counts;
 }
 
+/**
+ * Helper function to look up the skill required for a given ministry role.
+ * @param {string} roleName The role name (e.g., "Lector 1")
+ * @param {Map} templateMap The map of all templates
+ * @returns {string} The skill name (e.g., "Lector")
+ */
+function ASSIGNMENT_getSkillForRole(roleName, templateMap) {
+  // Search through all templates to find this role
+  for (const [templateName, roles] of templateMap.entries()) {
+    const role = roles.find(r => r.roleName === roleName);
+    if (role) return role.skill;
+  }
+  
+  // Fallback: If not found in any template, try to extract from the role name
+  // "Lector 1" → "Lector", "EM - Captain" → "EM"
+  Logger.log(`Warning: Role "${roleName}" not found in any template. Using fallback extraction.`);
+  return roleName.replace(/\s*\d+$/, '').replace(/\s*-\s*.*$/, '').trim();
+}
 
 /**
  * The core scheduling algorithm. Finds the "best" volunteer for a single role.
