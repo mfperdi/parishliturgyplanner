@@ -93,19 +93,21 @@ const CONSTANTS = {
       MINISTRY_SKILL: 3
     },
     
-    // 'Assignments' sheet (11 columns)
+    // 'Assignments' sheet (13 columns)
     ASSIGNMENTS: {
       DATE: 1,
       TIME: 2,
       MASS_NAME: 3,
       LITURGICAL_CELEBRATION: 4,
       MINISTRY_ROLE: 5,
-      EVENT_ID: 6,
-      MONTH_YEAR: 7,
-      ASSIGNED_VOLUNTEER_ID: 8,
-      ASSIGNED_VOLUNTEER_NAME: 9,
-      STATUS: 10,
-      NOTES: 11
+      MINISTRY_SKILL: 6,
+      ASSIGNED_VOLUNTEER_ID: 7,
+      ASSIGNED_VOLUNTEER_NAME: 8,
+      STATUS: 9,
+      NOTES: 10,
+      EVENT_ID: 11,
+      MONTH_YEAR: 12,
+      FAMILY_TEAM: 13
     },
     
     // 'Volunteers' sheet (12 columns)
@@ -120,7 +122,7 @@ const CONSTANTS = {
       PREF_MASS_TIME: 8,
       DATE_CLEARED: 9,
       DATE_TRAINED: 10,
-      FAMILY_GROUP: 11,
+      FAMILY_TEAM: 11,
       PARENT_GUARDIAN_NAME: 12
     },
     
