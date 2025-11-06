@@ -61,7 +61,7 @@ function CALENDAR_generateLiturgicalCalendar() {
     
     // --- D. Determine the final celebration (Override > Saint > Seasonal) ---
     let finalCelebration;
-    let optionalMemorial = ""; // For the new column
+    let optionalMemorial = ""; // For the Optional Memorial column
     
     if (override) {
       // 1. Override always wins
@@ -74,8 +74,15 @@ function CALENDAR_generateLiturgicalCalendar() {
         season: seasonal.season // Use the *actual* season
       };
       
+    } else if (saint && saintRankNum === 6) {
+      // 2. SPECIAL CASE: Optional Memorial (rank 6) never wins the main column
+      // The seasonal day always wins
+      finalCelebration = seasonal;
+      // The optional memorial goes in the side column
+      optionalMemorial = saint.celebration;
+      
     } else if (saint && (saintRankNum < seasonalRankNum)) {
-      // 2. Saint's rank is higher (lower number) than the season
+      // 3. Saint's rank is higher (lower number) than the season
       // Use the saint's info, but keep the seasonal season.
       finalCelebration = {
         celebration: saint.celebration,
@@ -85,27 +92,13 @@ function CALENDAR_generateLiturgicalCalendar() {
       };
       
     } else if (saint && seasonal.season === "Lent" && saintRankNum === 5 && seasonalRankNum === 5) {
-      // 3. Special rule: Lenten Weekday (Rank 5) beats a Memorial (Rank 5)
+      // 4. Special rule: Lenten Weekday (Rank 5) beats a Memorial (Rank 5) when tied
       finalCelebration = seasonal;
-      // Check if the demoted saint is an Optional Memorial (Rank 6)
-      if (saintRankNum === 6) { 
-          optionalMemorial = saint.celebration;
-      }
+      // The demoted memorial could become optional (but this is rare)
       
-    } else if (saint && saintRankNum === 6 && seasonalRankNum === 7) {
-      // 4. Special Rule: Weekday (7) beats an Optional Memorial (6)
-      // The seasonal weekday wins the main column
-      finalCelebration = seasonal;
-      // The demoted saint goes in the Optional Memorial column
-      optionalMemorial = saint.celebration;
-    
     } else {
-      // 5. Seasonal day wins
+      // 5. Seasonal day wins (default case)
       finalCelebration = seasonal;
-      // Check if this seasonal day *also* had an optional memorial
-      if (saint && saintRankNum === 6) {
-         optionalMemorial = saint.celebration;
-      }
     }
     
     // --- E. Build the row for the sheet ---
@@ -114,7 +107,7 @@ function CALENDAR_generateLiturgicalCalendar() {
     newRow[calCols.DATE - 1] = new Date(currentDate);
     newRow[calCols.WEEKDAY - 1] = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
     newRow[calCols.LITURGICAL_CELEBRATION - 1] = finalCelebration.celebration;
-    newRow[calCols.OPTIONAL_MEMORIAL - 1] = optionalMemorial; // Populate new column
+    newRow[calCols.OPTIONAL_MEMORIAL - 1] = optionalMemorial; // Populate Optional Memorial column
     newRow[calCols.SEASON - 1] = finalCelebration.season;
     newRow[calCols.RANK - 1] = finalCelebration.rank; // This will be the text (e.g., "Solemnity")
     newRow[calCols.COLOR - 1] = finalCelebration.color;
