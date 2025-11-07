@@ -128,10 +128,17 @@ const CONSTANTS = {
     
     // 'Timeoffs' sheet (4 columns)
     TIMEOFFS: {
-      VOLUNTEER_NAME: 1,
-      TYPE: 2,
-      START_DATE: 3,
-      END_DATE: 4
+      TIMESTAMP: 1,        // Column A
+      VOLUNTEER_NAME: 2,   // Column B
+      EMAIL: 3,            // Column C
+      TYPE: 4,             // Column D
+      START_DATE: 5,       // Column E
+      END_DATE: 6,         // Column F
+      NOTES: 7,            // Column G
+      STATUS: 8,           // Column H
+      REVIEWED_DATE: 9,    // Column I
+      REVIEW_NOTES: 10     // Column J
     }
+
   }
 };
