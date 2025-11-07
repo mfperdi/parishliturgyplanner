@@ -1,75 +1,110 @@
 /**
  * Runs automatically when a form response is submitted.
- * Adds validation warnings to help with review.
+ * Validates the submission and adds warnings to Review Notes.
  */
 function onFormSubmit(e) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Timeoffs_Responses");
   const row = e.range.getRow();
   
-  // Get the submitted data
-  const startDate = new Date(sheet.getRange(row, 6).getValue()); // Column F
-  const endDate = new Date(sheet.getRange(row, 7).getValue());   // Column G
-  const reviewNotesCol = 14; // Column N
+  // Get the submitted data (using your actual column positions)
+  const name = sheet.getRange(row, 2).getValue();          // Column B
+  const email = sheet.getRange(row, 3).getValue();         // Column C
+  const type = sheet.getRange(row, 4).getValue();          // Column D
+  const startDate = new Date(sheet.getRange(row, 5).getValue()); // Column E
+  const endDate = new Date(sheet.getRange(row, 6).getValue());   // Column F
   
   let warnings = [];
   
-  // Check 1: End date before start date
+  // Validation 1: End date before start date
   if (endDate < startDate) {
-    warnings.push("⚠️ End date is before start date");
+    warnings.push("⚠️ END DATE IS BEFORE START DATE");
   }
   
-  // Check 2: Dates in the past
+  // Validation 2: Dates in the past
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   if (startDate < today) {
     warnings.push("⚠️ Start date is in the past");
   }
   
-  // Check 3: Very long period (>60 days)
-  const daysDiff = (endDate - startDate) / (1000 * 60 * 60 * 24);
-  if (daysDiff > 60) {
-    warnings.push(`⚠️ Long period: ${Math.round(daysDiff)} days`);
+  // Validation 3: Very long period (>90 days)
+  const daysDiff = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
+  if (daysDiff > 90) {
+    warnings.push(`⚠️ Long period: ${daysDiff} days`);
   }
   
-  // Check 4: Name mismatch (typed name when dropdown was available)
-  const dropdownName = sheet.getRange(row, 3).getValue();    // Column C
-  const typedName = sheet.getRange(row, 4).getValue();       // Column D
-  if (!dropdownName && typedName) {
-    warnings.push("⚠️ Name not found in volunteer list");
+  // Validation 4: Check for recent duplicate submissions
+  const allData = sheet.getDataRange().getValues();
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  
+  for (let i = 1; i < allData.length - 1; i++) { // Skip header and current row
+    const prevName = allData[i][1];        // Column B
+    const prevEmail = allData[i][2];       // Column C
+    const prevSubmitTime = new Date(allData[i][0]); // Column A
+    const prevStart = new Date(allData[i][4]);      // Column E
+    const prevEnd = new Date(allData[i][5]);        // Column F
+    
+    if ((prevName === name || prevEmail === email) && 
+        prevSubmitTime > sevenDaysAgo) {
+      
+      // Check for overlapping dates
+      if ((startDate <= prevEnd && endDate >= prevStart)) {
+        warnings.push("⚠️ Possible duplicate - overlapping request submitted in last 7 days");
+        break;
+      }
+    }
   }
   
-  // Write warnings to Review Notes column
+  // Validation 5: Email matches volunteer record (optional - requires lookup)
+  // You could add a check here to verify email matches Volunteers sheet
+  
+  // Write warnings to Review Notes (Column J)
   if (warnings.length > 0) {
-    sheet.getRange(row, reviewNotesCol).setValue(warnings.join("\n"));
+    sheet.getRange(row, 10).setValue(warnings.join("\n"));
   }
   
-  // Set status to Pending
-  sheet.getRange(row, 11).setValue("Pending"); // Column K
+  // Set status to Pending (Column H)
+  sheet.getRange(row, 8).setValue("Pending");
+  
+  Logger.log(`Form submission processed for ${name}. Warnings: ${warnings.length}`);
 }
 ```
 
-**To install this trigger:**
-1. In Apps Script Editor → Triggers (clock icon)
-2. Add Trigger
-3. Function: `onFormSubmit`
-4. Event source: From spreadsheet
-5. Event type: On form submit
-6. Save
+---
+
+## Installing the Trigger
+
+1. Open Apps Script Editor (Extensions → Apps Script)
+2. Paste the code above into a new file (or add to existing)
+3. Click **Triggers** (clock icon on left sidebar)
+4. Click **+ Add Trigger** (bottom right)
+5. Settings:
+   - Function: `onFormSubmit`
+   - Deployment: Head
+   - Event source: **From spreadsheet**
+   - Event type: **On form submit**
+6. Click **Save**
 
 ---
 
-## Form Share Settings
+## Form Settings
 
-### Public Access (Recommended):
-```
-🔗 Share Link: [Anyone with the link can respond]
-```
+**General:**
+- Title: "Volunteer Availability Submission"
+- Description: (see original design above)
 
-**Benefits:**
-- Volunteers don't need Google accounts (though email will be collected)
-- Easy to share via email, bulletin, etc.
-- No permission management
+**Responses:**
+- ❌ Collect email addresses (DO NOT CHECK - we're using manual field)
+- ✅ Allow response editing
+- ❌ Limit to 1 response (can't use without Google sign-in)
 
-### Restricted Access (More Secure):
+**Presentation:**
+- ✅ Show progress bar
+- Confirmation message: 
 ```
-🔒 Share Link: [Only people in [your domain] can respond]
+Thank you! Your availability request has been submitted.
+
+✅ Confirmation sent to your email
+⏱️ We'll review within 2-3 business days
+📧 Questions? Contact [scheduler email]
