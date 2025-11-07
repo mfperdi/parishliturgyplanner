@@ -71,42 +71,23 @@ function HELPER_translateRank(rankName) {
   }
   
   switch (rankName.toLowerCase()) {
-    // --- Highest Ranks ---
-    case "triduum":
-      return 1;
     case "solemnity":
       return 1;
-    
-    // --- Special High-Ranked Sundays ---
-    case "sunday of advent":
-      return 2; // Sundays of Advent, Lent, Easter are very high
-    case "sunday of lent":
-      return 2;
-    case "sunday of easter":
-      return 2;
-    case "easter octave":
-      return 2;
-    
-    // --- Feasts ---
     case "feast":
-      return 3;
-    
-    // --- Sundays in Ordinary Time ---
-    case "sunday in ordinary time":
-      return 4; // Higher than memorials, lower than feasts
-    
-    // --- Memorials ---
+      return 2;
     case "memorial":
-      return 5;
-    case "lent": // Lenten Weekday
-      return 5; 
-    case "advent weekday (dec 17-24)":
-      return 5; // Higher rank than other weekdays
-    
-    // --- Optional Memorials ---
+      return 3;
     case "optional memorial":
-      return 6;
-    
+      return 4;
+    // --- Special Ranks for Seasons (used by 1b_CalendarSeasons) ---
+    case "triduum":
+      return 1;
+    case "easter octave":
+      return 1;
+    case "lent": // Lenten Weekday
+      return 3; 
+    case "advent weekday (dec 17-24)":
+      return 3; // Higher rank than other weekdays
     // --- Default Weekday ---
     case "weekday":
     default:
@@ -135,4 +116,12 @@ function HELPER_getPreviousSunday(currentDate) {
   const prevSunday = new Date(currentDate.getTime());
   prevSunday.setDate(prevSunday.getDate() - prevSunday.getDay()); // 0 is Sunday, so this finds it
   return prevSunday;
+}
+
+/**
+ * Legacy function name for backwards compatibility
+ * @deprecated Use HELPER_getPreviousSunday instead
+ */
+function getPreviousSunday(currentDate) {
+  return HELPER_getPreviousSunday(currentDate);
 }
