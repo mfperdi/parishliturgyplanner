@@ -21,27 +21,20 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   // Helper to get week number (1-based)
   // We use Math.ceil to correctly handle the start of a week.
   // (date - start) / 7 days = weeks passed. Ceil goes to next int.
+  // Adding 1/10th of a day to the start handles timezone shifts.
   const getWeek = (start, end) => Math.ceil(((end.getTime() - start.getTime()) / oneDay + 1) / 7);
 
   // 1. --- Christmas Season (Part 1: Jan) ---
   if (currentDate >= dates.maryMotherOfGod && currentDate < dates.baptism) {
+    // Note: Mary, Epiphany, etc., are now handled by SaintsCalendar.
+    // This function just needs to provide the "default" seasonal name.
     
-    // Special High-Ranked Days in Christmas Season
-    if (currentDate.getTime() === dates.epiphany.getTime()) {
-      return { celebration: "The Epiphany of the Lord", season: "Christmas", rank: "Solemnity", color: "White" };
+    // Handle 2nd Sunday after Christmas
+    if (dayOfWeek === 0 && currentDate > dates.maryMotherOfGod && currentDate < dates.epiphany && currentDate > new Date(currentDate.getFullYear(), 0, 1) ) {
+        return { celebration: "2nd Sunday after Christmas", season: "Christmas", rank: "Feast", color: "White" };
     }
     
-    // Handle 2nd Sunday after Christmas (only if before Epiphany and after Jan 1)
-    if (dayOfWeek === 0 && currentDate > dates.maryMotherOfGod && currentDate < dates.epiphany) {
-      return { celebration: "2nd Sunday after Christmas", season: "Christmas", rank: "Feast", color: "White" };
-    }
-    
-    // Handle Sundays between Epiphany and Baptism of the Lord
-    if (dayOfWeek === 0 && currentDate > dates.epiphany && currentDate < dates.baptism) {
-      return { celebration: "Sunday after Epiphany", season: "Christmas", rank: "Feast", color: "White" };
-    }
-    
-    // Weekdays in Christmas Season
+    // Weekdays in Christmas
     const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
     if (currentDate < dates.epiphany) {
       return { celebration: `${weekdayName} before Epiphany`, season: "Christmas", rank: "Weekday", color: "White" };
@@ -49,7 +42,6 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       return { celebration: `${weekdayName} after Epiphany`, season: "Christmas", rank: "Weekday", color: "White" };
     }
   }
-  
   if (currentDate.getTime() === dates.baptism.getTime()) {
     return { celebration: "The Baptism of the Lord", season: "Christmas", rank: "Feast", color: "White" };
   }
@@ -67,13 +59,13 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       return { celebration: `${weekdayName} of Holy Week`, season: "Lent", rank: "Memorial", color: "Violet" };
     }
     if (currentDate.getTime() === dates.holyThursday.getTime()) {
-      return { celebration: "Holy Thursday", season: "Triduum", rank: "Triduum", color: "White" };
+      return { celebration: "Holy Thursday", season: "Triduum", rank: "Solemnity", color: "White" };
     }
     if (currentDate.getTime() === dates.goodFriday.getTime()) {
-      return { celebration: "Good Friday of the Passion of the Lord", season: "Triduum", rank: "Triduum", color: "Red" };
+      return { celebration: "Good Friday of the Passion of the Lord", season: "Triduum", rank: "Solemnity", color: "Red" };
     }
      if (currentDate.getTime() === dates.holySaturday.getTime()) {
-      return { celebration: "Holy Saturday", season: "Triduum", rank: "Triduum", color: "White" };
+      return { celebration: "Holy Saturday", season: "Triduum", rank: "Solemnity", color: "White" };
     }
     
     // Sundays of Lent
@@ -81,7 +73,13 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       // Get week number *relative to 1st Sunday of Lent*
       const firstSundayOfLent = new Date(dates.ashWednesday.getTime() + (7 - dates.ashWednesday.getDay()) * oneDay);
       const lentWeek = getWeek(firstSundayOfLent, currentDate) + 1; // +1 because Ash Wednesday week is "Week 0"
-      return { celebration: `${HELPER_getOrdinal(lentWeek)} Sunday of Lent`, season: "Lent", rank: "Sunday of Lent", color: "Violet" };
+      
+      // Special case: 4th Sunday of Lent is Laetare Sunday (Rose color)
+      if (lentWeek === 4) {
+        return { celebration: `${HELPER_getOrdinal(lentWeek)} Sunday of Lent (Laetare)`, season: "Lent", rank: "Feast", color: "Rose" };
+      }
+      
+      return { celebration: `${HELPER_getOrdinal(lentWeek)} Sunday of Lent`, season: "Lent", rank: "Feast", color: "Violet" };
     }
     
     // Weekdays of Lent
@@ -100,7 +98,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       return { celebration: "Easter Sunday of the Resurrection of the Lord", season: "Easter", rank: "Solemnity", color: "White" };
     }
     if (currentDate.getTime() === dates.divineMercySunday.getTime()) {
-      return { celebration: "2nd Sunday of Easter (or of Divine Mercy)", season: "Easter", rank: "Sunday of Easter", color: "White" };
+      return { celebration: "2nd Sunday of Easter (or of Divine Mercy)", season: "Easter", rank: "Feast", color: "White" };
     }
     if (currentDate.getTime() === dates.ascension.getTime()) {
       return { celebration: "The Ascension of the Lord", season: "Easter", rank: "Solemnity", color: "White" };
@@ -112,14 +110,14 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
     // Sundays of Easter
     if (dayOfWeek === 0) {
       const easterWeek = getWeek(dates.easter, currentDate);
-      return { celebration: `${HELPER_getOrdinal(easterWeek)} Sunday of Easter`, season: "Easter", rank: "Sunday of Easter", color: "White" };
+      return { celebration: `${HELPER_getOrdinal(easterWeek)} Sunday of Easter`, season: "Easter", rank: "Feast", color: "White" };
     }
     
     // Weekdays of Easter (Octave and Regular)
     const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
     const easterWeek = getWeek(dates.easter, currentDate);
     if (easterWeek === 1) {
-        return { celebration: `${weekdayName} in the Octave of Easter`, season: "Easter", rank: "Easter Octave", color: "White" };
+        return { celebration: `${weekdayName} in the Octave of Easter`, season: "Easter", rank: "Solemnity", color: "White" };
     }
     return { celebration: `${weekdayName} of the ${HELPER_getOrdinal(easterWeek)} Week of Easter`, season: "Easter", rank: "Weekday", color: "White" };
   }
@@ -129,7 +127,13 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       // Sundays of Advent
     if (dayOfWeek === 0) {
       const adventWeek = getWeek(dates.firstSundayOfAdvent, currentDate);
-      return { celebration: `${HELPER_getOrdinal(adventWeek)} Sunday of Advent`, season: "Advent", rank: "Sunday of Advent", color: "Violet" };
+      
+      // Special case: 3rd Sunday of Advent is Gaudete Sunday (Rose color)
+      if (adventWeek === 3) {
+        return { celebration: `${HELPER_getOrdinal(adventWeek)} Sunday of Advent (Gaudete)`, season: "Advent", rank: "Feast", color: "Rose" };
+      }
+      
+      return { celebration: `${HELPER_getOrdinal(adventWeek)} Sunday of Advent`, season: "Advent", rank: "Feast", color: "Violet" };
     }
     
     // Weekdays of Advent
@@ -147,19 +151,15 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   
   // 5. --- Christmas Season (Part 2: Dec) ---
   if (currentDate >= dates.christmasDay) {
-    // Christmas Day itself (Solemnity)
-    if (currentDate.getTime() === dates.christmasDay.getTime()) {
-      return { celebration: "The Nativity of the Lord (Christmas)", season: "Christmas", rank: "Solemnity", color: "White" };
-    }
+    // Note: Christmas Day is handled by SaintsCalendar
     
-    // Handle Holy Family (Sunday in the Octave of Christmas, or Dec 30 if no Sunday)
-    if (dayOfWeek === 0 && currentDate > dates.christmasDay && currentDate <= new Date(currentDate.getFullYear(), 11, 31)) {
+    // Handle Sundays in Christmas Octave
+     if (dayOfWeek === 0) {
       return { celebration: "The Holy Family of Jesus, Mary and Joseph", season: "Christmas", rank: "Feast", color: "White" };
     }
-    
-    // Weekdays in Christmas Octave (Dec 26-31)
+    // Weekdays in Christmas Octave
     const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
-    return { celebration: `${weekdayName} in the Octave of Christmas`, season: "Christmas", rank: "Weekday", color: "White" };
+    return { celebration: `${weekdayName} in the Octave of Christmas`, season: "Christmas", rank: "Solemnity", color: "White" };
   }
 
   // 6. --- Ordinary Time ---
@@ -189,7 +189,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       const weeksFromEnd = Math.floor((dates.christTheKing.getTime() - currentDate.getTime()) / oneDay / 7);
       ordWeek = 34 - weeksFromEnd;
     }
-    return { celebration: `${HELPER_getOrdinal(ordWeek)} Sunday in Ordinary Time`, season: season, rank: "Sunday in Ordinary Time", color: color };
+    return { celebration: `${HELPER_getOrdinal(ordWeek)} Sunday in Ordinary Time`, season: season, rank: "Feast", color: color };
   }
 
   // Weekdays in Ordinary Time
@@ -197,12 +197,12 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   let ordWeek;
   if (currentDate < dates.ashWednesday) {
       // Get week number based on *preceding Sunday*
-    const precedingSunday = HELPER_getPreviousSunday(currentDate);
+    const precedingSunday = getPreviousSunday(currentDate);
     // Week 1 is the Baptism of the Lord
     ordWeek = getWeek(dates.baptism, precedingSunday) + 1;
   } else {
     // Get week number based on *preceding Sunday*
-    const precedingSunday = HELPER_getPreviousSunday(currentDate);
+    const precedingSunday = getPreviousSunday(currentDate);
     const weeksFromEnd = Math.floor((dates.christTheKing.getTime() - precedingSunday.getTime()) / oneDay / 7);
     ordWeek = 34 - weeksFromEnd;
   }
