@@ -19,7 +19,7 @@ function CALENDAR_generateLiturgicalCalendar() {
   // 1. Read all supporting data
   const config = HELPER_readConfig();
   const scheduleYear = config["Year to Schedule"];
-  const calendarRegion = config["Calendar Region"] || "USA"; // Default to USA if not specified
+  const calendarRegion = config["Calendar Region"];
   
   const overrideData = HELPER_readSheetData(CONSTANTS.SHEETS.OVERRIDES);
   const saintsData = HELPER_readSheetData(CONSTANTS.SHEETS.SAINTS_CALENDAR);
@@ -50,6 +50,7 @@ function CALENDAR_generateLiturgicalCalendar() {
     // --- B. Get the seasonal and saint celebrations ---
     
     // This function is in 1b_CalendarSeasons.gs
+    // *** THIS IS THE FIX: Added dayOfWeek ***
     const seasonal = CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates);
     
     const saint = saintMap.get(dayKey);
@@ -61,7 +62,7 @@ function CALENDAR_generateLiturgicalCalendar() {
     
     // --- D. Determine the final celebration (Override > Saint > Seasonal) ---
     let finalCelebration;
-    let optionalMemorial = ""; // For the Optional Memorial column
+    let optionalMemorial = ""; // For the new column
     
     if (override) {
       // 1. Override always wins
@@ -74,11 +75,10 @@ function CALENDAR_generateLiturgicalCalendar() {
         season: seasonal.season // Use the *actual* season
       };
       
-    } else if (saint && saintRankNum === 6) {
-      // 2. SPECIAL CASE: Optional Memorial (rank 6) never wins the main column
-      // The seasonal day always wins
+    } else if (saint && saintRankNum === 4) {
+      // 2. SPECIAL CASE: Optional Memorial (rank 4) ALWAYS goes to Optional Memorial column
+      // The seasonal day always wins the main column
       finalCelebration = seasonal;
-      // The optional memorial goes in the side column
       optionalMemorial = saint.celebration;
       
     } else if (saint && (saintRankNum < seasonalRankNum)) {
@@ -91,13 +91,12 @@ function CALENDAR_generateLiturgicalCalendar() {
         season: seasonal.season // Use the *actual* season
       };
       
-    } else if (saint && seasonal.season === "Lent" && saintRankNum === 5 && seasonalRankNum === 5) {
-      // 4. Special rule: Lenten Weekday (Rank 5) beats a Memorial (Rank 5) when tied
+    } else if (saint && seasonal.season === "Lent" && saintRankNum === 3 && seasonalRankNum === 3) {
+      // 4. Special rule: Lenten Weekday (Rank 3) beats a Memorial (Rank 3)
       finalCelebration = seasonal;
-      // The demoted memorial could become optional (but this is rare)
       
     } else {
-      // 5. Seasonal day wins (default case)
+      // 5. Seasonal day wins
       finalCelebration = seasonal;
     }
     
@@ -107,7 +106,7 @@ function CALENDAR_generateLiturgicalCalendar() {
     newRow[calCols.DATE - 1] = new Date(currentDate);
     newRow[calCols.WEEKDAY - 1] = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
     newRow[calCols.LITURGICAL_CELEBRATION - 1] = finalCelebration.celebration;
-    newRow[calCols.OPTIONAL_MEMORIAL - 1] = optionalMemorial; // Populate Optional Memorial column
+    newRow[calCols.OPTIONAL_MEMORIAL - 1] = optionalMemorial; // Populate new column
     newRow[calCols.SEASON - 1] = finalCelebration.season;
     newRow[calCols.RANK - 1] = finalCelebration.rank; // This will be the text (e.g., "Solemnity")
     newRow[calCols.COLOR - 1] = finalCelebration.color;
@@ -136,7 +135,7 @@ function CALENDAR_generateLiturgicalCalendar() {
 /**
  * Builds a Map of manual overrides for the year.
  * @param {Array<Array<any>>} overrideData Data from 'CalendarOverrides' sheet.
- * @param {number} scheduleYear The year being scheduled.
+ *@param {number} scheduleYear The year being scheduled.
  * @returns {Map<string, object>} A map where key is "M/D"
  * and value is { celebration, rank, color, season }.
  */
