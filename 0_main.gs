@@ -1,4 +1,21 @@
 /**
+ * ====================================================================
+ * PARISH LITURGICAL SCHEDULER
+ * ====================================================================
+ * File Structure:
+ * - constants.gs - Global constants and column maps
+ * - helper.gs - Reusable helper functions
+ * - main.gs - Menu, sidebar, and wrapper functions
+ * - 1_calendarlogic.gs - Liturgical calendar generation
+ * - 1a_calendardates.gs - Date calculations
+ * - 1b_calendarseasons.gs - Seasonal celebrations
+ * - 2_schedulelogic.gs - Mass schedule generation
+ * - 3_assignmentlogic.gs - Volunteer auto-assignment
+ * - 4_timeoffslogic.gs - Timeoff request management
+ * - Sidebar.html - User interface
+ */
+
+/**
  * @OnlyCurrentDoc
  * This script manages the Parish Liturgical Scheduler.
  * It adds a custom menu on open and shows the sidebar.
