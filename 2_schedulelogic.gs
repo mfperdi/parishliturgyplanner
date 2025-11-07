@@ -197,7 +197,8 @@ function SCHEDULE_findMassesForMonth(month, year) {
           templateName: row[recCols.TEMPLATE_NAME - 1],
           liturgicalCelebration: "", // Will be filled from calendar if needed
           notes: row[recCols.NOTES - 1] || "",
-          eventId: row[recCols.EVENT_ID - 1] || ""
+          eventId: row[recCols.EVENT_ID - 1] || "",
+          isAnticipated: row[recCols.IS_ANTICIPATED - 1] || false
         });
       }
     }
@@ -250,7 +251,8 @@ function SCHEDULE_findMassesForMonth(month, year) {
         templateName: specialMassRow[specCols.TEMPLATE_NAME - 1],
         liturgicalCelebration: celebrationName,
         notes: specialMassRow[specCols.NOTES - 1] || "",
-        eventId: specialMassRow[specCols.EVENT_ID - 1] || ""
+        eventId: specialMassRow[specCols.EVENT_ID - 1] || "",
+        isAnticipated: specialMassRow[specCols.IS_ANTICIPATED - 1] || false
       });
     }
   }
@@ -259,10 +261,18 @@ function SCHEDULE_findMassesForMonth(month, year) {
   const calCols2 = CONSTANTS.COLS.CALENDAR;
   for (const mass of masses) {
     if (!mass.liturgicalCelebration) {
-      // Find the liturgical celebration for this date
+      // Determine which date to look up for liturgical celebration
+      let lookupDate = mass.date;
+      
+      // If this is an anticipated Mass, look up the NEXT day's liturgical celebration
+      if (mass.isAnticipated) {
+        lookupDate = new Date(mass.date.getTime() + 86400000); // Add one day (86400000 ms = 1 day)
+      }
+      
+      // Find the liturgical celebration for the lookup date
       for (const calRow of calData) {
         const calDate = new Date(calRow[calCols2.DATE - 1]);
-        if (calDate.getTime() === mass.date.getTime()) {
+        if (calDate.getTime() === lookupDate.getTime()) {
           mass.liturgicalCelebration = calRow[calCols2.LITURGICAL_CELEBRATION - 1];
           break;
         }
