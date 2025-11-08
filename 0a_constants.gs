@@ -108,7 +108,7 @@ const CONSTANTS = {
       NOTES: 11
     },
     
-    // 'Volunteers' sheet (12 columns)
+    // 'Volunteers' sheet (13 columns) - UPDATED TO MATCH REARRANGED STRUCTURE
     VOLUNTEERS: {
       VOLUNTEER_ID: 1,
       FIRST_NAME: 2,
@@ -116,12 +116,13 @@ const CONSTANTS = {
       FULL_NAME: 4,
       EMAIL: 5,
       PHONE: 6,
-      MINISTRY_ROLE: 7,
-      PREFERRED_MASS_TIME: 8,
-      DATE_CLEARED: 9,
-      DATE_TRAINED: 10,
-      FAMILY_TEAM: 11,
-      PARENT_GUARDIAN_NAME: 12
+      PARENT_GUARDIAN_NAME: 7,
+      FAMILY_TEAM: 8,
+      STATUS: 9,
+      MINISTRY_ROLE: 10,
+      PREFERRED_MASS_TIME: 11,
+      DATE_CLEARED: 12,
+      DATE_TRAINED: 13
     },
     
     // 'Timeoffs' sheet (4 columns)
