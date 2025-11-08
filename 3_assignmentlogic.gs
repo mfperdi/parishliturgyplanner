@@ -129,7 +129,7 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
     const id = row[cols.VOLUNTEER_ID - 1];
     if (!id) continue;
     
-    const ministries = (row[cols.MINISTRIES - 1] || "").split(',').map(s => s.trim().toLowerCase());
+    const ministries = (row[cols.MINISTRY_ROLE - 1] || "").split(',').map(s => s.trim().toLowerCase());
     const massPrefs = (row[cols.PREFERRED_MASS_TIME - 1] || "").split(',').map(s => s.trim());
     
     volMap.set(id, {
