@@ -63,7 +63,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
     // ENHANCED: Determine the liturgical celebration name for this mass
     let liturgicalCelebration = mass.description;
     
-    // If this is an anticipated Mass, get the liturgical celebration from the next day
+    // If this is an anticipated Mass, ALWAYS get the liturgical celebration from the next day
     if (mass.isAnticipated) {
       const nextDay = new Date(mass.date.getTime() + 24 * 60 * 60 * 1000);
       const nextDayKey = `${nextDay.getFullYear()}-${(nextDay.getMonth() + 1).toString().padStart(2, '0')}-${nextDay.getDate().toString().padStart(2, '0')}`;
@@ -73,12 +73,10 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
         liturgicalCelebration = nextDayLiturgy;
         Logger.log(`DEBUG: Anticipated Mass on ${mass.date.toDateString()} uses liturgy from ${nextDay.toDateString()}: ${liturgicalCelebration}`);
       } else {
-        // Fallback: use current day's liturgy if next day not found
-        const massDateKey = `${mass.date.getFullYear()}-${(mass.date.getMonth() + 1).toString().padStart(2, '0')}-${mass.date.getDate().toString().padStart(2, '0')}`;
-        const massDayLiturgy = liturgicalMap.get(massDateKey);
-        if (massDayLiturgy) {
-          liturgicalCelebration = massDayLiturgy;
-        }
+        Logger.log(`WARNING: Could not find liturgy for next day ${nextDay.toDateString()} for anticipated Mass on ${mass.date.toDateString()}`);
+        // Still use next day logic - build from scratch if needed
+        const sundayOrdinal = Math.ceil(nextDay.getDate() / 7);
+        liturgicalCelebration = `${sundayOrdinal}${sundayOrdinal === 1 ? 'st' : sundayOrdinal === 2 ? 'nd' : sundayOrdinal === 3 ? 'rd' : 'th'} Sunday in Ordinary Time`;
       }
     } else {
       // Regular Mass uses the liturgy from the same day
@@ -197,7 +195,7 @@ function SCHEDULE_buildTemplateMap() {
 }
 
 /**
- * ENHANCED: Builds a map of liturgical celebrations for the month.
+ * ENHANCED: Builds a map of liturgical celebrations for the month and spillover dates.
  * @param {number} month The month (0-indexed).
  * @param {number} year The year.
  * @returns {Map<string, string>} A map where key is "YYYY-MM-DD" and value is the liturgical celebration name.
@@ -211,14 +209,22 @@ function SCHEDULE_buildLiturgicalMap(month, year) {
     
     for (const row of calData) {
       const calDate = new Date(row[calCols.DATE - 1]);
-      if (calDate.getMonth() === month && calDate.getFullYear() === year) {
+      
+      // Include this month AND the first few days of next month for anticipated Mass logic
+      const includeDate = (
+        (calDate.getMonth() === month && calDate.getFullYear() === year) ||
+        (calDate.getMonth() === (month + 1) % 12 && calDate.getDate() <= 7 && 
+         calDate.getFullYear() === (month === 11 ? year + 1 : year))
+      );
+      
+      if (includeDate) {
         const dateKey = `${calDate.getFullYear()}-${(calDate.getMonth() + 1).toString().padStart(2, '0')}-${calDate.getDate().toString().padStart(2, '0')}`;
         const liturgicalCelebration = row[calCols.LITURGICAL_CELEBRATION - 1];
         liturgicalMap.set(dateKey, liturgicalCelebration);
       }
     }
     
-    Logger.log(`> Built liturgical map with ${liturgicalMap.size} entries for the month.`);
+    Logger.log(`> Built liturgical map with ${liturgicalMap.size} entries for ${month + 1}/${year} including spillover dates.`);
   } catch (error) {
     Logger.log(`Warning: Could not read liturgical calendar: ${error}. Mass names will use default descriptions.`);
   }
@@ -246,6 +252,27 @@ function SCHEDULE_findMassesForMonth(month, year) {
   // --- 1. Find Recurring Masses ---
   const daysInMonth = new Date(year, month + 1, 0).getDate(); // Get last day of month
   
+  // Check if we need to include the first Sunday of next month
+  const lastDayOfMonth = new Date(year, month, daysInMonth);
+  const includeNextSunday = lastDayOfMonth.getDay() === 6; // Last day is Saturday
+  
+  let endDay = daysInMonth;
+  let endMonth = month;
+  let endYear = year;
+  
+  if (includeNextSunday) {
+    // Include first Sunday of next month for weekend masses
+    endDay = 7; // First week of next month
+    if (month === 11) { // December
+      endMonth = 0; // January
+      endYear = year + 1;
+    } else {
+      endMonth = month + 1;
+    }
+    Logger.log(`Including spillover dates through ${endYear}-${(endMonth + 1).toString().padStart(2, '0')}-07 for weekend masses`);
+  }
+  
+  // Process current month
   for (let day = 1; day <= daysInMonth; day++) {
     const currentDate = new Date(year, month, day);
     const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' }); // e.g., "Sunday"
@@ -253,10 +280,6 @@ function SCHEDULE_findMassesForMonth(month, year) {
     for (const row of recurringData) {
       const isActive = row[recCols.IS_ACTIVE - 1];
       if (isActive === false) continue; // Skip if explicitly set to FALSE
-      
-      // REMOVED: Don't skip based on AssignedGroup - we still need to generate roles for group-assigned masses
-      // const assignedGroup = row[recCols.ASSIGNED_GROUP - 1];
-      // if (assignedGroup) continue; // Skip if assigned to a specific group
       
       const recurringDay = row[recCols.DAY_OF_WEEK - 1];
       if (recurringDay === dayOfWeek) {
@@ -273,9 +296,9 @@ function SCHEDULE_findMassesForMonth(month, year) {
           time: row[recCols.TIME - 1],
           description: row[recCols.DESCRIPTION - 1] || dayOfWeek,
           templateName: row[recCols.TEMPLATE_NAME - 1],
-          eventId: row[recCols.EVENT_ID - 1], // ENHANCED: Include EventID
-          isAnticipated: isAnticipated,       // ENHANCED: Include IsAnticipated flag
-          assignedGroup: row[recCols.ASSIGNED_GROUP - 1] || "", // ENHANCED: Include AssignedGroup
+          eventId: row[recCols.EVENT_ID - 1],
+          isAnticipated: isAnticipated,
+          assignedGroup: row[recCols.ASSIGNED_GROUP - 1] || "",
           notes: row[recCols.NOTES - 1] || ""
         });
         
@@ -284,9 +307,64 @@ function SCHEDULE_findMassesForMonth(month, year) {
     }
   }
   
+  // Process spillover dates if needed (first week of next month for weekend completion)
+  if (includeNextSunday) {
+    for (let day = 1; day <= endDay; day++) {
+      const currentDate = new Date(endYear, endMonth, day);
+      const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+      
+      // Only include Sunday masses for spillover
+      if (dayOfWeek === 'Sunday') {
+        for (const row of recurringData) {
+          const isActive = row[recCols.IS_ACTIVE - 1];
+          if (isActive === false) continue;
+          
+          const recurringDay = row[recCols.DAY_OF_WEEK - 1];
+          if (recurringDay === dayOfWeek) {
+            let isAnticipated = false;
+            const anticipatedValue = row[recCols.IS_ANTICIPATED - 1];
+            if (anticipatedValue === true || anticipatedValue === "TRUE" || anticipatedValue === "true" || anticipatedValue === 1) {
+              isAnticipated = true;
+            }
+            
+            masses.push({
+              date: currentDate,
+              time: row[recCols.TIME - 1],
+              description: row[recCols.DESCRIPTION - 1] || dayOfWeek,
+              templateName: row[recCols.TEMPLATE_NAME - 1],
+              eventId: row[recCols.EVENT_ID - 1],
+              isAnticipated: isAnticipated,
+              assignedGroup: row[recCols.ASSIGNED_GROUP - 1] || "",
+              notes: row[recCols.NOTES - 1] || ""
+            });
+            
+            Logger.log(`DEBUG: Added spillover Sunday mass - ${currentDate.toDateString()} ${row[recCols.TIME - 1]} (${row[recCols.EVENT_ID - 1]})`);
+          }
+        }
+        break; // Only need the first Sunday
+      }
+    }
+  }
+  
   // --- 2. Find Special Masses ---
   // A special mass on a specific date (e.g., 12/25/2026) overrides
   // any recurring masses for that day.
+  
+  // Check if we need to include spillover dates (declared earlier in recurring masses section)
+  const lastDayOfMonth = new Date(year, month, daysInMonth);
+  const includeNextSunday = lastDayOfMonth.getDay() === 6; // Last day is Saturday
+  
+  let endMonth = month;
+  let endYear = year;
+  
+  if (includeNextSunday) {
+    if (month === 11) { // December
+      endMonth = 0; // January
+      endYear = year + 1;
+    } else {
+      endMonth = month + 1;
+    }
+  }
   
   // First, build a map of celebration names to EventIDs from the SpecialMasses sheet
   const specialMassEventIdMap = new Map();
@@ -305,12 +383,19 @@ function SCHEDULE_findMassesForMonth(month, year) {
      specialMassEventIdMap.set(eventId, row);
   }
 
-  // Now, loop through the *LiturgicalCalendar* for the month
+  // Now, loop through the *LiturgicalCalendar* for the month AND spillover dates
   const calCols = CONSTANTS.COLS.CALENDAR;
   for (const calRow of calData) {
     const calDate = new Date(calRow[calCols.DATE - 1]);
-    if (calDate.getMonth() !== month || calDate.getFullYear() !== year) {
-      continue; // Skip dates not in our month
+    
+    // Include this month AND spillover dates
+    const includeDate = (
+      (calDate.getMonth() === month && calDate.getFullYear() === year) ||
+      (includeNextSunday && calDate.getMonth() === endMonth && calDate.getFullYear() === endYear && calDate.getDate() <= 7)
+    );
+    
+    if (!includeDate) {
+      continue; // Skip dates not in our range
     }
     
     const celebrationName = calRow[calCols.LITURGICAL_CELEBRATION - 1];
