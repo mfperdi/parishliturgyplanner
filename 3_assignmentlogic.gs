@@ -129,6 +129,13 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
     const id = row[cols.VOLUNTEER_ID - 1];
     if (!id) continue;
     
+    // Check volunteer status - only include "Active" volunteers in auto-assignment
+    const status = String(row[cols.STATUS - 1] || "").toLowerCase();
+    if (status !== "active") {
+      Logger.log(`Excluding volunteer from auto-assignment: ${row[cols.FULL_NAME - 1]} (Status: ${status})`);
+      continue; // Skip non-active volunteers in auto-assignment
+    }
+    
     const ministries = (row[cols.MINISTRY_ROLE - 1] || "").split(',').map(s => s.trim().toLowerCase());
     const massPrefs = (row[cols.PREFERRED_MASS_TIME - 1] || "").split(',').map(s => s.trim());
     
@@ -138,11 +145,53 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
       email: row[cols.EMAIL - 1],
       family: row[cols.FAMILY_TEAM - 1] || null,
       ministries: ministries, // Stored as lowercase
-      massPrefs: massPrefs
+      massPrefs: massPrefs,
+      status: "Active"
     });
   }
-  Logger.log(`Built volunteer map with ${volMap.size} volunteers.`);
+  Logger.log(`Built volunteer map with ${volMap.size} active volunteers (substitutes and inactive excluded from auto-assignment).`);
   return volMap;
+}
+
+/**
+ * Builds a map of ALL volunteer objects (active + substitutes, excludes inactive) for manual assignment scenarios.
+ * @param {Array<Array<any>>} volunteerData 2D array from 'Volunteers' sheet.
+ * @returns {Map<string, object>} A map where key is VolunteerID, includes active and substitute volunteers only
+ */
+function ASSIGNMENT_buildAllVolunteersMap(volunteerData) {
+  const volMap = new Map();
+  const cols = CONSTANTS.COLS.VOLUNTEERS;
+  
+  for (const row of volunteerData) {
+    const id = row[cols.VOLUNTEER_ID - 1];
+    if (!id) continue;
+    
+    const status = String(row[cols.STATUS - 1] || "").toLowerCase();
+    
+    // Exclude inactive volunteers from ALL assignment scenarios
+    if (status === "inactive") {
+      Logger.log(`Excluding inactive volunteer: ${row[cols.FULL_NAME - 1]} (Status: ${status})`);
+      continue;
+    }
+    
+    const ministries = (row[cols.MINISTRY_ROLE - 1] || "").split(',').map(s => s.trim().toLowerCase());
+    const massPrefs = (row[cols.PREFERRED_MASS_TIME - 1] || "").split(',').map(s => s.trim());
+    
+    volMap.set(id, {
+      id: id,
+      name: row[cols.FULL_NAME - 1],
+      email: row[cols.EMAIL - 1],
+      family: row[cols.FAMILY_TEAM - 1] || null,
+      ministries: ministries,
+      massPrefs: massPrefs,
+      status: status,
+      isActive: status === "active",
+      isSubstitute: status === "substitute"
+    });
+  }
+  Logger.log(`Built complete volunteer map with ${volMap.size} volunteers (active + substitutes, inactive excluded).`);
+  return volMap;
+}
 }
 
 /**
