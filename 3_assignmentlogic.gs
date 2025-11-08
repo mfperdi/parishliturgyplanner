@@ -81,18 +81,9 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
     const roleToFill = rowData[assignCols.MINISTRY_ROLE - 1]; // e.g., "1st Reading"
     const massDate = new Date(rowData[assignCols.DATE - 1]);
     
-    // Get the skill required for this role from MassTemplates
-    const skillToFill = ASSIGNMENT_getSkillForRole(roleToFill);
-    
-    if (!skillToFill) {
-      Logger.log(`Warning: No skill found for role "${roleToFill}". Skipping.`);
-      assignmentsSkipped++;
-      continue;
-    }
-    
     // Find a volunteer for this role
     const assignedVolunteer = ASSIGNMENT_findVolunteerForRole(
-      skillToFill,
+      roleToFill,  // Use the role directly, not the skill
       massDate,
       volunteers,
       timeoffMap,
@@ -123,27 +114,6 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
   
   Logger.log(`Finished auto-assignment. Made: ${assignmentsMade}, Skipped: ${assignmentsSkipped}`);
   return `Assignment complete! Filled ${assignmentsMade} roles. ${assignmentsSkipped} roles remain unassigned.`;
-}
-
-/**
- * Gets the skill required for a ministry role from the MassTemplates sheet.
- * @param {string} roleName The role name (e.g., "1st Reading").
- * @returns {string|null} The skill name (e.g., "Lector") or null if not found.
- */
-function ASSIGNMENT_getSkillForRole(roleName) {
-  const templateData = HELPER_readSheetData(CONSTANTS.SHEETS.TEMPLATES);
-  const templateCols = CONSTANTS.COLS.TEMPLATES;
-  
-  for (const row of templateData) {
-    const templateRole = row[templateCols.MINISTRY_ROLE - 1];
-    const templateSkill = row[templateCols.MINISTRY_SKILL - 1];
-    
-    if (templateRole === roleName) {
-      return templateSkill;
-    }
-  }
-  
-  return null; // Role not found
 }
 
 /**
@@ -247,23 +217,23 @@ function ASSIGNMENT_buildAssignmentCounts(allAssignmentData) {
 
 /**
  * The core scheduling algorithm. Finds the "best" volunteer for a single role.
- * @param {string} skillToFill The name of the ministry skill needed (e.g., "Lector").
+ * @param {string} roleToFill The specific role name (e.g., "1st Reading", "2nd Reading").
  * @param {Date} massDate The date of the mass.
  * @param {Map} volunteers The main volunteer map.
  * @param {Map} timeoffMap The timeoff map.
  * @param {Map} assignmentCounts The frequency map.
  * @returns {object|null} The volunteer object {id, name} or null if none found.
  */
-function ASSIGNMENT_findVolunteerForRole(skillToFill, massDate, volunteers, timeoffMap, assignmentCounts) {
+function ASSIGNMENT_findVolunteerForRole(roleToFill, massDate, volunteers, timeoffMap, assignmentCounts) {
   
   let candidates = [];
   const massDateZeroed = new Date(massDate.setHours(0,0,0,0));
-  const skillLower = skillToFill.toLowerCase();
+  const roleLower = roleToFill.toLowerCase();
   
-  // --- 1. Filter: Find all volunteers who *can* do the job ---
+  // --- 1. Filter: Find all volunteers who *can* do the specific role ---
   for (const vol of volunteers.values()) {
-    // A. Check skill
-    if (!vol.ministries.includes(skillLower)) {
+    // A. Check if volunteer has this specific role in their ministries
+    if (!vol.ministries.includes(roleLower)) {
       continue;
     }
     
@@ -294,7 +264,10 @@ function ASSIGNMENT_findVolunteerForRole(skillToFill, massDate, volunteers, time
     });
   }
   
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) {
+    Logger.log(`No volunteers found for role: ${roleToFill}`);
+    return null;
+  }
 
   // --- 2. Score: Rank the qualified candidates ---
   for (const candidate of candidates) {
@@ -309,6 +282,7 @@ function ASSIGNMENT_findVolunteerForRole(skillToFill, massDate, volunteers, time
   candidates.sort((a, b) => b.score - a.score);
   
   const bestVolunteer = candidates[0].vol;
+  Logger.log(`Selected ${bestVolunteer.name} for ${roleToFill} (score: ${candidates[0].score})`);
   
   return {
     id: bestVolunteer.id,
