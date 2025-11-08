@@ -138,18 +138,3 @@ const CONSTANTS = {
     }
   }
 };
-
-/*
- * IMPLEMENTATION NOTES:
- * 
- * CORRECTED COLUMN MAPPING:
- * - Column 11 "Preference" = Mass time preferences (SUN-1000, SAT-1700, etc.)
- * - Column 12 "PreferredMassTime" = Role preferences (1st reading, psalm, etc.)
- * 
- * SCORING SYSTEM:
- * - Mass time preference bonus: +20 points
- * - Role preference bonus: +15 points  
- * - Family team bonus: +25 points
- * - Frequency penalty: -5 points per existing assignment
- * - Flexibility bonus: +3 points (no preferences)
- */
