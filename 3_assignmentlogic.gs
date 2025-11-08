@@ -160,13 +160,13 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
     if (!id) continue;
     
     const ministries = (row[cols.MINISTRIES - 1] || "").split(',').map(s => s.trim().toLowerCase());
-    const massPrefs = (row[cols.PREF_MASS_TIME - 1] || "").split(',').map(s => s.trim());
+    const massPrefs = (row[cols.PREFERRED_MASS_TIME - 1] || "").split(',').map(s => s.trim());
     
     volMap.set(id, {
       id: id,
       name: row[cols.FULL_NAME - 1],
       email: row[cols.EMAIL - 1],
-      family: row[cols.FAMILY_GROUP - 1] || null,
+      family: row[cols.FAMILY_TEAM - 1] || null,
       ministries: ministries, // Stored as lowercase
       massPrefs: massPrefs
     });
