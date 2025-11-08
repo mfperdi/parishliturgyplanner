@@ -93,21 +93,19 @@ const CONSTANTS = {
       MINISTRY_SKILL: 3
     },
     
-    // 'Assignments' sheet (13 columns)
+    // 'Assignments' sheet (11 columns) - CORRECTED TO MATCH ACTUAL STRUCTURE
     ASSIGNMENTS: {
       DATE: 1,
       TIME: 2,
       MASS_NAME: 3,
       LITURGICAL_CELEBRATION: 4,
       MINISTRY_ROLE: 5,
-      MINISTRY_SKILL: 6,
-      ASSIGNED_VOLUNTEER_ID: 7,
-      ASSIGNED_VOLUNTEER_NAME: 8,
-      STATUS: 9,
-      NOTES: 10,
-      EVENT_ID: 11,
-      MONTH_YEAR: 12,
-      FAMILY_TEAM: 13
+      EVENT_ID: 6,
+      MONTH_YEAR: 7,
+      ASSIGNED_VOLUNTEER_ID: 8,
+      ASSIGNED_VOLUNTEER_NAME: 9,
+      STATUS: 10,
+      NOTES: 11
     },
     
     // 'Volunteers' sheet (12 columns)
@@ -122,23 +120,16 @@ const CONSTANTS = {
       PREF_MASS_TIME: 8,
       DATE_CLEARED: 9,
       DATE_TRAINED: 10,
-      FAMILY_TEAM: 11,
+      FAMILY_GROUP: 11,
       PARENT_GUARDIAN_NAME: 12
     },
     
     // 'Timeoffs' sheet (4 columns)
     TIMEOFFS: {
-      TIMESTAMP: 1,        // Column A
-      VOLUNTEER_NAME: 2,   // Column B
-      EMAIL: 3,            // Column C
-      TYPE: 4,             // Column D
-      START_DATE: 5,       // Column E
-      END_DATE: 6,         // Column F
-      NOTES: 7,            // Column G
-      STATUS: 8,           // Column H
-      REVIEWED_DATE: 9,    // Column I
-      REVIEW_NOTES: 10     // Column J
+      VOLUNTEER_NAME: 1,
+      TYPE: 2,
+      START_DATE: 3,
+      END_DATE: 4
     }
-
   }
 };
