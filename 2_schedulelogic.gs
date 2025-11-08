@@ -93,12 +93,31 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
 /**
  * Clears all 'Unassigned' rows for the given month/year.
+ * Automatically extends to include the following weekend if the month doesn't end on Sunday.
  * This function preserves filters by clearing content, not deleting rows.
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The 'Assignments' sheet.
  * @param {number} month The month (0-indexed).
  * @param {number} year The year.
  */
 function SCHEDULE_clearOldAssignments(sheet, month, year) {
+  // --- Determine the actual date range (same logic as findMassesForMonth) ---
+  const startDate = new Date(year, month, 1); // First day of month
+  let endDate = new Date(year, month + 1, 0); // Last day of month
+  
+  // Check if we need to extend to include the following weekend
+  const lastDayOfWeek = endDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  
+  if (lastDayOfWeek !== 0) { // Month doesn't end on Sunday
+    // Extend to the first Sunday of the next month
+    let extendToDate = new Date(year, month + 1, 1); // First day of next month
+    while (extendToDate.getDay() !== 0) { // Find first Sunday
+      extendToDate.setDate(extendToDate.getDate() + 1);
+    }
+    endDate = extendToDate;
+  }
+  
+  Logger.log(`Clearing assignments from ${startDate.toDateString()} to ${endDate.toDateString()}`);
+
   const data = sheet.getDataRange().getValues();
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
   const header = data.shift(); // Remove header
@@ -112,13 +131,13 @@ function SCHEDULE_clearOldAssignments(sheet, month, year) {
     const rowStatus = row[assignCols.STATUS - 1];
     
     // Check if the row should be deleted
-    const isThisMonth = rowDate.getMonth() === month && rowDate.getFullYear() === year;
+    const isInRange = rowDate >= startDate && rowDate <= endDate;
     const isUnassigned = rowStatus === "Unassigned";
     
-    if (isThisMonth && isUnassigned) {
+    if (isInRange && isUnassigned) {
       // This row should be deleted, so we *don't* add it to rowsToKeep
     } else {
-      // This row is from a different month OR is already "Assigned", so we keep it.
+      // This row is outside our range OR is already "Assigned", so we keep it.
       rowsToKeep.push(row);
     }
   }
@@ -176,11 +195,28 @@ function SCHEDULE_findMassesForMonth(month, year) {
   const recCols = CONSTANTS.COLS.RECURRING_MASSES;
   const specCols = CONSTANTS.COLS.SPECIAL_MASSES;
 
-  // --- 1. Find Recurring Masses ---
-  const daysInMonth = new Date(year, month + 1, 0).getDate(); // Get last day of month
+  // --- Determine the actual date range to process ---
+  const startDate = new Date(year, month, 1); // First day of month
+  let endDate = new Date(year, month + 1, 0); // Last day of month
   
-  for (let day = 1; day <= daysInMonth; day++) {
-    const currentDate = new Date(year, month, day);
+  // Check if we need to extend to include the following weekend
+  const lastDayOfWeek = endDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  
+  if (lastDayOfWeek !== 0) { // Month doesn't end on Sunday
+    // Extend to the first Sunday of the next month
+    let extendToDate = new Date(year, month + 1, 1); // First day of next month
+    while (extendToDate.getDay() !== 0) { // Find first Sunday
+      extendToDate.setDate(extendToDate.getDate() + 1);
+    }
+    endDate = extendToDate;
+    Logger.log(`Month extends through ${endDate.toDateString()} to include complete weekend.`);
+  }
+  
+  Logger.log(`Processing masses from ${startDate.toDateString()} to ${endDate.toDateString()}`);
+
+  // --- 1. Find Recurring Masses ---
+  let currentDate = new Date(startDate);
+  while (currentDate <= endDate) {
     const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' }); // e.g., "Sunday"
     
     for (const row of recurringData) {
@@ -190,18 +226,24 @@ function SCHEDULE_findMassesForMonth(month, year) {
       const recurringDay = row[recCols.DAY_OF_WEEK - 1];
       if (recurringDay === dayOfWeek) {
         // We have a match
+        const isAnticipated = row[recCols.IS_ANTICIPATED - 1];
+        Logger.log(`Found recurring mass on ${currentDate.toDateString()}: ${row[recCols.DESCRIPTION - 1]}, IsAnticipated: ${isAnticipated}`);
+        
         masses.push({
-          date: currentDate,
+          date: new Date(currentDate), // Create a copy of the date
           time: row[recCols.TIME - 1],
           description: row[recCols.DESCRIPTION - 1] || dayOfWeek,
           templateName: row[recCols.TEMPLATE_NAME - 1],
           liturgicalCelebration: "", // Will be filled from calendar if needed
           notes: row[recCols.NOTES - 1] || "",
           eventId: row[recCols.EVENT_ID - 1] || "",
-          isAnticipated: row[recCols.IS_ANTICIPATED - 1] || false
+          isAnticipated: isAnticipated === true || isAnticipated === "TRUE" || isAnticipated === "true"
         });
       }
     }
+    
+    // Move to next day
+    currentDate.setDate(currentDate.getDate() + 1);
   }
   
   // --- 2. Find Special Masses ---
@@ -221,12 +263,12 @@ function SCHEDULE_findMassesForMonth(month, year) {
      specialMassEventIdMap.set(eventId, row);
   }
 
-  // Now, loop through the *LiturgicalCalendar* for the month
+  // Now, loop through the *LiturgicalCalendar* for our date range
   const calCols = CONSTANTS.COLS.CALENDAR;
   for (const calRow of calData) {
     const calDate = new Date(calRow[calCols.DATE - 1]);
-    if (calDate.getMonth() !== month || calDate.getFullYear() !== year) {
-      continue; // Skip dates not in our month
+    if (calDate < startDate || calDate > endDate) {
+      continue; // Skip dates not in our range
     }
     
     const celebrationName = calRow[calCols.LITURGICAL_CELEBRATION - 1];
@@ -265,8 +307,9 @@ function SCHEDULE_findMassesForMonth(month, year) {
       let lookupDate = mass.date;
       
       // If this is an anticipated Mass, look up the NEXT day's liturgical celebration
-      if (mass.isAnticipated) {
+      if (mass.isAnticipated === true) {
         lookupDate = new Date(mass.date.getTime() + 86400000); // Add one day (86400000 ms = 1 day)
+        Logger.log(`Anticipated Mass on ${mass.date.toDateString()}: Looking up ${lookupDate.toDateString()}`);
       }
       
       // Find the liturgical celebration for the lookup date
@@ -274,8 +317,15 @@ function SCHEDULE_findMassesForMonth(month, year) {
         const calDate = new Date(calRow[calCols2.DATE - 1]);
         if (calDate.getTime() === lookupDate.getTime()) {
           mass.liturgicalCelebration = calRow[calCols2.LITURGICAL_CELEBRATION - 1];
+          Logger.log(`Found liturgical celebration for ${lookupDate.toDateString()}: ${mass.liturgicalCelebration}`);
           break;
         }
+      }
+      
+      // If we still don't have a liturgical celebration, log it
+      if (!mass.liturgicalCelebration) {
+        Logger.log(`Warning: No liturgical celebration found for ${lookupDate.toDateString()}`);
+        mass.liturgicalCelebration = "Unknown";
       }
     }
   }
