@@ -71,7 +71,7 @@ const CONSTANTS = {
       IS_ANTICIPATED: 5,
       DESCRIPTION: 6,
       TEMPLATE_NAME: 7,
-      ASSIGNED_GROUP: 8,
+      ASSIGNED_GROUP: 8,         // Column H
       NOTES: 9
     },
     
@@ -84,7 +84,7 @@ const CONSTANTS = {
       IS_ANTICIPATED: 5,
       DESCRIPTION: 6,
       TEMPLATE_NAME: 7,
-      ASSIGNED_GROUP: 8,
+      ASSIGNED_GROUP: 8,         // Column H
       NOTES: 9
     },
     
@@ -95,7 +95,7 @@ const CONSTANTS = {
       MINISTRY_SKILL: 3
     },
     
-    // 'Assignments' sheet (11 columns based on actual data)
+    // 'Assignments' sheet (12 columns - AssignedGroup in column H)
     ASSIGNMENTS: {
       DATE: 1,
       TIME: 2,
@@ -104,10 +104,11 @@ const CONSTANTS = {
       MINISTRY_ROLE: 5,
       EVENT_ID: 6,
       MONTH_YEAR: 7,
-      ASSIGNED_VOLUNTEER_ID: 8,
-      ASSIGNED_VOLUNTEER_NAME: 9,
-      STATUS: 10,
-      NOTES: 11
+      ASSIGNED_GROUP: 8,          // Column H
+      ASSIGNED_VOLUNTEER_ID: 9,
+      ASSIGNED_VOLUNTEER_NAME: 10,
+      STATUS: 11,
+      NOTES: 12
     },
     
     // 'Volunteers' sheet (14 columns)
