@@ -51,10 +51,12 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
   
   Logger.log(`DEBUG: Read ${allAssignmentData.length} assignment rows`);
   
-  // 5. Get the specific rows for the selected month (all rows since Status might be missing)
+  // 5. Get the specific rows for the selected month and process AssignedGroup logic
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
   const unassignedRows = []; 
   const unassignedRowIndexes = []; 
+  const assignedGroupRows = [];
+  const assignedGroupRowIndexes = [];
   
   for (let i = 0; i < allAssignmentData.length; i++) {
     const row = allAssignmentData[i];
@@ -62,25 +64,86 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
     
     const assignMonthYear = row[assignCols.MONTH_YEAR - 1];
     const assignedVolunteerId = row[assignCols.ASSIGNED_VOLUNTEER_ID - 1];
+    const assignedGroup = row[assignCols.ASSIGNED_GROUP - 1];
     
-    // If MonthYear matches and no volunteer is assigned, it's unassigned
-    if (assignMonthYear === monthString && !assignedVolunteerId) {
-      unassignedRows.push(row);
-      unassignedRowIndexes.push(i + 2);
+    // If MonthYear matches and this row needs processing
+    if (assignMonthYear === monthString) {
+      if (assignedGroup && !assignedVolunteerId) {
+        // This mass has an AssignedGroup - handle separately
+        assignedGroupRows.push(row);
+        assignedGroupRowIndexes.push(i + 2);
+      } else if (!assignedVolunteerId && !assignedGroup) {
+        // Regular unassigned row
+        unassignedRows.push(row);
+        unassignedRowIndexes.push(i + 2);
+      }
     }
   }
   
-  if (unassignedRows.length === 0) {
-    Logger.log(`ERROR: No unassigned rows found for ${monthString}. Check that assignments exist with MonthYear = '${monthString}' and empty AssignedVolunteerID`);
-    return `No unassigned rows found for ${monthString}. Check assignment MonthYear and AssignedVolunteerID columns.`;
+  Logger.log(`Found ${unassignedRows.length} unassigned roles and ${assignedGroupRows.length} group-assigned roles to process.`);
+  
+  // 6. Process AssignedGroup rows first
+  let groupAssignmentsMade = 0;
+  if (assignedGroupRows.length > 0) {
+    Logger.log(`\n=== Processing ${assignedGroupRows.length} AssignedGroup roles ===`);
+    
+    for (let i = 0; i < assignedGroupRows.length; i++) {
+      const row = assignedGroupRows[i];
+      const rowIndex = assignedGroupRowIndexes[i];
+      const assignedGroup = row[assignCols.ASSIGNED_GROUP - 1];
+      const roleToFill = row[assignCols.MINISTRY_ROLE - 1];
+      
+      Logger.log(`Processing AssignedGroup: "${assignedGroup}" for role: "${roleToFill}"`);
+      
+      // Check if this AssignedGroup matches any FamilyTeam
+      let familyMember = null;
+      for (const vol of volunteers.values()) {
+        if (vol.familyTeam && vol.familyTeam.toLowerCase() === assignedGroup.toLowerCase()) {
+          // Found a volunteer from this family team who can do this role
+          if (vol.ministries.includes(roleToFill.toLowerCase())) {
+            familyMember = vol;
+            break;
+          }
+        }
+      }
+      
+      if (familyMember) {
+        // Assign the family team member
+        assignmentsSheet.getRange(rowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(familyMember.id);
+        assignmentsSheet.getRange(rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(familyMember.name);
+        
+        Logger.log(`  SUCCESS: Assigned family team member ${familyMember.name} for group "${assignedGroup}"`);
+        groupAssignmentsMade++;
+        
+      } else {
+        // No matching family team found, use the group name as the volunteer name
+        assignmentsSheet.getRange(rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(assignedGroup);
+        
+        Logger.log(`  SUCCESS: Assigned group "${assignedGroup}" (no specific volunteer)`);
+        groupAssignmentsMade++;
+      }
+      
+      // Set status if the column exists
+      if (assignCols.STATUS && assignCols.STATUS <= assignmentsSheet.getLastColumn()) {
+        assignmentsSheet.getRange(rowIndex, assignCols.STATUS).setValue("Assigned");
+      }
+    }
   }
   
-  Logger.log(`Found ${unassignedRows.length} unassigned roles to fill.`);
-  
-  // 6. Build volunteer assignment counts for frequency tracking
+  // 7. Build volunteer assignment counts for frequency tracking
   const assignmentCounts = ASSIGNMENT_buildAssignmentCounts(allAssignmentData);
   
-  // 7. --- GROUP ASSIGNMENTS BY MASS DATE/TIME for family team processing ---
+  if (unassignedRows.length === 0) {
+    const message = groupAssignmentsMade > 0 
+      ? `Processed ${groupAssignmentsMade} group assignments. No individual volunteer assignments needed for ${monthString}.`
+      : `No unassigned rows found for ${monthString}. Check assignment MonthYear and AssignedVolunteerID columns.`;
+    Logger.log(message);
+    return message;
+  }
+
+  Logger.log(`Found ${unassignedRows.length} unassigned roles to fill.`);
+  
+  // 8. --- GROUP ASSIGNMENTS BY MASS DATE/TIME for family team processing ---
   const massByDateTime = new Map();
   
   for (let i = 0; i < unassignedRows.length; i++) {
@@ -166,8 +229,8 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
     }
   }
   
-  Logger.log(`\nFinished auto-assignment. Made: ${assignmentsMade}, Skipped: ${assignmentsSkipped}`);
-  return `Assignment complete! Filled ${assignmentsMade} roles. ${assignmentsSkipped} roles remain unassigned.`;
+  Logger.log(`\nFinished auto-assignment. Group assignments: ${groupAssignmentsMade}, Individual assignments: ${assignmentsMade}, Skipped: ${assignmentsSkipped}`);
+  return `Assignment complete! Group assignments: ${groupAssignmentsMade}, Individual assignments: ${assignmentsMade}. ${assignmentsSkipped} roles remain unassigned.`;
 }
 
 /**
