@@ -51,7 +51,7 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
   
   Logger.log(`DEBUG: Read ${allAssignmentData.length} assignment rows`);
   
-  // 5. Get the specific "Unassigned" rows for the selected month
+  // 5. Get the specific rows for the selected month (all rows since Status might be missing)
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
   const unassignedRows = []; 
   const unassignedRowIndexes = []; 
@@ -60,18 +60,19 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
     const row = allAssignmentData[i];
     if (!row[assignCols.DATE - 1]) continue;
     
-    const assignStatus = row[assignCols.STATUS - 1];
     const assignMonthYear = row[assignCols.MONTH_YEAR - 1];
+    const assignedVolunteerId = row[assignCols.ASSIGNED_VOLUNTEER_ID - 1];
     
-    if (assignMonthYear === monthString && assignStatus === "Unassigned") {
+    // If MonthYear matches and no volunteer is assigned, it's unassigned
+    if (assignMonthYear === monthString && !assignedVolunteerId) {
       unassignedRows.push(row);
       unassignedRowIndexes.push(i + 2);
     }
   }
   
   if (unassignedRows.length === 0) {
-    Logger.log(`ERROR: No 'Unassigned' rows found for ${monthString}. Check that assignments exist with Status = 'Unassigned' and MonthYear = '${monthString}'`);
-    return `No 'Unassigned' rows found for ${monthString}. Check assignment Status and MonthYear columns.`;
+    Logger.log(`ERROR: No unassigned rows found for ${monthString}. Check that assignments exist with MonthYear = '${monthString}' and empty AssignedVolunteerID`);
+    return `No unassigned rows found for ${monthString}. Check assignment MonthYear and AssignedVolunteerID columns.`;
   }
   
   Logger.log(`Found ${unassignedRows.length} unassigned roles to fill.`);
@@ -140,12 +141,10 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
         // Write the assignment to the sheet
         assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(assignedVolunteer.id);
         assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(assignedVolunteer.name);
-        assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.STATUS).setValue("Assigned");
         
-        // FAMILY TEAM: Store family team info in the sheet
-        const volunteer = volunteers.get(assignedVolunteer.id);
-        if (volunteer && volunteer.familyTeam) {
-          assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.FAMILY_GROUP).setValue(volunteer.familyTeam);
+        // Set status if the column exists and has data
+        if (assignCols.STATUS && assignCols.STATUS <= assignmentsSheet.getLastColumn()) {
+          assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.STATUS).setValue("Assigned");
         }
         
         // Update tracking data
@@ -267,11 +266,11 @@ function ASSIGNMENT_buildAssignmentCounts(allAssignmentData) {
   
   for (const row of allAssignmentData) {
     const id = row[assignCols.ASSIGNED_VOLUNTEER_ID - 1];
-    const status = row[assignCols.STATUS - 1];
     if (!row[assignCols.DATE - 1]) continue;
     const date = new Date(row[assignCols.DATE - 1]);
     
-    if (id && status === "Assigned") {
+    // Count assignment if volunteer ID exists (regardless of status)
+    if (id) {
       if (!counts.has(id)) {
         counts.set(id, { total: 0, recent: new Date(0) });
       }
