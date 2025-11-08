@@ -117,10 +117,10 @@ const CONSTANTS = {
       EMAIL: 5,
       PHONE: 6,
       MINISTRIES: 7,
-      PREF_MASS_TIME: 8,
+      PREFERRED_MASS_TIME: 8,
       DATE_CLEARED: 9,
       DATE_TRAINED: 10,
-      FAMILY_GROUP: 11,
+      FAMILY_TEAM: 11,
       PARENT_GUARDIAN_NAME: 12
     },
     
