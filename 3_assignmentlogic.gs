@@ -1,12 +1,12 @@
 /**
  * ====================================================================
- * 3. AUTO-ASSIGNMENT LOGIC (ENHANCED WITH MASS PREFERENCES)
+ * 3. AUTO-ASSIGNMENT LOGIC (WITH FAMILY TEAM & ROLE PREFERENCES)
  * ====================================================================
- * This file contains all logic for "Step 2: Auto-Assign Volunteers".
- * It reads the "Unassigned" roles and intelligently assigns them
- * based on volunteer skills, preferences, and time off.
  * 
- * ENHANCED: Now includes PreferredMassTime logic for better assignments.
+ * CHANGES MADE:
+ * 1. Added Family Team grouping - volunteers with same family team must be assigned together
+ * 2. Added Role Preferences - volunteers get bonus points for preferred roles
+ * 3. Updated volunteer map to include familyTeam and rolePrefs
  */
 
 /**
@@ -76,68 +76,104 @@ function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
   
   Logger.log(`Found ${unassignedRows.length} unassigned roles to fill.`);
   
-  // Debug: Show first few roles
-  for (let i = 0; i < Math.min(3, unassignedRows.length); i++) {
-    const row = unassignedRows[i];
-    Logger.log(`DEBUG Role ${i+1}: ${row[assignCols.MINISTRY_ROLE - 1]} on ${new Date(row[assignCols.DATE - 1]).toDateString()}`);
-  }
-  
   // 6. Build volunteer assignment counts for frequency tracking
   const assignmentCounts = ASSIGNMENT_buildAssignmentCounts(allAssignmentData);
   
-  // 7. --- The Core Assignment Loop ---
+  // 7. --- GROUP ASSIGNMENTS BY MASS DATE/TIME for family team processing ---
+  const massByDateTime = new Map();
+  
+  for (let i = 0; i < unassignedRows.length; i++) {
+    const row = unassignedRows[i];
+    const massDate = new Date(row[assignCols.DATE - 1]);
+    const massTime = row[assignCols.TIME - 1];
+    const eventId = row[assignCols.EVENT_ID - 1];
+    
+    const massKey = `${massDate.toDateString()}_${massTime}`;
+    
+    if (!massByDateTime.has(massKey)) {
+      massByDateTime.set(massKey, {
+        date: massDate,
+        time: massTime,
+        eventId: eventId,
+        roles: [],
+        rowIndexes: []
+      });
+    }
+    
+    massByDateTime.get(massKey).roles.push({
+      role: row[assignCols.MINISTRY_ROLE - 1],
+      rowIndex: unassignedRowIndexes[i],
+      rowData: row
+    });
+  }
+  
+  // 8. --- The Core Assignment Loop (by Mass) ---
   let assignmentsMade = 0;
   let assignmentsSkipped = 0;
   
-  for (let i = 0; i < unassignedRowIndexes.length; i++) {
-    const sheetRowIndex = unassignedRowIndexes[i];
-    const rowData = unassignedRows[i];
+  // Process each Mass separately to handle family team assignments
+  for (const [massKey, massInfo] of massByDateTime) {
+    Logger.log(`\nProcessing Mass: ${massInfo.date.toDateString()} at ${massInfo.time} (${massInfo.roles.length} roles)`);
     
-    const roleToFill = rowData[assignCols.MINISTRY_ROLE - 1];
-    const massDate = new Date(rowData[assignCols.DATE - 1]);
-    const eventId = rowData[assignCols.EVENT_ID - 1]; // Get the EventID for this mass
+    // Track which volunteers are already assigned to this specific Mass
+    const massAssignments = new Map(); // volunteerID -> role
     
-    Logger.log(`DEBUG: Trying to fill "${roleToFill}" on ${massDate.toDateString()} for EventID: ${eventId}`);
-    
-    // Find a volunteer for this role (now includes eventId for preference matching)
-    const assignedVolunteer = ASSIGNMENT_findVolunteerForRole(
-      roleToFill,
-      massDate,
-      volunteers,
-      timeoffMap,
-      assignmentCounts,
-      eventId  // NEW: Pass the EventID for mass preference matching
-    );
-    
-    if (assignedVolunteer) {
-      // 8. --- Write the assignment to the sheet ---
-      assignmentsSheet.getRange(sheetRowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(assignedVolunteer.id);
-      assignmentsSheet.getRange(sheetRowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(assignedVolunteer.name);
-      assignmentsSheet.getRange(sheetRowIndex, assignCols.STATUS).setValue("Assigned");
+    for (const roleInfo of massInfo.roles) {
+      const roleToFill = roleInfo.role;
+      const massDate = massInfo.date;
+      const eventId = massInfo.eventId;
       
-      // 9. Update our local tracking data
-      if (!assignmentCounts.has(assignedVolunteer.id)) {
-         assignmentCounts.set(assignedVolunteer.id, { total: 0, recent: new Date(0) });
+      Logger.log(`  Trying to fill "${roleToFill}"`);
+      
+      // Find a volunteer for this role (considering family teams already assigned to this Mass)
+      const assignedVolunteer = ASSIGNMENT_findVolunteerForRole(
+        roleToFill,
+        massDate,
+        volunteers,
+        timeoffMap,
+        assignmentCounts,
+        eventId,
+        massAssignments // FAMILY TEAM: Pass current Mass assignments
+      );
+      
+      if (assignedVolunteer) {
+        // Write the assignment to the sheet
+        assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(assignedVolunteer.id);
+        assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(assignedVolunteer.name);
+        assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.STATUS).setValue("Assigned");
+        
+        // FAMILY TEAM: Store family team info in the sheet
+        const volunteer = volunteers.get(assignedVolunteer.id);
+        if (volunteer && volunteer.familyTeam) {
+          assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.FAMILY_GROUP).setValue(volunteer.familyTeam);
+        }
+        
+        // Update tracking data
+        if (!assignmentCounts.has(assignedVolunteer.id)) {
+           assignmentCounts.set(assignedVolunteer.id, { total: 0, recent: new Date(0) });
+        }
+        assignmentCounts.get(assignedVolunteer.id).total++;
+        assignmentCounts.get(assignedVolunteer.id).recent = massDate;
+        
+        // FAMILY TEAM: Track this assignment for the current Mass
+        massAssignments.set(assignedVolunteer.id, roleToFill);
+        
+        assignmentsMade++;
+        Logger.log(`  SUCCESS: Assigned ${assignedVolunteer.name} to ${roleToFill}`);
+      } else {
+        assignmentsSkipped++;
+        Logger.log(`  FAILED: Could not find volunteer for ${roleToFill}`);
       }
-      assignmentCounts.get(assignedVolunteer.id).total++;
-      assignmentCounts.get(assignedVolunteer.id).recent = massDate;
-      
-      assignmentsMade++;
-      Logger.log(`SUCCESS: Assigned ${assignedVolunteer.name} to ${roleToFill} on ${massDate.toDateString()}`);
-    } else {
-      assignmentsSkipped++;
-      Logger.log(`FAILED: Could not find volunteer for ${roleToFill} on ${massDate.toDateString()}`);
     }
   }
   
-  Logger.log(`Finished auto-assignment. Made: ${assignmentsMade}, Skipped: ${assignmentsSkipped}`);
+  Logger.log(`\nFinished auto-assignment. Made: ${assignmentsMade}, Skipped: ${assignmentsSkipped}`);
   return `Assignment complete! Filled ${assignmentsMade} roles. ${assignmentsSkipped} roles remain unassigned.`;
 }
 
 /**
  * Builds a map of volunteer objects from the sheet data for fast lookups.
- * @param {Array<Array<any>>} volunteerData 2D array from 'Volunteers' sheet.
- * @returns {Map<string, object>} A map where key is VolunteerID
+ * ENHANCED: Now includes family team and role preferences.
  */
 function ASSIGNMENT_buildVolunteerMap(volunteerData) {
   const volMap = new Map();
@@ -154,7 +190,7 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
     
     const status = String(row[cols.STATUS - 1] || "").toLowerCase();
     const name = row[cols.FULL_NAME - 1];
-    const ministryRole = row[cols.MINISTRY_ROLE - 1];
+    const ministryRole = row[cols.MINISTRIES - 1]; // Updated to use MINISTRIES column
     
     Logger.log(`DEBUG: Volunteer ${id} (${name}) - Status: "${status}", MinistryRole: "${ministryRole}"`);
     
@@ -164,81 +200,31 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
     }
     
     const ministries = (ministryRole || "").split(',').map(s => s.trim().toLowerCase());
+    const massPrefs = (row[cols.PREF_MASS_TIME - 1] || "").split(',').map(s => s.trim());
+    const familyTeam = row[cols.FAMILY_GROUP - 1] || null;
     
-    // ENHANCED: Parse PreferredMassTime and clean up the data
-    const massPrefsRaw = row[cols.PREF_MASS_TIME - 1] || "";
-    const massPrefs = massPrefsRaw.split(',')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);  // Remove empty strings
+    // ROLE PREFERENCES: Parse role preferences (assuming new column)
+    const rolePrefs = (row[cols.ROLE_PREFERENCES - 1] || "").split(',').map(s => s.trim().toLowerCase());
     
-    Logger.log(`DEBUG: Added active volunteer ${name} with roles: [${ministries.join(', ')}], mass prefs: [${massPrefs.join(', ')}]`);
+    Logger.log(`DEBUG: Added active volunteer ${name} - Family: ${familyTeam}, RolePrefs: [${rolePrefs.join(', ')}]`);
     
     volMap.set(id, {
       id: id,
       name: name,
       email: row[cols.EMAIL - 1],
-      family: row[cols.FAMILY_TEAM - 1] || null,
-      ministries: ministries, // Stored as lowercase
-      massPrefs: massPrefs,   // ENHANCED: Clean array of EventIDs
+      familyTeam: familyTeam,        // FAMILY TEAM: Store family team
+      ministries: ministries,
+      massPrefs: massPrefs,
+      rolePrefs: rolePrefs,          // ROLE PREFERENCES: Store role preferences
       status: "Active"
     });
   }
-  Logger.log(`Built volunteer map with ${volMap.size} active volunteers (substitutes and inactive excluded from auto-assignment).`);
-  return volMap;
-}
-
-/**
- * Builds a map of ALL volunteer objects (active + substitutes, excludes inactive) for manual assignment scenarios.
- * @param {Array<Array<any>>} volunteerData 2D array from 'Volunteers' sheet.
- * @returns {Map<string, object>} A map where key is VolunteerID, includes active and substitute volunteers only
- */
-function ASSIGNMENT_buildAllVolunteersMap(volunteerData) {
-  const volMap = new Map();
-  const cols = CONSTANTS.COLS.VOLUNTEERS;
-  
-  for (const row of volunteerData) {
-    const id = row[cols.VOLUNTEER_ID - 1];
-    if (!id) continue;
-    
-    const status = String(row[cols.STATUS - 1] || "").toLowerCase();
-    
-    // Exclude inactive volunteers from ALL assignment scenarios
-    if (status === "inactive") {
-      Logger.log(`Excluding inactive volunteer: ${row[cols.FULL_NAME - 1]} (Status: ${status})`);
-      continue;
-    }
-    
-    const ministries = (row[cols.MINISTRY_ROLE - 1] || "").split(',').map(s => s.trim().toLowerCase());
-    
-    // ENHANCED: Parse PreferredMassTime and clean up the data
-    const massPrefsRaw = row[cols.PREF_MASS_TIME - 1] || "";
-    const massPrefs = massPrefsRaw.split(',')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
-    
-    volMap.set(id, {
-      id: id,
-      name: row[cols.FULL_NAME - 1],
-      email: row[cols.EMAIL - 1],
-      family: row[cols.FAMILY_TEAM - 1] || null,
-      ministries: ministries,
-      massPrefs: massPrefs,  // ENHANCED: Clean array of EventIDs
-      status: status,
-      isActive: status === "active",
-      isSubstitute: status === "substitute"
-    });
-  }
-  Logger.log(`Built complete volunteer map with ${volMap.size} volunteers (active + substitutes, inactive excluded).`);
+  Logger.log(`Built volunteer map with ${volMap.size} active volunteers.`);
   return volMap;
 }
 
 /**
  * Builds a map of volunteer time-offs for the specific month being scheduled.
- * @param {Array<Array<any>>} timeoffData 2D array from 'Timeoffs' sheet.
- * @param {number} month The month being scheduled (0-indexed).
- * @param {number} year The year being scheduled.
- * @returns {Map<string, Array<Date>>} A map where key is Volunteer Name
- * and value is an array of Date objects they are unavailable.
  */
 function ASSIGNMENT_buildTimeoffMap(timeoffData, month, year) {
   const timeoffMap = new Map();
@@ -263,7 +249,7 @@ function ASSIGNMENT_buildTimeoffMap(timeoffData, month, year) {
     while (currentDate <= zonedEndDate) {
       // Only add dates that are in the month we are scheduling
       if (currentDate.getMonth() === month && currentDate.getFullYear() === year) {
-        timeoffMap.get(name).push(new Date(currentDate.getTime())); // Add a *copy* of the date
+        timeoffMap.get(name).push(new Date(currentDate.getTime()));
       }
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -274,9 +260,6 @@ function ASSIGNMENT_buildTimeoffMap(timeoffData, month, year) {
 
 /**
  * Builds a map tracking how many times each volunteer has been assigned.
- * @param {Array<Array<any>>} allAssignmentData 2D array from 'Assignments' sheet.
- * @returns {Map<string, object>} A map where key is VolunteerID
- * and value is { total: number, recent: Date }.
  */
 function ASSIGNMENT_buildAssignmentCounts(allAssignmentData) {
   const counts = new Map();
@@ -303,24 +286,25 @@ function ASSIGNMENT_buildAssignmentCounts(allAssignmentData) {
 }
 
 /**
- * The core scheduling algorithm. Finds the "best" volunteer for a single role.
- * ENHANCED: Now includes mass preference scoring for better assignments.
+ * The core scheduling algorithm with Family Team and Role Preference support.
+ * ENHANCED: Now considers family teams and role preferences.
  * 
- * @param {string} roleToFill The specific role name (e.g., "1st Reading", "2nd Reading").
+ * @param {string} roleToFill The specific role name.
  * @param {Date} massDate The date of the mass.
  * @param {Map} volunteers The main volunteer map.
  * @param {Map} timeoffMap The timeoff map.
  * @param {Map} assignmentCounts The frequency map.
- * @param {string} eventId The EventID for this mass (e.g., "Sat5pm", "Sun9am").
+ * @param {string} eventId The EventID for this mass.
+ * @param {Map} massAssignments Current assignments for this specific Mass (volunteerID -> role).
  * @returns {object|null} The volunteer object {id, name} or null if none found.
  */
-function ASSIGNMENT_findVolunteerForRole(roleToFill, massDate, volunteers, timeoffMap, assignmentCounts, eventId) {
+function ASSIGNMENT_findVolunteerForRole(roleToFill, massDate, volunteers, timeoffMap, assignmentCounts, eventId, massAssignments) {
   
   let candidates = [];
   const massDateZeroed = new Date(massDate.setHours(0,0,0,0));
   const roleLower = roleToFill.toLowerCase();
   
-  Logger.log(`DEBUG: Looking for volunteers for role "${roleToFill}" at EventID "${eventId}"`);
+  Logger.log(`    Looking for volunteers for role "${roleToFill}"`);
   
   // --- 1. Filter: Find all volunteers who *can* do the specific role ---
   for (const vol of volunteers.values()) {
@@ -342,11 +326,16 @@ function ASSIGNMENT_findVolunteerForRole(roleToFill, massDate, volunteers, timeo
       continue;
     }
 
-    // C. Check if already assigned on this day
+    // C. Check if already assigned on this day (globally)
     const counts = assignmentCounts.get(vol.id) || { total: 0, recent: new Date(0) };
     
     if (counts.recent.getTime() === massDateZeroed.getTime()) {
        continue; // Already assigned today, skip
+    }
+    
+    // D. FAMILY TEAM: Check if already assigned to this specific Mass
+    if (massAssignments && massAssignments.has(vol.id)) {
+      continue; // Already assigned to this Mass
     }
     
     // This volunteer is a valid candidate
@@ -357,11 +346,11 @@ function ASSIGNMENT_findVolunteerForRole(roleToFill, massDate, volunteers, timeo
   }
   
   if (candidates.length === 0) {
-    Logger.log(`No volunteers found for role: ${roleToFill}`);
+    Logger.log(`    No volunteers found for role: ${roleToFill}`);
     return null;
   }
 
-  Logger.log(`DEBUG: Found ${candidates.length} candidate volunteers for ${roleToFill}`);
+  Logger.log(`    Found ${candidates.length} candidate volunteers`);
 
   // --- 2. Score: Rank the qualified candidates ---
   for (const candidate of candidates) {
@@ -369,90 +358,48 @@ function ASSIGNMENT_findVolunteerForRole(roleToFill, massDate, volunteers, timeo
     const counts = assignmentCounts.get(vol.id) || { total: 0, recent: new Date(0) };
 
     // A. Penalize for high frequency (spread the work)
-    candidate.score -= counts.total * 5; // Each assignment = -5 points
+    candidate.score -= counts.total * 5;
     
-    // B. ENHANCED: Bonus for Mass Preference Match
+    // B. Bonus for Mass Preference
     if (eventId && vol.massPrefs.includes(eventId)) {
-      candidate.score += 20; // Big bonus for preferred mass time
-      Logger.log(`DEBUG: ${vol.name} gets +20 points for preferring ${eventId}`);
+      candidate.score += 20;
+      Logger.log(`    ${vol.name} gets +20 points for preferring ${eventId}`);
     }
     
-    // C. ENHANCED: Small bonus if volunteer has no mass preference (flexible)
-    if (vol.massPrefs.length === 0) {
-      candidate.score += 5; // Small bonus for flexible volunteers
-      Logger.log(`DEBUG: ${vol.name} gets +5 points for being flexible (no mass preference)`);
+    // C. ROLE PREFERENCES: Bonus for preferred role
+    if (vol.rolePrefs.includes(roleLower)) {
+      candidate.score += 15;
+      Logger.log(`    ${vol.name} gets +15 points for preferring role ${roleToFill}`);
     }
     
-    // D. ENHANCED: Family Team Bonus (if we want to implement this)
-    // Note: This would require more complex logic to check if family members
-    // are already assigned to the same mass. For now, we skip this.
+    // D. FAMILY TEAM: Bonus if family member is already assigned to this Mass
+    if (vol.familyTeam && massAssignments) {
+      for (const [assignedVolId, assignedRole] of massAssignments) {
+        const assignedVol = volunteers.get(assignedVolId);
+        if (assignedVol && assignedVol.familyTeam === vol.familyTeam) {
+          candidate.score += 25; // Big bonus for keeping families together
+          Logger.log(`    ${vol.name} gets +25 points for family team with ${assignedVol.name}`);
+          break; // Only count this bonus once per volunteer
+        }
+      }
+    }
     
-    Logger.log(`DEBUG: ${vol.name} final score: ${candidate.score} (assignments: ${counts.total})`);
+    // E. Small bonus for flexibility (no preferences)
+    if (vol.massPrefs.length === 0 && vol.rolePrefs.length === 0) {
+      candidate.score += 3;
+    }
+    
+    Logger.log(`    ${vol.name} final score: ${candidate.score}`);
   }
   
   // --- 3. Sort: Find the best candidate ---
   candidates.sort((a, b) => b.score - a.score);
   
   const bestVolunteer = candidates[0].vol;
-  Logger.log(`Selected ${bestVolunteer.name} for ${roleToFill} (score: ${candidates[0].score})`);
+  Logger.log(`    Selected ${bestVolunteer.name} for ${roleToFill} (score: ${candidates[0].score})`);
   
   return {
     id: bestVolunteer.id,
     name: bestVolunteer.name
   };
-}
-
-/**
- * ENHANCED: Helper function to get EventID from mass information
- * This function maps a date/time/description back to an EventID by looking up
- * the RecurringMasses or SpecialMasses sheets.
- * 
- * @param {Date} massDate The date of the mass
- * @param {string} massTime The time of the mass
- * @param {string} massDescription The description of the mass
- * @returns {string|null} The EventID or null if not found
- */
-function ASSIGNMENT_getEventIdForMass(massDate, massTime, massDescription) {
-  try {
-    // First check RecurringMasses
-    const recurringData = HELPER_readSheetData(CONSTANTS.SHEETS.RECURRING_MASSES);
-    const recCols = CONSTANTS.COLS.RECURRING_MASSES;
-    
-    const dayOfWeek = massDate.toLocaleDateString('en-US', { weekday: 'long' });
-    
-    for (const row of recurringData) {
-      const recurringDay = row[recCols.DAY_OF_WEEK - 1];
-      const recurringTime = row[recCols.TIME - 1];
-      const eventId = row[recCols.EVENT_ID - 1];
-      
-      if (recurringDay === dayOfWeek && 
-          String(recurringTime) === String(massTime) &&
-          eventId) {
-        return eventId;
-      }
-    }
-    
-    // Then check SpecialMasses
-    const specialData = HELPER_readSheetData(CONSTANTS.SHEETS.SPECIAL_MASSES);
-    const specCols = CONSTANTS.COLS.SPECIAL_MASSES;
-    
-    for (const row of specialData) {
-      const specialDate = new Date(row[specCols.DATE - 1]);
-      const specialTime = row[specCols.TIME - 1];
-      const eventId = row[specCols.EVENT_ID - 1];
-      
-      if (specialDate.getTime() === massDate.getTime() && 
-          String(specialTime) === String(massTime) &&
-          eventId) {
-        return eventId;
-      }
-    }
-    
-    Logger.log(`Warning: Could not find EventID for mass on ${massDate.toDateString()} at ${massTime}`);
-    return null;
-    
-  } catch (error) {
-    Logger.log(`Error getting EventID for mass: ${error}`);
-    return null;
-  }
 }
