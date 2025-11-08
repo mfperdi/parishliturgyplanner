@@ -26,12 +26,20 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
 
   // 1. --- Christmas Season (Part 1: Jan) ---
   if (currentDate >= dates.maryMotherOfGod && currentDate < dates.baptism) {
-    // Note: Mary, Epiphany, etc., are now handled by SaintsCalendar.
-    // This function just needs to provide the "default" seasonal name.
     
-    // Handle 2nd Sunday after Christmas
+    // --- Explicit handling of major feasts ---
+    if (currentDate.getTime() === dates.epiphany.getTime()) {
+      return { celebration: "The Epiphany of the Lord", season: "Christmas", rank: "Solemnity", color: "White" };
+    }
+    
+    // Handle 2nd Sunday after Christmas (only if it's before Epiphany)
     if (dayOfWeek === 0 && currentDate > dates.maryMotherOfGod && currentDate < dates.epiphany && currentDate > new Date(currentDate.getFullYear(), 0, 1) ) {
         return { celebration: "2nd Sunday after Christmas", season: "Christmas", rank: "Feast", color: "White" };
+    }
+    
+    // Handle Sundays between Epiphany and Baptism (if any)
+    if (dayOfWeek === 0 && currentDate > dates.epiphany && currentDate < dates.baptism) {
+        return { celebration: "Sunday after Epiphany", season: "Christmas", rank: "Feast", color: "White" };
     }
     
     // Weekdays in Christmas
@@ -73,12 +81,6 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       // Get week number *relative to 1st Sunday of Lent*
       const firstSundayOfLent = new Date(dates.ashWednesday.getTime() + (7 - dates.ashWednesday.getDay()) * oneDay);
       const lentWeek = getWeek(firstSundayOfLent, currentDate) + 1; // +1 because Ash Wednesday week is "Week 0"
-      
-      // Special case: 4th Sunday of Lent is Laetare Sunday (Rose color)
-      if (lentWeek === 4) {
-        return { celebration: `${HELPER_getOrdinal(lentWeek)} Sunday of Lent (Laetare)`, season: "Lent", rank: "Feast", color: "Rose" };
-      }
-      
       return { celebration: `${HELPER_getOrdinal(lentWeek)} Sunday of Lent`, season: "Lent", rank: "Feast", color: "Violet" };
     }
     
@@ -127,12 +129,6 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       // Sundays of Advent
     if (dayOfWeek === 0) {
       const adventWeek = getWeek(dates.firstSundayOfAdvent, currentDate);
-      
-      // Special case: 3rd Sunday of Advent is Gaudete Sunday (Rose color)
-      if (adventWeek === 3) {
-        return { celebration: `${HELPER_getOrdinal(adventWeek)} Sunday of Advent (Gaudete)`, season: "Advent", rank: "Feast", color: "Rose" };
-      }
-      
       return { celebration: `${HELPER_getOrdinal(adventWeek)} Sunday of Advent`, season: "Advent", rank: "Feast", color: "Violet" };
     }
     
@@ -151,7 +147,11 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   
   // 5. --- Christmas Season (Part 2: Dec) ---
   if (currentDate >= dates.christmasDay) {
-    // Note: Christmas Day is handled by SaintsCalendar
+    
+    // --- Explicit handling of major feasts ---
+    if (currentDate.getTime() === dates.christmasDay.getTime()) {
+      return { celebration: "The Nativity of the Lord (Christmas)", season: "Christmas", rank: "Solemnity", color: "White" };
+    }
     
     // Handle Sundays in Christmas Octave
      if (dayOfWeek === 0) {
@@ -197,12 +197,12 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   let ordWeek;
   if (currentDate < dates.ashWednesday) {
       // Get week number based on *preceding Sunday*
-    const precedingSunday = HELPER_getPreviousSunday(currentDate);
+    const precedingSunday = getPreviousSunday(currentDate);
     // Week 1 is the Baptism of the Lord
     ordWeek = getWeek(dates.baptism, precedingSunday) + 1;
   } else {
     // Get week number based on *preceding Sunday*
-    const precedingSunday = HELPER_getPreviousSunday(currentDate);
+    const precedingSunday = getPreviousSunday(currentDate);
     const weeksFromEnd = Math.floor((dates.christTheKing.getTime() - precedingSunday.getTime()) / oneDay / 7);
     ordWeek = 34 - weeksFromEnd;
   }
