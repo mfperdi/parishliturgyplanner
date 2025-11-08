@@ -56,21 +56,19 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
     // For each role in the template, create a new row
     for (const role of roles) {
-      const newRow = new Array(assignCols.FAMILY_GROUP).fill("");
+      const newRow = new Array(assignCols.NOTES).fill("");
       
       newRow[assignCols.DATE - 1] = mass.date; // The specific date of the mass
       newRow[assignCols.TIME - 1] = mass.time;
       newRow[assignCols.MASS_NAME - 1] = mass.description;
       newRow[assignCols.LITURGICAL_CELEBRATION - 1] = mass.liturgicalCelebration || "";
       newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName; // e.g., "1st Reading"
-      newRow[assignCols.MINISTRY_SKILL - 1] = role.skill; // e.g., "Lector"
+      newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
+      newRow[assignCols.MONTH_YEAR - 1] = monthString;
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] = "";
       newRow[assignCols.STATUS - 1] = "Unassigned";
       newRow[assignCols.NOTES - 1] = mass.notes || "";
-      newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
-      newRow[assignCols.MONTH_YEAR - 1] = monthString;
-      newRow[assignCols.FAMILY_GROUP - 1] = "";
       
       newAssignmentRows.push(newRow);
     }
