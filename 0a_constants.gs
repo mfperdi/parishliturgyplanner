@@ -1,11 +1,10 @@
 /**
  * ====================================================================
- * GLOBAL CONSTANTS (UPDATED FOR FAMILY TEAM & ROLE PREFERENCES)
+ * GLOBAL CONSTANTS (CORRECTED TO MATCH USER'S DATA STRUCTURE)
  * ====================================================================
  * 
- * CHANGES MADE:
- * 1. Added ROLE_PREFERENCES column to Volunteers sheet
- * 2. Updated column count for Volunteers sheet
+ * CORRECTED: Column 11 "Preference" contains Mass times (SUN-1000)
+ *            Column 12 "PreferredMassTime" contains role preferences
  */
 const CONSTANTS = {
   // 1. Sheet Names
@@ -112,7 +111,7 @@ const CONSTANTS = {
     },
     
     // 'Volunteers' sheet (14 columns)
-    // UPDATED: Based on actual column order provided by user
+    // CORRECTED: Based on user's actual data structure
     VOLUNTEERS: {
       VOLUNTEER_ID: 1,
       FIRST_NAME: 2,
@@ -124,8 +123,8 @@ const CONSTANTS = {
       FAMILY_TEAM: 8,
       STATUS: 9,
       MINISTRY_ROLE: 10,
-      PREFERENCE: 11,             // Role preferences (renamed from ROLE_PREFERENCES)
-      PREFERRED_MASS_TIME: 12,
+      PREFERRED_MASS_TIME: 11,        // Mass time preferences (e.g., "SUN-1000")
+      MINISTRY_ROLE_PREFERENCE: 12,   // Role preferences (e.g., "1st reading")
       DATE_CLEARED: 13,
       DATE_TRAINED: 14
     },
@@ -143,23 +142,14 @@ const CONSTANTS = {
 /*
  * IMPLEMENTATION NOTES:
  * 
- * 1. FAMILY TEAM GROUPINGS:
- *    - Volunteers with the same value in FAMILY_GROUP column will be prioritized
- *      to serve at the same Mass
- *    - +25 point bonus when family members are already assigned to a Mass
- *    - Family team name is stored in FAMILY_GROUP column of Assignments sheet
+ * CORRECTED COLUMN MAPPING:
+ * - Column 11 "Preference" = Mass time preferences (SUN-1000, SAT-1700, etc.)
+ * - Column 12 "PreferredMassTime" = Role preferences (1st reading, psalm, etc.)
  * 
- * 2. ROLE PREFERENCES:
- *    - New ROLE_PREFERENCES column (I) in Volunteers sheet
- *    - Comma-separated list of preferred ministry roles (lowercase)
- *    - Examples: "1st reading", "psalm", "eucharistic minister"
- *    - +15 point bonus when volunteer is assigned to preferred role
- * 
- * 3. SCORING SYSTEM:
- *    - Base score: 100 points
- *    - Frequency penalty: -5 points per existing assignment
- *    - Mass preference bonus: +20 points
- *    - Role preference bonus: +15 points
- *    - Family team bonus: +25 points
- *    - Flexibility bonus: +3 points (no preferences)
+ * SCORING SYSTEM:
+ * - Mass time preference bonus: +20 points
+ * - Role preference bonus: +15 points  
+ * - Family team bonus: +25 points
+ * - Frequency penalty: -5 points per existing assignment
+ * - Flexibility bonus: +3 points (no preferences)
  */
