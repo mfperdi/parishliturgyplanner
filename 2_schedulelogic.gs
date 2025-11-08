@@ -90,16 +90,15 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       newRow[assignCols.DATE - 1] = mass.date;
       newRow[assignCols.TIME - 1] = mass.time;
       newRow[assignCols.MASS_NAME - 1] = mass.description;
-      newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration; // ENHANCED: Proper liturgical celebration
+      newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration;
       newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName;
-      newRow[assignCols.MINISTRY_SKILL - 1] = role.skill;
+      newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
+      newRow[assignCols.MONTH_YEAR - 1] = monthString;
+      newRow[assignCols.ASSIGNED_GROUP - 1] = mass.assignedGroup || ""; // Column H
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] = "";
-      newRow[assignCols.STATUS - 1] = "Unassigned";
+      newRow[assignCols.STATUS - 1] = "";
       newRow[assignCols.NOTES - 1] = mass.notes || "";
-      newRow[assignCols.EVENT_ID - 1] = mass.eventId || ""; // ENHANCED: Populate EventID
-      newRow[assignCols.MONTH_YEAR - 1] = monthString; // ENHANCED: Populate MonthYear for filtering
-      newRow[assignCols.FAMILY_GROUP - 1] = ""; // Will be populated during assignment if family grouping is used
       
       newAssignmentRows.push(newRow);
     }
@@ -268,6 +267,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
           templateName: row[recCols.TEMPLATE_NAME - 1],
           eventId: row[recCols.EVENT_ID - 1], // ENHANCED: Include EventID
           isAnticipated: isAnticipated,       // ENHANCED: Include IsAnticipated flag
+          assignedGroup: row[recCols.ASSIGNED_GROUP - 1] || "", // ENHANCED: Include AssignedGroup
           notes: row[recCols.NOTES - 1] || ""
         });
         
@@ -332,6 +332,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
         templateName: specialMassRow[specCols.TEMPLATE_NAME - 1],
         eventId: celebrationName,          // ENHANCED: EventID is the celebration name
         isAnticipated: isAnticipated,      // ENHANCED: Include IsAnticipated flag
+        assignedGroup: specialMassRow[specCols.ASSIGNED_GROUP - 1] || "", // ENHANCED: Include AssignedGroup
         notes: specialMassRow[specCols.NOTES - 1] || ""
       });
       
