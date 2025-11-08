@@ -93,30 +93,17 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
 /**
  * Clears all 'Unassigned' rows for the given month/year.
- * Automatically extends to include the following weekend if the month doesn't end on Sunday.
- * This function preserves filters by clearing content, not deleting rows.
+ * Only clears assignments that belong to this specific month (using MONTH_YEAR column).
+ * This preserves weekend spillover from previous months.
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The 'Assignments' sheet.
  * @param {number} month The month (0-indexed).
  * @param {number} year The year.
  */
 function SCHEDULE_clearOldAssignments(sheet, month, year) {
-  // --- Determine the actual date range (same logic as findMassesForMonth) ---
-  const startDate = new Date(year, month, 1); // First day of month
-  let endDate = new Date(year, month + 1, 0); // Last day of month
+  // Build the month-year string for this generation
+  const currentMonthYear = year + "-" + String(month + 1).padStart(2, '0'); // e.g., "2026-02"
   
-  // Check if we need to extend to include the following weekend
-  const lastDayOfWeek = endDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-  
-  if (lastDayOfWeek !== 0) { // Month doesn't end on Sunday
-    // Extend to the first Sunday of the next month
-    let extendToDate = new Date(year, month + 1, 1); // First day of next month
-    while (extendToDate.getDay() !== 0) { // Find first Sunday
-      extendToDate.setDate(extendToDate.getDate() + 1);
-    }
-    endDate = extendToDate;
-  }
-  
-  Logger.log(`Clearing assignments from ${startDate.toDateString()} to ${endDate.toDateString()}`);
+  Logger.log(`Clearing assignments for MONTH_YEAR = ${currentMonthYear}`);
 
   const data = sheet.getDataRange().getValues();
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
@@ -127,17 +114,18 @@ function SCHEDULE_clearOldAssignments(sheet, month, year) {
   for (const row of data) {
     if (row[0] === "") continue; // Skip blank rows
     
-    const rowDate = new Date(row[assignCols.DATE - 1]);
     const rowStatus = row[assignCols.STATUS - 1];
+    const rowMonthYear = row[assignCols.MONTH_YEAR - 1];
     
     // Check if the row should be deleted
-    const isInRange = rowDate >= startDate && rowDate <= endDate;
+    const belongsToThisMonth = rowMonthYear === currentMonthYear;
     const isUnassigned = rowStatus === "Unassigned";
     
-    if (isInRange && isUnassigned) {
-      // This row should be deleted, so we *don't* add it to rowsToKeep
+    if (belongsToThisMonth && isUnassigned) {
+      // This row belongs to the month we're regenerating AND is unassigned, so delete it
+      Logger.log(`Clearing assignment: ${row[assignCols.DATE - 1]} - ${row[assignCols.MINISTRY_ROLE - 1]}`);
     } else {
-      // This row is outside our range OR is already "Assigned", so we keep it.
+      // This row belongs to a different month OR is already "Assigned", so we keep it.
       rowsToKeep.push(row);
     }
   }
@@ -151,6 +139,8 @@ function SCHEDULE_clearOldAssignments(sheet, month, year) {
   if (rowsToKeep.length > 0) {
     sheet.getRange(2, 1, rowsToKeep.length, rowsToKeep[0].length).setValues(rowsToKeep);
   }
+  
+  Logger.log(`Kept ${rowsToKeep.length} assignments from other months.`);
 }
 
 /**
@@ -199,13 +189,13 @@ function SCHEDULE_findMassesForMonth(month, year) {
   const startDate = new Date(year, month, 1); // First day of month
   let endDate = new Date(year, month + 1, 0); // Last day of month
   
-  // Check if we need to extend to include the following weekend
+  // Check if we need to extend to include the following weekend (Saturday-Sunday only)
   const lastDayOfWeek = endDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
   
-  if (lastDayOfWeek !== 0) { // Month doesn't end on Sunday
-    // Extend to the first Sunday of the next month
-    let extendToDate = new Date(year, month + 1, 1); // First day of next month
-    while (extendToDate.getDay() !== 0) { // Find first Sunday
+  if (lastDayOfWeek >= 1 && lastDayOfWeek <= 6) { // Month ends Mon-Sat (not Sunday)
+    // Extend to the next Sunday to complete the weekend
+    let extendToDate = new Date(endDate);
+    while (extendToDate.getDay() !== 0) { // Find next Sunday
       extendToDate.setDate(extendToDate.getDate() + 1);
     }
     endDate = extendToDate;
