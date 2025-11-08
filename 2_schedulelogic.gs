@@ -1,10 +1,12 @@
 /**
  * ====================================================================
- * 2. SCHEDULE GENERATION LOGIC
+ * 2. SCHEDULE GENERATION LOGIC (ENHANCED WITH EVENTID SUPPORT)
  * ====================================================================
  * This file contains all logic for "Step 1: Generate Schedule".
  * It reads mass templates and recurring/special masses to create
  * all the "Unassigned" rows for a given month.
+ * 
+ * ENHANCED: Now properly populates EventID column for mass preference matching.
  */
 
 /**
@@ -40,8 +42,12 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
   Logger.log("3. Finding all masses for the month...");
   const massesToSchedule = SCHEDULE_findMassesForMonth(month, scheduleYear);
   
-  // 4. Create new rows
-  Logger.log(`4. Generating roles for ${massesToSchedule.length} masses...`);
+  // 4. Get liturgical celebrations for the month (for anticipated Mass handling)
+  Logger.log("4. Reading liturgical calendar for anticipated Mass logic...");
+  const liturgicalMap = SCHEDULE_buildLiturgicalMap(month, scheduleYear);
+  
+  // 5. Create new rows
+  Logger.log(`5. Generating roles for ${massesToSchedule.length} masses...`);
   const newAssignmentRows = [];
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
 
@@ -54,28 +60,53 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       continue;
     }
 
+    // ENHANCED: Determine the liturgical celebration name for this mass
+    let liturgicalCelebration = mass.description;
+    
+    // If this is an anticipated Mass, get the liturgical celebration from the next day
+    if (mass.isAnticipated) {
+      const nextDay = new Date(mass.date.getTime() + 24 * 60 * 60 * 1000);
+      const nextDayKey = `${nextDay.getFullYear()}-${(nextDay.getMonth() + 1).toString().padStart(2, '0')}-${nextDay.getDate().toString().padStart(2, '0')}`;
+      const nextDayLiturgy = liturgicalMap.get(nextDayKey);
+      
+      if (nextDayLiturgy) {
+        liturgicalCelebration = nextDayLiturgy;
+        Logger.log(`DEBUG: Anticipated Mass on ${mass.date.toDateString()} uses liturgy from ${nextDay.toDateString()}: ${liturgicalCelebration}`);
+      }
+    } else {
+      // Regular Mass uses the liturgy from the same day
+      const massDateKey = `${mass.date.getFullYear()}-${(mass.date.getMonth() + 1).toString().padStart(2, '0')}-${mass.date.getDate().toString().padStart(2, '0')}`;
+      const massDayLiturgy = liturgicalMap.get(massDateKey);
+      
+      if (massDayLiturgy) {
+        liturgicalCelebration = massDayLiturgy;
+      }
+    }
+
     // For each role in the template, create a new row
     for (const role of roles) {
-      const newRow = new Array(assignCols.NOTES).fill("");
+      const newRow = new Array(assignCols.FAMILY_GROUP).fill("");
       
-      newRow[assignCols.DATE - 1] = mass.date; // The specific date of the mass
+      newRow[assignCols.DATE - 1] = mass.date;
       newRow[assignCols.TIME - 1] = mass.time;
       newRow[assignCols.MASS_NAME - 1] = mass.description;
-      newRow[assignCols.LITURGICAL_CELEBRATION - 1] = mass.liturgicalCelebration || "";
-      newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName; // e.g., "1st Reading"
-      newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
-      newRow[assignCols.MONTH_YEAR - 1] = monthString;
+      newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration; // ENHANCED: Proper liturgical celebration
+      newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName;
+      newRow[assignCols.MINISTRY_SKILL - 1] = role.skill;
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] = "";
       newRow[assignCols.STATUS - 1] = "Unassigned";
       newRow[assignCols.NOTES - 1] = mass.notes || "";
+      newRow[assignCols.EVENT_ID - 1] = mass.eventId || ""; // ENHANCED: Populate EventID
+      newRow[assignCols.MONTH_YEAR - 1] = monthString; // ENHANCED: Populate MonthYear for filtering
+      newRow[assignCols.FAMILY_GROUP - 1] = ""; // Will be populated during assignment if family grouping is used
       
       newAssignmentRows.push(newRow);
     }
   }
 
-  // 5. Write new rows to the sheet
-  Logger.log(`5. Writing ${newAssignmentRows.length} new 'Unassigned' rows...`);
+  // 6. Write new rows to the sheet
+  Logger.log(`6. Writing ${newAssignmentRows.length} new 'Unassigned' rows...`);
   if (newAssignmentRows.length > 0) {
     assignmentsSheet.getRange(
       assignmentsSheet.getLastRow() + 1, // Start on the next available row
@@ -91,18 +122,12 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
 /**
  * Clears all 'Unassigned' rows for the given month/year.
- * Only clears assignments that belong to this specific month (using MONTH_YEAR column).
- * This preserves weekend spillover from previous months.
+ * This function preserves filters by clearing content, not deleting rows.
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The 'Assignments' sheet.
  * @param {number} month The month (0-indexed).
  * @param {number} year The year.
  */
 function SCHEDULE_clearOldAssignments(sheet, month, year) {
-  // Build the month-year string for this generation
-  const currentMonthYear = year + "-" + String(month + 1).padStart(2, '0'); // e.g., "2026-02"
-  
-  Logger.log(`Clearing assignments for MONTH_YEAR = ${currentMonthYear}`);
-
   const data = sheet.getDataRange().getValues();
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
   const header = data.shift(); // Remove header
@@ -112,18 +137,17 @@ function SCHEDULE_clearOldAssignments(sheet, month, year) {
   for (const row of data) {
     if (row[0] === "") continue; // Skip blank rows
     
+    const rowDate = new Date(row[assignCols.DATE - 1]);
     const rowStatus = row[assignCols.STATUS - 1];
-    const rowMonthYear = row[assignCols.MONTH_YEAR - 1];
     
     // Check if the row should be deleted
-    const belongsToThisMonth = rowMonthYear === currentMonthYear;
+    const isThisMonth = rowDate.getMonth() === month && rowDate.getFullYear() === year;
     const isUnassigned = rowStatus === "Unassigned";
     
-    if (belongsToThisMonth && isUnassigned) {
-      // This row belongs to the month we're regenerating AND is unassigned, so delete it
-      Logger.log(`Clearing assignment: ${row[assignCols.DATE - 1]} - ${row[assignCols.MINISTRY_ROLE - 1]}`);
+    if (isThisMonth && isUnassigned) {
+      // This row should be deleted, so we *don't* add it to rowsToKeep
     } else {
-      // This row belongs to a different month OR is already "Assigned", so we keep it.
+      // This row is from a different month OR is already "Assigned", so we keep it.
       rowsToKeep.push(row);
     }
   }
@@ -137,8 +161,6 @@ function SCHEDULE_clearOldAssignments(sheet, month, year) {
   if (rowsToKeep.length > 0) {
     sheet.getRange(2, 1, rowsToKeep.length, rowsToKeep[0].length).setValues(rowsToKeep);
   }
-  
-  Logger.log(`Kept ${rowsToKeep.length} assignments from other months.`);
 }
 
 /**
@@ -169,10 +191,42 @@ function SCHEDULE_buildTemplateMap() {
 }
 
 /**
- * Finds all recurring and special masses for a given month.
+ * ENHANCED: Builds a map of liturgical celebrations for the month.
  * @param {number} month The month (0-indexed).
  * @param {number} year The year.
- * @returns {Array<object>} An array of mass objects {date, time, description, templateName, liturgicalCelebration, notes, eventId}.
+ * @returns {Map<string, string>} A map where key is "YYYY-MM-DD" and value is the liturgical celebration name.
+ */
+function SCHEDULE_buildLiturgicalMap(month, year) {
+  const liturgicalMap = new Map();
+  
+  try {
+    const calData = HELPER_readSheetData(CONSTANTS.SHEETS.CALENDAR);
+    const calCols = CONSTANTS.COLS.CALENDAR;
+    
+    for (const row of calData) {
+      const calDate = new Date(row[calCols.DATE - 1]);
+      if (calDate.getMonth() === month && calDate.getFullYear() === year) {
+        const dateKey = `${calDate.getFullYear()}-${(calDate.getMonth() + 1).toString().padStart(2, '0')}-${calDate.getDate().toString().padStart(2, '0')}`;
+        const liturgicalCelebration = row[calCols.LITURGICAL_CELEBRATION - 1];
+        liturgicalMap.set(dateKey, liturgicalCelebration);
+      }
+    }
+    
+    Logger.log(`> Built liturgical map with ${liturgicalMap.size} entries for the month.`);
+  } catch (error) {
+    Logger.log(`Warning: Could not read liturgical calendar: ${error}. Mass names will use default descriptions.`);
+  }
+  
+  return liturgicalMap;
+}
+
+/**
+ * Finds all recurring and special masses for a given month.
+ * ENHANCED: Now properly handles EventIDs and IsAnticipated flag.
+ * 
+ * @param {number} month The month (0-indexed).
+ * @param {number} year The year.
+ * @returns {Array<object>} An array of mass objects {date, time, description, templateName, eventId, isAnticipated, notes}.
  */
 function SCHEDULE_findMassesForMonth(month, year) {
   const masses = [];
@@ -183,55 +237,43 @@ function SCHEDULE_findMassesForMonth(month, year) {
   const recCols = CONSTANTS.COLS.RECURRING_MASSES;
   const specCols = CONSTANTS.COLS.SPECIAL_MASSES;
 
-  // --- Determine the actual date range to process ---
-  const startDate = new Date(year, month, 1); // First day of month
-  let endDate = new Date(year, month + 1, 0); // Last day of month
-  
-  // Check if we need to extend to include the following weekend (Saturday-Sunday only)
-  const lastDayOfWeek = endDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-  
-  if (lastDayOfWeek >= 1 && lastDayOfWeek <= 6) { // Month ends Mon-Sat (not Sunday)
-    // Extend to the next Sunday to complete the weekend
-    let extendToDate = new Date(endDate);
-    while (extendToDate.getDay() !== 0) { // Find next Sunday
-      extendToDate.setDate(extendToDate.getDate() + 1);
-    }
-    endDate = extendToDate;
-    Logger.log(`Month extends through ${endDate.toDateString()} to include complete weekend.`);
-  }
-  
-  Logger.log(`Processing masses from ${startDate.toDateString()} to ${endDate.toDateString()}`);
-
   // --- 1. Find Recurring Masses ---
-  let currentDate = new Date(startDate);
-  while (currentDate <= endDate) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate(); // Get last day of month
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const currentDate = new Date(year, month, day);
     const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' }); // e.g., "Sunday"
     
     for (const row of recurringData) {
       const isActive = row[recCols.IS_ACTIVE - 1];
       if (isActive === false) continue; // Skip if explicitly set to FALSE
       
+      const assignedGroup = row[recCols.ASSIGNED_GROUP - 1];
+      if (assignedGroup) continue; // Skip if assigned to a specific group
+      
       const recurringDay = row[recCols.DAY_OF_WEEK - 1];
       if (recurringDay === dayOfWeek) {
-        // We have a match
-        const isAnticipated = row[recCols.IS_ANTICIPATED - 1];
-        Logger.log(`Found recurring mass on ${currentDate.toDateString()}: ${row[recCols.DESCRIPTION - 1]}, IsAnticipated: ${isAnticipated}`);
+        // ENHANCED: Parse IsAnticipated as boolean
+        let isAnticipated = false;
+        const anticipatedValue = row[recCols.IS_ANTICIPATED - 1];
+        if (anticipatedValue === true || anticipatedValue === "TRUE" || anticipatedValue === "true" || anticipatedValue === 1) {
+          isAnticipated = true;
+        }
         
+        // We have a match
         masses.push({
-          date: new Date(currentDate), // Create a copy of the date
+          date: currentDate,
           time: row[recCols.TIME - 1],
           description: row[recCols.DESCRIPTION - 1] || dayOfWeek,
           templateName: row[recCols.TEMPLATE_NAME - 1],
-          liturgicalCelebration: "", // Will be filled from calendar if needed
-          notes: row[recCols.NOTES - 1] || "",
-          eventId: row[recCols.EVENT_ID - 1] || "",
-          isAnticipated: isAnticipated === true || isAnticipated === "TRUE" || isAnticipated === "true"
+          eventId: row[recCols.EVENT_ID - 1], // ENHANCED: Include EventID
+          isAnticipated: isAnticipated,       // ENHANCED: Include IsAnticipated flag
+          notes: row[recCols.NOTES - 1] || ""
         });
+        
+        Logger.log(`DEBUG: Added recurring mass - ${dayOfWeek} ${row[recCols.TIME - 1]} (${row[recCols.EVENT_ID - 1]}) - Anticipated: ${isAnticipated}`);
       }
     }
-    
-    // Move to next day
-    currentDate.setDate(currentDate.getDate() + 1);
   }
   
   // --- 2. Find Special Masses ---
@@ -244,6 +286,9 @@ function SCHEDULE_findMassesForMonth(month, year) {
      const isActive = row[specCols.IS_ACTIVE - 1];
      if (isActive === false) continue;
      
+     const assignedGroup = row[specCols.ASSIGNED_GROUP - 1];
+     if (assignedGroup) continue; // Skip if assigned to a specific group
+     
      const eventId = row[specCols.EVENT_ID - 1];
      if (!eventId) continue; // Skip if no EventID
      
@@ -251,12 +296,12 @@ function SCHEDULE_findMassesForMonth(month, year) {
      specialMassEventIdMap.set(eventId, row);
   }
 
-  // Now, loop through the *LiturgicalCalendar* for our date range
+  // Now, loop through the *LiturgicalCalendar* for the month
   const calCols = CONSTANTS.COLS.CALENDAR;
   for (const calRow of calData) {
     const calDate = new Date(calRow[calCols.DATE - 1]);
-    if (calDate < startDate || calDate > endDate) {
-      continue; // Skip dates not in our range
+    if (calDate.getMonth() !== month || calDate.getFullYear() !== year) {
+      continue; // Skip dates not in our month
     }
     
     const celebrationName = calRow[calCols.LITURGICAL_CELEBRATION - 1];
@@ -265,12 +310,18 @@ function SCHEDULE_findMassesForMonth(month, year) {
     if (specialMassEventIdMap.has(celebrationName)) {
       const specialMassRow = specialMassEventIdMap.get(celebrationName);
       
-      // Found a special mass!
       // First, remove any *recurring* masses for this same day
       for (let i = masses.length - 1; i >= 0; i--) {
         if (masses[i].date.getTime() === calDate.getTime()) {
           masses.splice(i, 1); // Remove recurring mass
         }
+      }
+      
+      // ENHANCED: Parse IsAnticipated as boolean
+      let isAnticipated = false;
+      const anticipatedValue = specialMassRow[specCols.IS_ANTICIPATED - 1];
+      if (anticipatedValue === true || anticipatedValue === "TRUE" || anticipatedValue === "true" || anticipatedValue === 1) {
+        isAnticipated = true;
       }
       
       // Then, add the special mass
@@ -279,42 +330,12 @@ function SCHEDULE_findMassesForMonth(month, year) {
         time: specialMassRow[specCols.TIME - 1],
         description: specialMassRow[specCols.DESCRIPTION - 1] || celebrationName,
         templateName: specialMassRow[specCols.TEMPLATE_NAME - 1],
-        liturgicalCelebration: celebrationName,
-        notes: specialMassRow[specCols.NOTES - 1] || "",
-        eventId: specialMassRow[specCols.EVENT_ID - 1] || "",
-        isAnticipated: specialMassRow[specCols.IS_ANTICIPATED - 1] || false
+        eventId: celebrationName,          // ENHANCED: EventID is the celebration name
+        isAnticipated: isAnticipated,      // ENHANCED: Include IsAnticipated flag
+        notes: specialMassRow[specCols.NOTES - 1] || ""
       });
-    }
-  }
-
-  // --- 3. Add liturgical celebration info to recurring masses ---
-  const calCols2 = CONSTANTS.COLS.CALENDAR;
-  for (const mass of masses) {
-    if (!mass.liturgicalCelebration) {
-      // Determine which date to look up for liturgical celebration
-      let lookupDate = mass.date;
       
-      // If this is an anticipated Mass, look up the NEXT day's liturgical celebration
-      if (mass.isAnticipated === true) {
-        lookupDate = new Date(mass.date.getTime() + 86400000); // Add one day (86400000 ms = 1 day)
-        Logger.log(`Anticipated Mass on ${mass.date.toDateString()}: Looking up ${lookupDate.toDateString()}`);
-      }
-      
-      // Find the liturgical celebration for the lookup date
-      for (const calRow of calData) {
-        const calDate = new Date(calRow[calCols2.DATE - 1]);
-        if (calDate.getTime() === lookupDate.getTime()) {
-          mass.liturgicalCelebration = calRow[calCols2.LITURGICAL_CELEBRATION - 1];
-          Logger.log(`Found liturgical celebration for ${lookupDate.toDateString()}: ${mass.liturgicalCelebration}`);
-          break;
-        }
-      }
-      
-      // If we still don't have a liturgical celebration, log it
-      if (!mass.liturgicalCelebration) {
-        Logger.log(`Warning: No liturgical celebration found for ${lookupDate.toDateString()}`);
-        mass.liturgicalCelebration = "Unknown";
-      }
+      Logger.log(`DEBUG: Added special mass - ${celebrationName} on ${calDate.toDateString()} - Anticipated: ${isAnticipated}`);
     }
   }
 
