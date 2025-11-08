@@ -422,10 +422,15 @@ function ASSIGNMENT_findVolunteerForRole(roleToFill, massDate, volunteers, timeo
     // A. Penalize for high frequency (spread the work)
     candidate.score -= counts.total * 5;
     
+    // DEBUG: Log volunteer preferences
+    Logger.log(`    ${vol.name} massPrefs: [${vol.massPrefs.join(', ')}], rolePrefs: [${vol.rolePrefs.join(', ')}]`);
+    
     // B. Bonus for Mass Preference
     if (eventId && vol.massPrefs.includes(eventId)) {
       candidate.score += 20;
       Logger.log(`    ${vol.name} gets +20 points for preferring ${eventId}`);
+    } else if (eventId && vol.massPrefs.length > 0) {
+      Logger.log(`    ${vol.name} has preferences [${vol.massPrefs.join(', ')}] but doesn't match ${eventId}`);
     }
     
     // C. ROLE PREFERENCES: Bonus for preferred role
@@ -451,7 +456,7 @@ function ASSIGNMENT_findVolunteerForRole(roleToFill, massDate, volunteers, timeo
       candidate.score += 3;
     }
     
-    Logger.log(`    ${vol.name} final score: ${candidate.score}`);
+    Logger.log(`    ${vol.name} final score: ${candidate.score} (base: 100, freq: -${counts.total * 5})`);
   }
   
   // --- 3. Sort: Find the best candidate ---
