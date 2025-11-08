@@ -350,21 +350,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
   // A special mass on a specific date (e.g., 12/25/2026) overrides
   // any recurring masses for that day.
   
-  // Check if we need to include spillover dates (declared earlier in recurring masses section)
-  const lastDayOfMonth = new Date(year, month, daysInMonth);
-  const includeNextSunday = lastDayOfMonth.getDay() === 6; // Last day is Saturday
-  
-  let endMonth = month;
-  let endYear = year;
-  
-  if (includeNextSunday) {
-    if (month === 11) { // December
-      endMonth = 0; // January
-      endYear = year + 1;
-    } else {
-      endMonth = month + 1;
-    }
-  }
+  // Use the same spillover logic as recurring masses (variables already declared above)
   
   // First, build a map of celebration names to EventIDs from the SpecialMasses sheet
   const specialMassEventIdMap = new Map();
