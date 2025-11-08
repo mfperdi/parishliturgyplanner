@@ -190,7 +190,7 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
     
     const status = String(row[cols.STATUS - 1] || "").toLowerCase();
     const name = row[cols.FULL_NAME - 1];
-    const ministryRole = row[cols.MINISTRIES - 1]; // Updated to use MINISTRIES column
+    const ministryRole = row[cols.MINISTRY_ROLE - 1]; // Column J (10)
     
     Logger.log(`DEBUG: Volunteer ${id} (${name}) - Status: "${status}", MinistryRole: "${ministryRole}"`);
     
@@ -200,11 +200,11 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
     }
     
     const ministries = (ministryRole || "").split(',').map(s => s.trim().toLowerCase());
-    const massPrefs = (row[cols.PREF_MASS_TIME - 1] || "").split(',').map(s => s.trim());
-    const familyTeam = row[cols.FAMILY_GROUP - 1] || null;
+    const massPrefs = (row[cols.PREFERRED_MASS_TIME - 1] || "").split(',').map(s => s.trim()); // Column L (12)
+    const familyTeam = row[cols.FAMILY_TEAM - 1] || null; // Column H (8)
     
-    // ROLE PREFERENCES: Parse role preferences (assuming new column)
-    const rolePrefs = (row[cols.ROLE_PREFERENCES - 1] || "").split(',').map(s => s.trim().toLowerCase());
+    // ROLE PREFERENCES: Column K (11) - renamed to "Preference"
+    const rolePrefs = (row[cols.PREFERENCE - 1] || "").split(',').map(s => s.trim().toLowerCase());
     
     Logger.log(`DEBUG: Added active volunteer ${name} - Family: ${familyTeam}, RolePrefs: [${rolePrefs.join(', ')}]`);
     
