@@ -192,7 +192,6 @@ function ASSIGNMENT_buildAllVolunteersMap(volunteerData) {
   Logger.log(`Built complete volunteer map with ${volMap.size} volunteers (active + substitutes, inactive excluded).`);
   return volMap;
 }
-}
 
 /**
  * Builds a map of volunteer time-offs for the specific month being scheduled.
