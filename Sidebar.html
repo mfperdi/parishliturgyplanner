@@ -37,79 +37,115 @@
       margin-top: 4px;
     }
     
-    /* Step Progress Indicator */
-    .progress-steps {
+    /* Phase Progress Indicator */
+    .phase-progress {
       display: flex;
       justify-content: space-between;
       margin-bottom: 24px;
-      padding: 12px;
+      padding: 16px;
       background: white;
       border-radius: 8px;
       border: 1px solid #e0e0e0;
     }
     
-    .step {
+    .phase-step {
       flex: 1;
       text-align: center;
-      font-size: 11px;
+      font-size: 12px;
       color: #5f6368;
       position: relative;
     }
     
-    .step.completed {
+    .phase-step.completed {
       color: #137333;
       font-weight: 500;
     }
     
-    .step.active {
+    .phase-step.active {
       color: #1967d2;
       font-weight: 500;
     }
     
-    .step::after {
+    .phase-step::after {
       content: '';
       position: absolute;
-      top: -4px;
+      top: -6px;
       left: 50%;
       transform: translateX(-50%);
-      width: 8px;
-      height: 8px;
+      width: 10px;
+      height: 10px;
       border-radius: 50%;
       background: #e0e0e0;
     }
     
-    .step.completed::after {
+    .phase-step.completed::after {
       background: #137333;
     }
     
-    .step.active::after {
+    .phase-step.active::after {
       background: #1967d2;
     }
     
-    /* Sections */
-    .section {
-      margin-bottom: 20px;
-      background: white;
-      border-radius: 8px;
-      padding: 16px;
-      border: 1px solid #e0e0e0;
+    /* Phase Sections */
+    .phase-container {
+      margin-bottom: 24px;
     }
     
-    .section.disabled {
+    .phase-header {
+      background: linear-gradient(135deg, #1a73e8, #1557b0);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 8px 8px 0 0;
+      font-weight: 500;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .phase-header.setup {
+      background: linear-gradient(135deg, #f9ab00, #e8a317);
+      color: #1f1f1f;
+    }
+    
+    .phase-header.completion {
+      background: linear-gradient(135deg, #1e8e3e, #188038);
+    }
+    
+    .phase-content {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      padding: 0;
+    }
+    
+    .phase-content.disabled {
       opacity: 0.6;
       pointer-events: none;
     }
     
-    .section-header {
+    /* Step Items */
+    .step-item {
+      padding: 16px;
+      border-bottom: 1px solid #f1f3f4;
       display: flex;
       align-items: center;
-      margin-bottom: 12px;
+      gap: 12px;
     }
     
-    .section-icon {
-      width: 20px;
-      height: 20px;
-      margin-right: 8px;
+    .step-item:last-child {
+      border-bottom: none;
+    }
+    
+    .step-item.disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    
+    .step-icon {
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -117,27 +153,47 @@
       font-size: 12px;
       font-weight: bold;
       color: white;
+      flex-shrink: 0;
     }
     
-    .section-title {
-      font-size: 14px;
+    .step-content {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .step-title {
       font-weight: 500;
-      color: #1f1f1f;
-      margin: 0;
+      font-size: 14px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     
-    .section-description {
+    .step-description {
       font-size: 12px;
       color: #5f6368;
-      margin: 4px 0 12px 0;
       line-height: 1.4;
+    }
+    
+    .step-badge {
+      background: #ea4335;
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+    
+    .step-badge.info {
+      background: #1a73e8;
     }
     
     /* Buttons */
     .btn {
       width: 100%;
-      padding: 12px 16px;
-      font-size: 14px;
+      padding: 10px 14px;
+      font-size: 13px;
       font-weight: 500;
       border-radius: 6px;
       border: none;
@@ -146,7 +202,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 6px;
+      margin-top: 8px;
     }
     
     .btn:disabled {
@@ -188,23 +245,34 @@
       box-shadow: 0 2px 8px rgba(249, 171, 0, 0.25);
     }
     
+    .btn-outline {
+      background-color: white;
+      color: #1a73e8;
+      border: 1px solid #dadce0;
+    }
+    
+    .btn-outline:hover:not(:disabled) {
+      background-color: #f8f9fa;
+      border-color: #1a73e8;
+    }
+    
     /* Form Elements */
     .form-group {
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
     
     .form-label {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 500;
       color: #3c4043;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       display: block;
     }
     
     .form-select {
       width: 100%;
-      padding: 10px 12px;
-      font-size: 14px;
+      padding: 8px 10px;
+      font-size: 13px;
       border: 1px solid #dadce0;
       border-radius: 6px;
       background-color: white;
@@ -255,41 +323,6 @@
       border: 1px solid #f9c6c2;
     }
     
-    /* Accessibility */
-    .btn:focus {
-      outline: 2px solid #1a73e8;
-      outline-offset: 2px;
-    }
-    
-    /* Tooltips */
-    .tooltip {
-      position: relative;
-      display: inline-block;
-    }
-    
-    .tooltip .tooltiptext {
-      visibility: hidden;
-      width: 200px;
-      background-color: #333;
-      color: #fff;
-      text-align: center;
-      border-radius: 4px;
-      padding: 8px;
-      font-size: 12px;
-      position: absolute;
-      z-index: 1;
-      bottom: 125%;
-      left: 50%;
-      margin-left: -100px;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    
-    .tooltip:hover .tooltiptext {
-      visibility: visible;
-      opacity: 1;
-    }
-    
     /* Loading Spinner */
     .spinner {
       width: 16px;
@@ -305,11 +338,16 @@
       100% { transform: rotate(360deg); }
     }
     
-    /* Icons using simple text symbols */
-    .icon-setup::before { content: '⚙️'; }
-    .icon-calendar::before { content: '📅'; }
-    .icon-schedule::before { content: '📋'; }
-    .icon-assign::before { content: '👥'; }
+    /* Hidden elements */
+    .hidden {
+      display: none !important;
+    }
+    
+    /* Accessibility */
+    .btn:focus {
+      outline: 2px solid #1a73e8;
+      outline-offset: 2px;
+    }
   </style>
 </head>
 
@@ -319,78 +357,128 @@
     <div class="subtitle">Liturgical Ministry Management</div>
   </div>
 
-  <div class="progress-steps">
-    <div class="step" id="step-setup">Setup</div>
-    <div class="step" id="step-select">Select</div>
-    <div class="step" id="step-generate">Generate</div>
-    <div class="step" id="step-assign">Assign</div>
+  <div class="phase-progress">
+    <div class="phase-step" id="phase-setup">Setup</div>
+    <div class="phase-step" id="phase-scheduling">Scheduling</div>
+    <div class="phase-step" id="phase-completion">Completion</div>
   </div>
 
-  <!-- SECTION 1: SETUP -->
-  <div class="section" id="section-setup">
-    <div class="section-header">
-      <div class="section-icon" style="background-color: #f9ab00;">⚙️</div>
-      <div>
-        <div class="section-title">Initial Setup</div>
-        <div class="section-description">Run once per year to generate the liturgical calendar</div>
+  <!-- SETUP PHASE -->
+  <div class="phase-container">
+    <div class="phase-header setup">
+      <span>⚙️</span>
+      <span>Initial Setup</span>
+    </div>
+    <div class="phase-content" id="phase-setup-content">
+      
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #f9ab00;">1</div>
+        <div class="step-content">
+          <div class="step-title">Generate Liturgical Calendar</div>
+          <div class="step-description">Run once per year to create the complete liturgical calendar</div>
+          <button id="btn-admin" class="btn btn-warning" aria-label="Generate liturgical calendar for the entire year">
+            Generate Calendar
+          </button>
+        </div>
       </div>
-    </div>
-    <div class="tooltip">
-      <button id="btn-admin" class="btn btn-warning" aria-label="Generate liturgical calendar for the entire year">
-        <span>Generate Liturgical Calendar</span>
-      </button>
-      <span class="tooltiptext">Creates the complete liturgical calendar including all holy days, seasons, and special celebrations for the year</span>
-    </div>
-  </div>
-
-  <!-- SECTION 2: MONTH SELECTION -->
-  <div class="section" id="section-select">
-    <div class="section-header">
-      <div class="section-icon" style="background-color: #1a73e8;">📅</div>
-      <div>
-        <div class="section-title">Select Month</div>
-        <div class="section-description">Choose which month to schedule</div>
-      </div>
-    </div>
-    <div class="form-group">
-      <label for="month-select" class="form-label">Month to Schedule</label>
-      <select id="month-select" class="form-select" disabled aria-label="Select month for scheduling">
-        <option value="">Loading months...</option>
-      </select>
+      
     </div>
   </div>
 
-  <!-- SECTION 3: GENERATE SCHEDULE -->
-  <div class="section" id="section-generate">
-    <div class="section-header">
-      <div class="section-icon" style="background-color: #1a73e8;">📋</div>
-      <div>
-        <div class="section-title">Generate Schedule</div>
-        <div class="section-description">Create unassigned ministry roles for all masses</div>
-      </div>
+  <!-- SCHEDULING PHASE -->
+  <div class="phase-container">
+    <div class="phase-header">
+      <span>📅</span>
+      <span>Monthly Scheduling</span>
     </div>
-    <div class="tooltip">
-      <button id="btn-step1" class="btn btn-primary" disabled aria-label="Generate unassigned ministry roles for the selected month">
-        <span>Step 1: Generate Schedule</span>
-      </button>
-      <span class="tooltiptext">Creates all ministry role slots needed for each Mass in the selected month, ready for volunteer assignment</span>
+    <div class="phase-content disabled" id="phase-scheduling-content">
+      
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1a73e8;">2</div>
+        <div class="step-content">
+          <div class="step-title">Select Month</div>
+          <div class="step-description">Choose which month to schedule</div>
+          <div class="form-group">
+            <label for="month-select" class="form-label">Month to Schedule</label>
+            <select id="month-select" class="form-select" disabled>
+              <option value="">Loading months...</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1a73e8;">3</div>
+        <div class="step-content">
+          <div class="step-title">Generate Schedule</div>
+          <div class="step-description">Create unassigned ministry roles for all masses</div>
+          <button id="btn-step1" class="btn btn-primary" disabled>
+            Generate Schedule
+          </button>
+        </div>
+      </div>
+      
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #ff6d01;">4</div>
+        <div class="step-content">
+          <div class="step-title">
+            Review Timeoffs
+            <span id="timeoff-badge" class="step-badge hidden">0 pending</span>
+          </div>
+          <div class="step-description">Approve or reject volunteer timeoff requests</div>
+          <button id="btn-timeoffs" class="btn btn-primary" disabled>
+            Review Timeoffs
+          </button>
+        </div>
+      </div>
+      
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1e8e3e;">5</div>
+        <div class="step-content">
+          <div class="step-title">Auto-Assign Volunteers</div>
+          <div class="step-description">Automatically assign qualified volunteers to ministry roles</div>
+          <button id="btn-step2" class="btn btn-secondary" disabled>
+            Auto-Assign Volunteers
+          </button>
+        </div>
+      </div>
+      
     </div>
   </div>
 
-  <!-- SECTION 4: AUTO-ASSIGN -->
-  <div class="section" id="section-assign">
-    <div class="section-header">
-      <div class="section-icon" style="background-color: #1e8e3e;">👥</div>
-      <div>
-        <div class="section-title">Auto-Assign Volunteers</div>
-        <div class="section-description">Automatically assign qualified volunteers to ministry roles</div>
-      </div>
+  <!-- COMPLETION PHASE -->
+  <div class="phase-container">
+    <div class="phase-header completion">
+      <span>📄</span>
+      <span>Finalize & Export</span>
     </div>
-    <div class="tooltip">
-      <button id="btn-step2" class="btn btn-secondary" disabled aria-label="Automatically assign volunteers to ministry roles">
-        <span>Step 2: Auto-Assign Volunteers</span>
-      </button>
-      <span class="tooltiptext">Uses volunteer preferences, availability, and workload balancing to automatically assign volunteers to ministry roles</span>
+    <div class="phase-content disabled" id="phase-completion-content">
+      
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #9334e6;">6</div>
+        <div class="step-content">
+          <div class="step-title">Print Schedule</div>
+          <div class="step-description">Export completed assignments for distribution</div>
+          <button id="btn-print" class="btn btn-outline" disabled>
+            Print Schedule
+          </button>
+        </div>
+      </div>
+      
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #dc2626;">7</div>
+        <div class="step-content">
+          <div class="step-title">
+            Assign Substitutes
+            <span id="substitute-badge" class="step-badge info hidden">0 needed</span>
+          </div>
+          <div class="step-description">Handle unassigned roles and last-minute changes</div>
+          <button id="btn-substitutes" class="btn btn-outline" disabled>
+            Assign Substitutes
+          </button>
+        </div>
+      </div>
+      
     </div>
   </div>
 
@@ -398,79 +486,80 @@
   <div id="status-message" class="status-message" role="status" aria-live="polite"></div>
 
   <script>
-    // Enhanced JavaScript with better state management and accessibility
+    // Enhanced JavaScript with grouped workflow state management
     
     const monthSelect = document.getElementById('month-select');
     const btnAdmin = document.getElementById('btn-admin');
     const btnStep1 = document.getElementById('btn-step1');
+    const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
+    const btnPrint = document.getElementById('btn-print');
+    const btnSubstitutes = document.getElementById('btn-substitutes');
     const statusMessage = document.getElementById('status-message');
     
-    // Progress step elements
-    const stepSetup = document.getElementById('step-setup');
-    const stepSelect = document.getElementById('step-select');
-    const stepGenerate = document.getElementById('step-generate');
-    const stepAssign = document.getElementById('step-assign');
+    // Phase elements
+    const phaseSetup = document.getElementById('phase-setup');
+    const phaseScheduling = document.getElementById('phase-scheduling');
+    const phaseCompletion = document.getElementById('phase-completion');
     
-    // Section elements
-    const sectionSetup = document.getElementById('section-setup');
-    const sectionSelect = document.getElementById('section-select');
-    const sectionGenerate = document.getElementById('section-generate');
-    const sectionAssign = document.getElementById('section-assign');
+    // Phase content elements
+    const phaseSetupContent = document.getElementById('phase-setup-content');
+    const phaseSchedulingContent = document.getElementById('phase-scheduling-content');
+    const phaseCompletionContent = document.getElementById('phase-completion-content');
+    
+    // Badge elements
+    const timeoffBadge = document.getElementById('timeoff-badge');
+    const substituteBadge = document.getElementById('substitute-badge');
     
     let allButtons;
-    let currentStep = 'setup';
+    let currentPhase = 'setup';
+    let pendingTimeoffs = 0;
+    let unassignedRoles = 0;
     
-    // Update progress indicator
-    function updateProgress(step) {
-      // Reset all steps
-      [stepSetup, stepSelect, stepGenerate, stepAssign].forEach(s => {
-        s.className = 'step';
+    // Update phase progress indicator
+    function updatePhaseProgress(phase) {
+      // Reset all phases
+      [phaseSetup, phaseScheduling, phaseCompletion].forEach(p => {
+        p.className = 'phase-step';
       });
       
-      // Mark completed and active steps
-      switch(step) {
+      // Mark completed and active phases
+      switch(phase) {
         case 'setup':
-          stepSetup.className = 'step active';
+          phaseSetup.className = 'phase-step active';
           break;
-        case 'select':
-          stepSetup.className = 'step completed';
-          stepSelect.className = 'step active';
+        case 'scheduling':
+          phaseSetup.className = 'phase-step completed';
+          phaseScheduling.className = 'phase-step active';
           break;
-        case 'generate':
-          stepSetup.className = 'step completed';
-          stepSelect.className = 'step completed';
-          stepGenerate.className = 'step active';
-          break;
-        case 'assign':
-          stepSetup.className = 'step completed';
-          stepSelect.className = 'step completed';
-          stepGenerate.className = 'step completed';
-          stepAssign.className = 'step active';
+        case 'completion':
+          phaseSetup.className = 'phase-step completed';
+          phaseScheduling.className = 'phase-step completed';
+          phaseCompletion.className = 'phase-step active';
           break;
       }
+      
+      currentPhase = phase;
     }
     
-    // Update section states
-    function updateSectionStates() {
+    // Update phase content states
+    function updatePhaseStates() {
       const hasCalendar = monthSelect.options.length > 1;
       const hasMonthSelected = monthSelect.value !== '';
       
-      // Enable/disable sections based on dependencies
-      if (!hasCalendar) {
-        sectionSelect.classList.add('disabled');
-        sectionGenerate.classList.add('disabled');
-        sectionAssign.classList.add('disabled');
-      } else {
-        sectionSelect.classList.remove('disabled');
+      // Enable/disable phase content based on dependencies
+      if (hasCalendar) {
+        phaseSchedulingContent.classList.remove('disabled');
+        updatePhaseProgress('scheduling');
         
         if (hasMonthSelected) {
-          sectionGenerate.classList.remove('disabled');
-          sectionAssign.classList.remove('disabled');
-        } else {
-          sectionGenerate.classList.add('disabled');
-          sectionAssign.classList.add('disabled');
+          // Keep scheduling enabled, enable completion when assignments are done
+          // This will be updated by individual button states
         }
+      } else {
+        phaseSchedulingContent.classList.add('disabled');
+        phaseCompletionContent.classList.add('disabled');
+        updatePhaseProgress('setup');
       }
     }
     
@@ -479,17 +568,80 @@
       const hasCalendar = monthSelect.options.length > 1;
       const hasMonthSelected = monthSelect.value !== '';
       
+      // Month selection
       monthSelect.disabled = !hasCalendar;
+      
+      // Scheduling phase buttons
       btnStep1.disabled = !hasCalendar || !hasMonthSelected;
+      btnTimeoffs.disabled = !hasCalendar || !hasMonthSelected;
       btnStep2.disabled = !hasCalendar || !hasMonthSelected;
       
-      updateSectionStates();
+      // Completion phase buttons (enable after assignment)
+      btnPrint.disabled = !hasCalendar || !hasMonthSelected;
+      btnSubstitutes.disabled = !hasCalendar || !hasMonthSelected;
+      
+      updatePhaseStates();
+      updateBadges();
+    }
+    
+    // Update notification badges
+    function updateBadges() {
+      // Timeoff badge
+      if (pendingTimeoffs > 0) {
+        timeoffBadge.textContent = `${pendingTimeoffs} pending`;
+        timeoffBadge.classList.remove('hidden');
+      } else {
+        timeoffBadge.classList.add('hidden');
+      }
+      
+      // Substitute badge
+      if (unassignedRoles > 0) {
+        substituteBadge.textContent = `${unassignedRoles} needed`;
+        substituteBadge.classList.remove('hidden');
+      } else {
+        substituteBadge.classList.add('hidden');
+      }
+    }
+    
+    // Fetch additional data for badges
+    function refreshWorkflowData() {
+      if (monthSelect.value) {
+        // Get pending timeoffs count
+        google.script.run
+          .withSuccessHandler((count) => {
+            pendingTimeoffs = count || 0;
+            updateBadges();
+          })
+          .withFailureHandler(() => {
+            pendingTimeoffs = 0;
+            updateBadges();
+          })
+          .getPendingTimeoffsCount();
+          
+        // Get unassigned roles count  
+        google.script.run
+          .withSuccessHandler((count) => {
+            unassignedRoles = count || 0;
+            updateBadges();
+            
+            // Enable completion phase if assignments are done
+            if (unassignedRoles === 0) {
+              phaseCompletionContent.classList.remove('disabled');
+              updatePhaseProgress('completion');
+            }
+          })
+          .withFailureHandler(() => {
+            unassignedRoles = 0;
+            updateBadges();
+          })
+          .getUnassignedRolesCount(monthSelect.value);
+      }
     }
     
     // Initialization
     window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnStep1, btnStep2];
-      updateProgress('setup');
+      allButtons = [btnAdmin, btnStep1, btnTimeoffs, btnStep2, btnPrint, btnSubstitutes];
+      updatePhaseProgress('setup');
       
       google.script.run
         .withSuccessHandler(onMonthsLoaded)
@@ -499,35 +651,30 @@
     
     // Month selection handler
     monthSelect.addEventListener('change', () => {
-      if (monthSelect.value) {
-        updateProgress('generate');
-      } else {
-        updateProgress('select');
-      }
       updateButtonStates();
+      refreshWorkflowData();
     });
     
     function onMonthsLoaded(months) {
       if (months.length === 0) {
         monthSelect.innerHTML = '<option value="">No calendar data found</option>';
         showError("Please run 'Generate Liturgical Calendar' first.");
-        updateProgress('setup');
+        updatePhaseProgress('setup');
         return;
       }
       
       monthSelect.innerHTML = '<option value="">Select a month...</option>';
       months.forEach(monthObj => {
         const option = document.createElement('option');
-        option.value = monthObj.value;        // Use "2026-01" for backend
-        option.textContent = monthObj.display; // Display "January 2026" to user
+        option.value = monthObj.value;
+        option.textContent = monthObj.display;
         monthSelect.appendChild(option);
       });
       
-      updateProgress('select');
       updateButtonStates();
     }
     
-    // Button click handlers with enhanced feedback
+    // Button click handlers with enhanced workflow management
     btnAdmin.addEventListener('click', () => {
       if (!confirm('This will regenerate the entire liturgical calendar. Any manual adjustments will be lost. Continue?')) {
         return;
@@ -535,12 +682,11 @@
       
       const msg = "Generating liturgical calendar...";
       showLoading(msg);
-      updateProgress('setup');
       
       google.script.run
         .withSuccessHandler((message) => {
           showSuccess(message);
-          updateProgress('select');
+          updatePhaseProgress('scheduling');
         })
         .withFailureHandler(showError)
         .triggerCalendarGeneration();
@@ -553,17 +699,31 @@
       const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
       const msg = `Generating ministry roles for ${selectedText}...`;
       showLoading(msg);
-      updateProgress('generate');
       
       google.script.run
         .withSuccessHandler((message) => {
-          // Replace technical month format with user-friendly format in response
           const friendlyMessage = message.replace(selectedMonth, selectedText);
           showSuccess(friendlyMessage);
-          updateProgress('assign');
+          refreshWorkflowData();
         })
         .withFailureHandler(showError)
         .triggerScheduleGeneration(selectedMonth);
+    });
+    
+    btnTimeoffs.addEventListener('click', () => {
+      const selectedMonth = monthSelect.value;
+      if (!selectedMonth) return;
+      
+      const msg = "Loading timeoff requests...";
+      showLoading(msg);
+      
+      google.script.run
+        .withSuccessHandler((message) => {
+          showSuccess(message);
+          refreshWorkflowData();
+        })
+        .withFailureHandler(showError)
+        .reviewTimeoffs(selectedMonth);
     });
     
     btnStep2.addEventListener('click', () => {
@@ -576,16 +736,50 @@
       
       google.script.run
         .withSuccessHandler((message) => {
-          // Replace technical month format with user-friendly format in response
           const friendlyMessage = message.replace(selectedMonth, selectedText);
           showSuccess(friendlyMessage);
-          // Stay on assign step - workflow complete
+          refreshWorkflowData();
         })
         .withFailureHandler(showError)
         .triggerAssignment(selectedMonth);
     });
+    
+    btnPrint.addEventListener('click', () => {
+      const selectedMonth = monthSelect.value;
+      if (!selectedMonth) return;
+      
+      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
+      const msg = `Generating printable schedule for ${selectedText}...`;
+      showLoading(msg);
+      
+      google.script.run
+        .withSuccessHandler((message) => {
+          const friendlyMessage = message.replace(selectedMonth, selectedText);
+          showSuccess(friendlyMessage);
+        })
+        .withFailureHandler(showError)
+        .generatePrintableSchedule(selectedMonth);
+    });
+    
+    btnSubstitutes.addEventListener('click', () => {
+      const selectedMonth = monthSelect.value;
+      if (!selectedMonth) return;
+      
+      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
+      const msg = `Finding substitute assignments for ${selectedText}...`;
+      showLoading(msg);
+      
+      google.script.run
+        .withSuccessHandler((message) => {
+          const friendlyMessage = message.replace(selectedMonth, selectedText);
+          showSuccess(friendlyMessage);
+          refreshWorkflowData();
+        })
+        .withFailureHandler(showError)
+        .findSubstituteAssignments(selectedMonth);
+    });
 
-    // Enhanced status functions with accessibility
+    // Enhanced status functions
     function showLoading(message) {
       statusMessage.className = 'status-message status-loading';
       statusMessage.innerHTML = '<div class="spinner"></div><span>' + message + '</span>';
