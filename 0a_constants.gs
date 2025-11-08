@@ -116,7 +116,7 @@ const CONSTANTS = {
       FULL_NAME: 4,
       EMAIL: 5,
       PHONE: 6,
-      MINISTRIES: 7,
+      MINISTRY_ROLE: 7,
       PREFERRED_MASS_TIME: 8,
       DATE_CLEARED: 9,
       DATE_TRAINED: 10,
