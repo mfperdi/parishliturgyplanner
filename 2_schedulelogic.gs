@@ -72,6 +72,13 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       if (nextDayLiturgy) {
         liturgicalCelebration = nextDayLiturgy;
         Logger.log(`DEBUG: Anticipated Mass on ${mass.date.toDateString()} uses liturgy from ${nextDay.toDateString()}: ${liturgicalCelebration}`);
+      } else {
+        // Fallback: use current day's liturgy if next day not found
+        const massDateKey = `${mass.date.getFullYear()}-${(mass.date.getMonth() + 1).toString().padStart(2, '0')}-${mass.date.getDate().toString().padStart(2, '0')}`;
+        const massDayLiturgy = liturgicalMap.get(massDateKey);
+        if (massDayLiturgy) {
+          liturgicalCelebration = massDayLiturgy;
+        }
       }
     } else {
       // Regular Mass uses the liturgy from the same day
@@ -247,8 +254,9 @@ function SCHEDULE_findMassesForMonth(month, year) {
       const isActive = row[recCols.IS_ACTIVE - 1];
       if (isActive === false) continue; // Skip if explicitly set to FALSE
       
-      const assignedGroup = row[recCols.ASSIGNED_GROUP - 1];
-      if (assignedGroup) continue; // Skip if assigned to a specific group
+      // REMOVED: Don't skip based on AssignedGroup - we still need to generate roles for group-assigned masses
+      // const assignedGroup = row[recCols.ASSIGNED_GROUP - 1];
+      // if (assignedGroup) continue; // Skip if assigned to a specific group
       
       const recurringDay = row[recCols.DAY_OF_WEEK - 1];
       if (recurringDay === dayOfWeek) {
@@ -286,8 +294,9 @@ function SCHEDULE_findMassesForMonth(month, year) {
      const isActive = row[specCols.IS_ACTIVE - 1];
      if (isActive === false) continue;
      
-     const assignedGroup = row[specCols.ASSIGNED_GROUP - 1];
-     if (assignedGroup) continue; // Skip if assigned to a specific group
+     // REMOVED: Don't skip based on AssignedGroup - we still need to generate roles for group-assigned masses
+     // const assignedGroup = row[specCols.ASSIGNED_GROUP - 1];
+     // if (assignedGroup) continue; // Skip if assigned to a specific group
      
      const eventId = row[specCols.EVENT_ID - 1];
      if (!eventId) continue; // Skip if no EventID
