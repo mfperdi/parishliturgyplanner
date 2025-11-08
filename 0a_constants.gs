@@ -1,6 +1,6 @@
 /**
  * ====================================================================
- * GLOBAL CONSTANTS (CORRECTED TO MATCH USER'S DATA STRUCTURE)
+ * GLOBAL CONSTANTS (CORRECTED FOR USER'S DATA STRUCTURE)
  * ====================================================================
  * 
  * CORRECTED: Column 11 "Preference" contains Mass times (SUN-1000)
@@ -70,7 +70,7 @@ const CONSTANTS = {
       IS_ANTICIPATED: 5,
       DESCRIPTION: 6,
       TEMPLATE_NAME: 7,
-      ASSIGNED_GROUP: 8,         // Column H
+      ASSIGNED_GROUP: 8,
       NOTES: 9
     },
     
@@ -83,7 +83,7 @@ const CONSTANTS = {
       IS_ANTICIPATED: 5,
       DESCRIPTION: 6,
       TEMPLATE_NAME: 7,
-      ASSIGNED_GROUP: 8,         // Column H
+      ASSIGNED_GROUP: 8,
       NOTES: 9
     },
     
@@ -94,7 +94,7 @@ const CONSTANTS = {
       MINISTRY_SKILL: 3
     },
     
-    // 'Assignments' sheet (12 columns - AssignedGroup in column H)
+    // 'Assignments' sheet (12 columns)
     ASSIGNMENTS: {
       DATE: 1,
       TIME: 2,
@@ -103,7 +103,7 @@ const CONSTANTS = {
       MINISTRY_ROLE: 5,
       EVENT_ID: 6,
       MONTH_YEAR: 7,
-      ASSIGNED_GROUP: 8,          // Column H
+      ASSIGNED_GROUP: 8,
       ASSIGNED_VOLUNTEER_ID: 9,
       ASSIGNED_VOLUNTEER_NAME: 10,
       STATUS: 11,
