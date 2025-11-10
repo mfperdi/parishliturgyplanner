@@ -1,16 +1,14 @@
 /**
  * ====================================================================
- * GLOBAL CONSTANTS (CORRECTED FOR USER'S DATA STRUCTURE)
+ * CORRECTED CONSTANTS - FIXED TIMEOFFS MAPPING
  * ====================================================================
- * 
- * CORRECTED: Column 11 "Preference" contains Mass times (SUN-1000)
- *            Column 12 "PreferredMassTime" contains role preferences
  */
+
 const CONSTANTS = {
   // 1. Sheet Names
   SHEETS: {
     CONFIG: "Config",
-    VOLUNTEERS: "Volunteers",
+    VOLUNTEERS: "Volunteers", 
     TIMEOFFS: "Timeoffs",
     TEMPLATES: "MassTemplates",
     RECURRING_MASSES: "RecurringMasses",
@@ -107,11 +105,11 @@ const CONSTANTS = {
       ASSIGNED_VOLUNTEER_ID: 9,
       ASSIGNED_VOLUNTEER_NAME: 10,
       STATUS: 11,
-      NOTES: 12
+      NOTES: 12,
+      FAMILY_GROUP: 13 // Added for future expansion
     },
     
     // 'Volunteers' sheet (14 columns)
-    // CORRECTED: Based on user's actual data structure
     VOLUNTEERS: {
       VOLUNTEER_ID: 1,
       FIRST_NAME: 2,
@@ -123,18 +121,39 @@ const CONSTANTS = {
       FAMILY_TEAM: 8,
       STATUS: 9,
       MINISTRY_ROLE: 10,
-      PREFERRED_MASS_TIME: 11,        // Mass time preferences (e.g., "SUN-1000")
-      MINISTRY_ROLE_PREFERENCE: 12,   // Role preferences (e.g., "1st reading")
+      PREFERRED_MASS_TIME: 11,
+      MINISTRY_ROLE_PREFERENCE: 12,
       DATE_CLEARED: 13,
       DATE_TRAINED: 14
     },
     
-    // 'Timeoffs' sheet (4 columns)
+    // 'Timeoffs' sheet (10 columns) - CORRECTED
     TIMEOFFS: {
-      VOLUNTEER_NAME: 1,
-      TYPE: 2,
-      START_DATE: 3,
-      END_DATE: 4
+      TIMESTAMP: 1,
+      VOLUNTEER_NAME: 2,
+      EMAIL: 3,
+      TYPE: 4,
+      START_DATE: 5,
+      END_DATE: 6,
+      NOTES: 7,
+      STATUS: 8,
+      REVIEWED_DATE: 9,
+      REVIEW_NOTES: 10
     }
+  },
+  
+  // 3. Status Values (for validation)
+  STATUS: {
+    VOLUNTEER: ['Active', 'Inactive', 'Training'],
+    TIMEOFF: ['Pending', 'Approved', 'Rejected'],
+    ASSIGNMENT: ['Unassigned', 'Assigned', 'Substitute Needed']
+  },
+  
+  // 4. Validation Rules
+  VALIDATION: {
+    MAX_TIMEOFF_DAYS: 90,
+    MIN_YEAR: 2020,
+    MAX_YEAR: 2050,
+    REQUIRED_CONFIG: ['Year to Schedule']
   }
 };
