@@ -34,6 +34,41 @@ function HELPER_readSheetDataCached(sheetName, useCache = true) {
 }
 
 /**
+ * Basic sheet data reader (original function)
+ */
+function HELPER_readSheetData(sheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  
+  if (!sheet) {
+    throw new Error(`Sheet '${sheetName}' not found`);
+  }
+  
+  const data = sheet.getDataRange().getValues();
+  data.shift(); // Remove header row
+  return data;
+}
+
+/**
+ * Basic config reader (original function)
+ */
+function HELPER_readConfig() {
+  const configData = HELPER_readSheetData(CONSTANTS.SHEETS.CONFIG);
+  const config = {};
+  const configCols = CONSTANTS.COLS.CONFIG;
+  
+  for (const row of configData) {
+    const setting = row[configCols.SETTING - 1];
+    const value = row[configCols.VALUE - 1];
+    if (setting) {
+      config[setting] = value;
+    }
+  }
+  
+  return config;
+}
+
+/**
  * Consolidated date formatting
  */
 function HELPER_formatDate(date, format = 'default') {
@@ -168,11 +203,12 @@ function HELPER_safeArrayAccess(array, index, defaultValue = '') {
  */
 function HELPER_getLiturgicalColorHex(colorName) {
   const colors = {
-    'White': '#edce47',
-      'Violet': '#805977', 
-      'Rose': '#cf7f93',
-      'Green': '#2c926c',
-      'Red': '#e06666'
+    'White': '#f4f4f4',
+    'Violet': '#8e44ad', 
+    'Rose': '#e91e63',
+    'Green': '#27ae60',
+    'Red': '#e74c3c',
+    'Gold': '#f1c40f'
   };
   return colors[colorName] || '#ecf0f1'; // Default light gray
 }
@@ -189,293 +225,195 @@ function HELPER_timeFunction(funcName, func) {
 }
 
 /**
- * ====================================================================
- * MISSING HELPER FUNCTIONS - BASIC UTILITIES
- * ====================================================================
- * These are the core helper functions that were missing from your codebase.
- * Add these functions to your existing helper.gs file or create a new file.
+ * MISSING FUNCTION: Translate liturgical rank text to number for comparison
  */
-
-/**
- * Reads data from a sheet, excluding the header row.
- * @param {string} sheetName The name of the sheet to read.
- * @returns {Array<Array<any>>} Array of row data (without header).
- */
-function HELPER_readSheetData(sheetName) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(sheetName);
-    
-    if (!sheet) {
-      throw new Error(`Sheet "${sheetName}" not found`);
-    }
-    
-    const lastRow = sheet.getLastRow();
-    if (lastRow <= 1) {
-      return []; // No data rows (only header or empty sheet)
-    }
-    
-    // Read from row 2 to skip header
-    const range = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn());
-    return range.getValues();
-  } catch (e) {
-    Logger.log(`Error reading sheet ${sheetName}: ${e.message}`);
-    throw new Error(`Could not read sheet "${sheetName}": ${e.message}`);
-  }
+function HELPER_translateRank(rankText) {
+  const ranks = {
+    'Solemnity': 1,
+    'Feast': 2,
+    'Memorial': 3,
+    'Optional Memorial': 4,
+    'Commemoration': 5,
+    'Ferial': 6,
+    'Weekday': 7
+  };
+  
+  return ranks[rankText] || 7; // Default to weekday if unknown
 }
 
 /**
- * Reads configuration settings from the Config sheet.
- * @returns {object} Configuration object with setting names as keys.
+ * MISSING FUNCTION: Get ordinal suffix for numbers (1st, 2nd, 3rd, etc.)
  */
-function HELPER_readConfig() {
+function HELPER_getOrdinal(number) {
+  const suffix = ["th", "st", "nd", "rd"];
+  const lastDigit = number % 10;
+  const lastTwoDigits = number % 100;
+  
+  // Special cases for 11, 12, 13
+  if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
+    return number + "th";
+  }
+  
+  // Use appropriate suffix based on last digit
+  return number + (suffix[lastDigit] || "th");
+}
+
+/**
+ * MISSING FUNCTION: Get the previous Sunday for a given date
+ */
+function getPreviousSunday(date) {
+  const sunday = new Date(date);
+  const dayOfWeek = sunday.getDay(); // 0 = Sunday
+  
+  if (dayOfWeek === 0) {
+    // If it's already Sunday, go back a week
+    sunday.setDate(sunday.getDate() - 7);
+  } else {
+    // Go back to the previous Sunday
+    sunday.setDate(sunday.getDate() - dayOfWeek);
+  }
+  
+  return sunday;
+}
+
+/**
+ * MISSING FUNCTION: Build liturgical data for print functions
+ */
+function PRINT_buildLiturgicalData(monthString) {
+  const liturgicalMap = new Map();
+  
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const configSheet = ss.getSheetByName(CONSTANTS.SHEETS.CONFIG);
+    const calendarData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.CALENDAR);
+    const calCols = CONSTANTS.COLS.CALENDAR;
     
-    if (!configSheet) {
-      throw new Error('Config sheet not found');
-    }
+    const [targetYear, targetMonth] = monthString.split('-').map(n => parseInt(n));
     
-    const data = configSheet.getDataRange().getValues();
-    const config = {};
-    
-    // Skip header row, process setting/value pairs
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const setting = row[0]; // Column A
-      const value = row[1];   // Column B
+    for (const row of calendarData) {
+      const calDate = new Date(row[calCols.DATE - 1]);
       
-      if (setting && value !== undefined && value !== '') {
-        config[setting] = value;
+      // Include this month and spillover Sunday if needed
+      const includeDate = (
+        (calDate.getMonth() === targetMonth - 1 && calDate.getFullYear() === targetYear) ||
+        (calDate.getMonth() === targetMonth % 12 && calDate.getDate() <= 7 && 
+         calDate.getFullYear() === (targetMonth === 12 ? targetYear + 1 : targetYear) &&
+         calDate.getDay() === 0) // Only Sunday spillover
+      );
+      
+      if (includeDate) {
+        const celebration = row[calCols.LITURGICAL_CELEBRATION - 1];
+        
+        if (!liturgicalMap.has(celebration)) {
+          liturgicalMap.set(celebration, {
+            celebration: celebration,
+            rank: row[calCols.RANK - 1],
+            color: row[calCols.COLOR - 1], 
+            season: row[calCols.SEASON - 1],
+            dates: []
+          });
+        }
+        
+        liturgicalMap.get(celebration).dates.push(calDate);
       }
     }
     
-    Logger.log(`Loaded ${Object.keys(config).length} config settings`);
-    return config;
-  } catch (e) {
-    Logger.log(`Error reading config: ${e.message}`);
-    throw new Error(`Could not read configuration: ${e.message}`);
-  }
-}
-
-/**
- * Translates liturgical rank text to numbers for comparison.
- * Lower numbers = higher priority.
- * @param {string} rankText The rank text (e.g., "Solemnity").
- * @returns {number} Numerical rank for comparison.
- */
-function HELPER_translateRank(rankText) {
-  if (!rankText) return 99; // Default for undefined/null
-  
-  const rankMap = {
-    'solemnity': 1,
-    'feast': 2,
-    'memorial': 3,
-    'optional memorial': 4,
-    'weekday': 7
-  };
-  
-  const normalized = String(rankText).toLowerCase();
-  return rankMap[normalized] || 99; // Default for unrecognized ranks
-}
-
-/**
- * Converts numbers to ordinal strings (1st, 2nd, 3rd, etc.).
- * @param {number} num The number to convert.
- * @returns {string} The ordinal string.
- */
-function HELPER_getOrdinal(num) {
-  const suffixes = ["th", "st", "nd", "rd"];
-  const value = num % 100;
-  
-  // Handle special cases (11th, 12th, 13th)
-  if (value >= 11 && value <= 13) {
-    return num + "th";
-  }
-  
-  // Use last digit for suffix determination
-  const lastDigit = num % 10;
-  const suffix = suffixes[lastDigit] || suffixes[0];
-  
-  return num + suffix;
-}
-
-/**
- * Gets the previous Sunday from a given date.
- * @param {Date} date The reference date.
- * @returns {Date} The previous Sunday.
- */
-function getPreviousSunday(date) {
-  const result = new Date(date);
-  const dayOfWeek = result.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  
-  if (dayOfWeek === 0) {
-    // If it's already Sunday, go back 7 days to get previous Sunday
-    result.setDate(result.getDate() - 7);
-  } else {
-    // Go back to the most recent Sunday
-    result.setDate(result.getDate() - dayOfWeek);
-  }
-  
-  return result;
-}
-
-/**
- * Safely validates and parses month string input.
- * @param {string} monthString The month string to validate (YYYY-MM).
- * @returns {object} Object with validated year and month.
- */
-function HELPER_validateMonthString(monthString) {
-  if (!monthString || typeof monthString !== 'string') {
-    throw new Error('Month string is required and must be a string');
-  }
-  
-  const monthPattern = /^\d{4}-\d{2}$/;
-  if (!monthPattern.test(monthString)) {
-    throw new Error(`Invalid month format: "${monthString}". Expected format: YYYY-MM (e.g., 2026-01)`);
-  }
-  
-  const [yearStr, monthStr] = monthString.split('-');
-  const year = parseInt(yearStr, 10);
-  const month = parseInt(monthStr, 10);
-  
-  // Validate year range
-  if (year < 2020 || year > 2050) {
-    throw new Error(`Year ${year} is out of range. Must be between 2020 and 2050.`);
-  }
-  
-  // Validate month range
-  if (month < 1 || month > 12) {
-    throw new Error(`Month ${month} is invalid. Must be between 01 and 12.`);
-  }
-  
-  return {
-    year: year,
-    month: month - 1  // Return 0-indexed month for JavaScript Date compatibility
-  };
-}
-
-/**
- * Enhanced error logging with context information.
- * @param {string} context Description of what operation failed.
- * @param {Error} error The error object.
- * @param {object} additionalInfo Optional additional context.
- */
-function HELPER_logError(context, error, additionalInfo = {}) {
-  const timestamp = new Date().toISOString();
-  const errorMessage = error.message || error;
-  const stack = error.stack || 'No stack trace available';
-  
-  const logEntry = {
-    timestamp: timestamp,
-    context: context,
-    message: errorMessage,
-    additionalInfo: additionalInfo
-  };
-  
-  Logger.log(`❌ ERROR [${context}]: ${errorMessage}`);
-  if (Object.keys(additionalInfo).length > 0) {
-    Logger.log(`   Additional Info: ${JSON.stringify(additionalInfo)}`);
-  }
-  Logger.log(`   Stack: ${stack}`);
-  
-  return logEntry;
-}
-
-/**
- * Safe array access with default values and type checking.
- * @param {Array} array The array to access.
- * @param {number} index The index to access.
- * @param {any} defaultValue The default value if index is out of bounds.
- * @returns {any} The value at the index or the default value.
- */
-function HELPER_safeArrayAccess(array, index, defaultValue = '') {
-  if (!Array.isArray(array)) {
-    Logger.log(`Warning: Expected array but got ${typeof array}`);
-    return defaultValue;
-  }
-  
-  if (index < 0 || index >= array.length) {
-    return defaultValue;
-  }
-  
-  const value = array[index];
-  return (value === null || value === undefined) ? defaultValue : value;
-}
-
-/**
- * Validates that required sheets exist in the spreadsheet.
- * @param {Array<string>} requiredSheets Array of sheet names to check.
- * @returns {object} Validation result with missing sheets.
- */
-function HELPER_validateRequiredSheets(requiredSheets) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const existingSheets = ss.getSheets().map(sheet => sheet.getName());
-  const missing = requiredSheets.filter(sheetName => !existingSheets.includes(sheetName));
-  
-  const result = {
-    valid: missing.length === 0,
-    missingSheets: missing,
-    existingSheets: existingSheets
-  };
-  
-  if (!result.valid) {
-    Logger.log(`❌ Missing required sheets: ${missing.join(', ')}`);
-  }
-  
-  return result;
-}
-
-/**
- * Creates a friendly display message for operation results.
- * @param {string} operation The operation that was performed.
- * @param {boolean} success Whether the operation was successful.
- * @param {object} details Additional details about the operation.
- * @returns {string} Formatted message string.
- */
-function HELPER_formatOperationResult(operation, success, details = {}) {
-  const icon = success ? '✅' : '❌';
-  const status = success ? 'SUCCESS' : 'FAILED';
-  
-  let message = `${icon} ${operation} ${status}`;
-  
-  if (details.itemCount !== undefined) {
-    message += ` (${details.itemCount} items processed)`;
-  }
-  
-  if (details.duration !== undefined) {
-    message += ` in ${details.duration}ms`;
-  }
-  
-  if (details.additionalInfo) {
-    message += `\n${details.additionalInfo}`;
-  }
-  
-  return message;
-}
-
-/**
- * Utility function to measure execution time of operations.
- * @param {string} operationName Name of the operation being timed.
- * @param {Function} operation The function to execute and time.
- * @returns {any} The result of the operation function.
- */
-function HELPER_timeFunction(operationName, operation) {
-  const startTime = new Date().getTime();
-  
-  try {
-    const result = operation();
-    const endTime = new Date().getTime();
-    const duration = endTime - startTime;
+    // Sort dates within each celebration
+    for (const celebrationData of liturgicalMap.values()) {
+      celebrationData.dates.sort((a, b) => a.getTime() - b.getTime());
+    }
     
-    Logger.log(`⏱️ ${operationName} completed in ${duration}ms`);
-    return result;
   } catch (error) {
-    const endTime = new Date().getTime();
-    const duration = endTime - startTime;
-    
-    Logger.log(`⏱️ ${operationName} failed after ${duration}ms`);
-    throw error;
+    Logger.log(`Warning: Could not read liturgical calendar: ${error}`);
   }
+  
+  return liturgicalMap;
+}
+
+/**
+ * MISSING FUNCTION: Export liturgical schedule to PDF
+ */
+function PRINT_exportLiturgicalSchedulePDF(monthString) {
+  try {
+    // First generate the schedule if it doesn't exist
+    const result = PRINT_generateLiturgicalSchedule(monthString);
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const scheduleSheet = ss.getSheetByName('LiturgicalSchedule');
+    
+    if (!scheduleSheet) {
+      throw new Error('No schedule sheet found to export');
+    }
+    
+    // Create PDF blob
+    const url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?';
+    const params = {
+      exportFormat: 'pdf',
+      format: 'pdf',
+      size: 'A4',
+      portrait: 'true',
+      fitw: 'true',
+      gridlines: 'false',
+      printtitle: 'false',
+      sheetnames: 'false',
+      pagenumber: 'false',
+      gid: scheduleSheet.getSheetId()
+    };
+    
+    const paramString = Object.keys(params).map(key => key + '=' + params[key]).join('&');
+    const fullUrl = url + paramString;
+    
+    return `PDF export prepared. You can download it from: ${fullUrl}`;
+    
+  } catch (e) {
+    Logger.log(`Error exporting PDF: ${e.message}`);
+    throw new Error(`Could not export PDF: ${e.message}`);
+  }
+}
+
+/**
+ * MISSING FUNCTION: Generate liturgical schedule (wrapper for enhanced print function)
+ */
+function PRINT_generateLiturgicalSchedule(monthString) {
+  try {
+    // Use the enhanced print function with liturgical-specific options
+    const result = generatePrintableSchedule(monthString, {
+      sheetName: 'LiturgicalSchedule',
+      layoutStyle: 'liturgical',
+      showRankInfo: true,
+      includeColors: true,
+      groupByLiturgy: true
+    });
+    
+    return result;
+  } catch (e) {
+    Logger.log(`Error in PRINT_generateLiturgicalSchedule: ${e.message}`);
+    throw e;
+  }
+}
+
+/**
+ * Clear the sheet cache (useful for testing or when data changes)
+ */
+function HELPER_clearCache() {
+  SHEET_CACHE.clear();
+  Logger.log("Sheet cache cleared");
+}
+
+/**
+ * Get cache statistics
+ */
+function HELPER_getCacheStats() {
+  const stats = {
+    size: SHEET_CACHE.size,
+    entries: []
+  };
+  
+  for (const [key, value] of SHEET_CACHE.entries()) {
+    stats.entries.push({
+      sheet: key,
+      timestamp: new Date(value.timestamp),
+      rows: value.data.length
+    });
+  }
+  
+  return stats;
 }
