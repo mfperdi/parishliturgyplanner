@@ -226,12 +226,12 @@ function reviewTimeoffs(monthString) {
 }
 
 /**
- * (SIDEBAR) Triggers the auto-assignment.
+ * (SIDEBAR) Triggers the auto-assignment - FIXED FUNCTION CALL.
  * @param {string} monthString The selected month (e.g., "2026-01").
  * @returns {string} A success message.
  */
 function triggerAssignment(monthString) {
-  return ASSIGNMENT_autoAssignRolesForMonth(monthString);
+  return ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString);
 }
 
 /**
@@ -583,7 +583,7 @@ function findSubstituteAssignments(monthString) {
     assignData.shift(); // Remove header
     
     const volunteerData = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
-    const volunteers = ASSIGNMENT_buildVolunteerMap(volunteerData);
+    const volunteers = buildVolunteerMapOptimized(volunteerData);
     
     const substituteData = [];
     
