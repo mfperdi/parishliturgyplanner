@@ -582,6 +582,332 @@ function PRINT_exportLiturgicalSchedulePDF(monthString) {
 }
 
 /**
+ * Enhanced printable schedule with liturgical grouping and professional formatting.
+ * @param {string} monthString The selected month (e.g., "2026-01").
+ * @returns {string} A success message.
+ */
+function generatePrintableSchedule(monthString) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Create or get the enhanced monthly view sheet
+    let monthlySheet = ss.getSheetByName('MonthlyView');
+    if (!monthlySheet) {
+      monthlySheet = ss.insertSheet('MonthlyView');
+    } else {
+      // Clear existing content
+      monthlySheet.clear();
+    }
+    
+    // Set up the month display name
+    const [year, month] = monthString.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const displayName = date.toLocaleDateString('en-US', { 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    
+    // Get parish name from config (if available)
+    let parishName = "Parish Ministry Schedule"; // Default
+    try {
+      const config = HELPER_readConfig();
+      parishName = config["Parish Name"] || "Parish Ministry Schedule";
+    } catch (e) {
+      // Use default if config not available
+    }
+    
+    // Create header section
+    let currentRow = 1;
+    
+    // Parish header
+    monthlySheet.getRange(currentRow, 1).setValue(parishName);
+    monthlySheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold');
+    monthlySheet.getRange(currentRow, 1, 1, 5).merge();
+    currentRow++;
+    
+    // Schedule title
+    monthlySheet.getRange(currentRow, 1).setValue(`Ministry Schedule - ${displayName}`);
+    monthlySheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold');
+    monthlySheet.getRange(currentRow, 1, 1, 5).merge();
+    currentRow++;
+    
+    // Generation date
+    monthlySheet.getRange(currentRow, 1).setValue(`Generated: ${new Date().toLocaleDateString()}`);
+    monthlySheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic');
+    currentRow += 2; // Skip a row
+    
+    // Get assignment data for the month
+    const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+    const data = assignmentsSheet.getDataRange().getValues();
+    const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
+    const header = data.shift();
+    
+    // Group data by liturgical celebration
+    const liturgicalData = PRINT_buildLiturgicalData(monthString);
+    const assignmentsByLiturgy = new Map();
+    
+    for (const row of data) {
+      if (row[0] === "") continue;
+      
+      const rowMonthYear = row[assignCols.MONTH_YEAR - 1];
+      
+      if (rowMonthYear === monthString) {
+        const assignment = {
+          date: new Date(row[assignCols.DATE - 1]),
+          time: row[assignCols.TIME - 1],
+          massName: row[assignCols.MASS_NAME - 1],
+          liturgicalCelebration: row[assignCols.LITURGICAL_CELEBRATION - 1],
+          role: row[assignCols.MINISTRY_ROLE - 1],
+          volunteer: row[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] || 'UNASSIGNED',
+          status: row[assignCols.STATUS - 1] || 'Pending',
+          notes: row[assignCols.NOTES - 1] || ''
+        };
+        
+        const celebration = assignment.liturgicalCelebration;
+        if (!assignmentsByLiturgy.has(celebration)) {
+          assignmentsByLiturgy.set(celebration, []);
+        }
+        assignmentsByLiturgy.get(celebration).push(assignment);
+      }
+    }
+    
+    // Get liturgical celebrations in chronological order
+    const sortedCelebrations = Array.from(liturgicalData.keys()).sort((a, b) => {
+      const aFirstDate = liturgicalData.get(a).dates[0];
+      const bFirstDate = liturgicalData.get(b).dates[0];
+      return aFirstDate.getTime() - bFirstDate.getTime();
+    });
+    
+    // Define liturgical color mapping
+    const liturgicalColors = {
+      'White': '#edce47',
+      'Violet': '#805977', 
+      'Rose': '#cf7f93',
+      'Green': '#2c926c',
+      'Red': '#e06666'
+    };
+    
+    // Generate the formatted schedule grouped by liturgical celebrations
+    for (const celebration of sortedCelebrations) {
+      const celebrationAssignments = assignmentsByLiturgy.get(celebration) || [];
+      
+      if (celebrationAssignments.length === 0) continue; // Skip if no masses scheduled
+      
+      const liturgyInfo = liturgicalData.get(celebration);
+      
+      // Get the background color for this liturgical color
+      const bgColor = liturgyInfo && liturgicalColors[liturgyInfo.color] 
+        ? liturgicalColors[liturgyInfo.color] 
+        : '#d9ead3'; // Default green if color not found
+      
+      // Liturgical Celebration header
+      monthlySheet.getRange(currentRow, 1).setValue(celebration);
+      monthlySheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setBackground(bgColor);
+      monthlySheet.getRange(currentRow, 1, 1, 5).merge();
+      currentRow++;
+      
+      // Rank / Season / Color info - same background color as celebration
+      if (liturgyInfo) {
+        const rankSeasonColor = `${liturgyInfo.rank} / ${liturgyInfo.season} / ${liturgyInfo.color}`;
+        monthlySheet.getRange(currentRow, 1).setValue(rankSeasonColor);
+        monthlySheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setBackground(bgColor);
+        monthlySheet.getRange(currentRow, 1, 1, 5).merge();
+        currentRow++;
+      }
+      
+      // Table headers - black background with white text
+      monthlySheet.getRange(currentRow, 1).setValue('Date');
+      monthlySheet.getRange(currentRow, 2).setValue('Time');
+      monthlySheet.getRange(currentRow, 3).setValue('Mass Name');
+      monthlySheet.getRange(currentRow, 4).setValue('Ministry Role');
+      monthlySheet.getRange(currentRow, 5).setValue('Assigned Volunteer');
+      
+      const headerRange = monthlySheet.getRange(currentRow, 1, 1, 5);
+      headerRange.setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
+      headerRange.setBorder(true, true, true, true, true, true);
+      currentRow++;
+      
+      // Group assignments by date/time/mass for cleaner display
+      const massByDateTime = new Map();
+      
+      for (const assignment of celebrationAssignments) {
+        const massKey = `${assignment.date.toDateString()}_${assignment.time}_${assignment.massName}`;
+        if (!massByDateTime.has(massKey)) {
+          massByDateTime.set(massKey, {
+            date: assignment.date,
+            time: assignment.time,
+            massName: assignment.massName,
+            assignments: []
+          });
+        }
+        massByDateTime.get(massKey).assignments.push(assignment);
+      }
+      
+      // Sort masses by date and time
+      const sortedMasses = Array.from(massByDateTime.values()).sort((a, b) => {
+        if (a.date.getTime() !== b.date.getTime()) {
+          return a.date.getTime() - b.date.getTime();
+        }
+        
+        // Convert times to comparable 24-hour format for proper sorting
+        const convertTimeToMinutes = (time) => {
+          let timeStr = typeof time === 'string' ? time : 
+                       time instanceof Date ? time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
+                       String(time);
+          
+          // Handle different time formats
+          timeStr = timeStr.trim().toUpperCase();
+          
+          // Parse time string (supports formats like "8:00 AM", "12:00 PM", "17:00", etc.)
+          let match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/);
+          if (!match) {
+            // If no match, try just hour
+            match = timeStr.match(/(\d{1,2})\s*(AM|PM)?/);
+            if (match) {
+              match = [match[0], match[1], '00', match[2]]; // Add minutes as '00'
+            } else {
+              return 0; // Default if can't parse
+            }
+          }
+          
+          let hours = parseInt(match[1]);
+          let minutes = parseInt(match[2]);
+          let meridiem = match[3];
+          
+          // Convert to 24-hour format
+          if (meridiem === 'AM' && hours === 12) {
+            hours = 0;
+          } else if (meridiem === 'PM' && hours !== 12) {
+            hours += 12;
+          }
+          
+          return hours * 60 + minutes;
+        };
+        
+        const timeA = convertTimeToMinutes(a.time);
+        const timeB = convertTimeToMinutes(b.time);
+        
+        return timeA - timeB;
+      });
+      
+      // Add assignment rows with grouped formatting
+      for (const mass of sortedMasses) {
+        // Sort assignments within the mass by role
+        mass.assignments.sort((a, b) => a.role.localeCompare(b.role));
+        
+        for (let i = 0; i < mass.assignments.length; i++) {
+          const assignment = mass.assignments[i];
+          
+          // Only show date/time/mass name on first row of each mass
+          if (i === 0) {
+            // Format date
+            const dateStr = mass.date.toLocaleDateString('en-US', { 
+              month: 'numeric', 
+              day: 'numeric',
+              year: 'numeric'
+            });
+            
+            // Format time
+            const timeStr = typeof mass.time === 'string' ? mass.time : 
+                           mass.time instanceof Date ? mass.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 
+                           String(mass.time);
+            
+            monthlySheet.getRange(currentRow, 1).setValue(dateStr);
+            monthlySheet.getRange(currentRow, 2).setValue(timeStr);
+            monthlySheet.getRange(currentRow, 3).setValue(mass.massName);
+          }
+          // Leave date/time/mass name blank for subsequent rows of the same mass
+          
+          monthlySheet.getRange(currentRow, 4).setValue(assignment.role);
+          monthlySheet.getRange(currentRow, 5).setValue(assignment.volunteer);
+          
+          // Format the row with selective borders
+          const rowRange = monthlySheet.getRange(currentRow, 1, 1, 5);
+          
+          // Only add borders between different masses, not between assignments within the same mass
+          const isFirstRowOfMass = (i === 0);
+          const isLastRowOfMass = (i === mass.assignments.length - 1);
+          
+          // Set borders: top border only on first row of mass, bottom border only on last row of mass
+          // Always keep left and right borders for table structure
+          rowRange.setBorder(
+            isFirstRowOfMass,  // top
+            false,             // left (will be set by table structure)
+            isLastRowOfMass,   // bottom  
+            false,             // right (will be set by table structure)
+            false,             // vertical (no internal vertical lines)
+            false              // horizontal (no internal horizontal lines)
+          );
+          
+          // Add left and right borders for table structure
+          if (i === 0) {
+            monthlySheet.getRange(currentRow, 1).setBorder(null, true, null, null, null, null); // Left border
+          }
+          monthlySheet.getRange(currentRow, 5).setBorder(null, null, null, true, null, null); // Right border
+          
+          // Highlight unassigned roles
+          if (assignment.volunteer === 'UNASSIGNED') {
+            monthlySheet.getRange(currentRow, 5).setBackground('#fce8e6');
+          }
+          
+          currentRow++;
+        }
+      }
+      
+      currentRow++; // Space between celebrations
+    }
+    
+    // Add summary section
+    currentRow++;
+    monthlySheet.getRange(currentRow, 1).setValue('SUMMARY');
+    monthlySheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold');
+    monthlySheet.getRange(currentRow, 1, 1, 5).merge();
+    currentRow++;
+    
+    // Count assignments
+    let totalRoles = 0;
+    let assignedRoles = 0;
+    let unassignedRoles = 0;
+    
+    for (const assignments of assignmentsByLiturgy.values()) {
+      for (const assignment of assignments) {
+        totalRoles++;
+        if (assignment.volunteer === 'UNASSIGNED') {
+          unassignedRoles++;
+        } else {
+          assignedRoles++;
+        }
+      }
+    }
+    
+    monthlySheet.getRange(currentRow, 1).setValue(`Total Ministry Roles: ${totalRoles}`);
+    currentRow++;
+    monthlySheet.getRange(currentRow, 1).setValue(`Assigned: ${assignedRoles}`);
+    currentRow++;
+    monthlySheet.getRange(currentRow, 1).setValue(`Still Needed: ${unassignedRoles}`);
+    if (unassignedRoles > 0) {
+      monthlySheet.getRange(currentRow, 1).setBackground('#fce8e6');
+    }
+    
+    // Format the entire sheet for better printing
+    monthlySheet.autoResizeColumns(1, 5);
+    
+    // Set column widths for optimal printing (5 columns)
+    monthlySheet.setColumnWidth(1, 80);  // Date
+    monthlySheet.setColumnWidth(2, 70);  // Time  
+    monthlySheet.setColumnWidth(3, 140); // Mass Name
+    monthlySheet.setColumnWidth(4, 130); // Ministry Role
+    monthlySheet.setColumnWidth(5, 140); // Assigned Volunteer
+    
+    return `Enhanced schedule for ${displayName} has been prepared in the 'MonthlyView' sheet. Ready for printing or PDF export.`;
+    
+  } catch (e) {
+    Logger.log(`Error generating enhanced printable schedule: ${e}`);
+    throw new Error(`Could not generate enhanced printable schedule: ${e.message}`);
+  }
+}
+
+/**
  * Creates a simplified one-page summary of the liturgical schedule.
  * @param {string} monthString The selected month (e.g., "2026-01").
  * @returns {string} A success message.
