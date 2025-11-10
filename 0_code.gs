@@ -48,7 +48,7 @@ function onOpen(e) {
  * This function is called by the menu item.
  */
 function showSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('Sidebar')
+  const html = HtmlService.createHtmlOutputFromFile('SidebarEnhanced')
       .setTitle('Parish Scheduler')
       .setWidth(360);
   SpreadsheetApp.getUi().showSidebar(html);
@@ -295,8 +295,9 @@ function generatePrintableSchedule(monthString) {
     const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
     const header = data.shift();
     
-    // Filter and group data by date and time
-    const groupedData = new Map();
+    // Group data by liturgical celebration
+    const liturgicalData = PRINT_buildLiturgicalData(monthString);
+    const assignmentsByLiturgy = new Map();
     
     for (const row of data) {
       if (row[0] === "") continue;
@@ -304,137 +305,130 @@ function generatePrintableSchedule(monthString) {
       const rowMonthYear = row[assignCols.MONTH_YEAR - 1];
       
       if (rowMonthYear === monthString) {
-        const massDate = new Date(row[assignCols.DATE - 1]);
-        const massTime = row[assignCols.TIME - 1];
-        const massName = row[assignCols.MASS_NAME - 1];
-        const liturgicalCelebration = row[assignCols.LITURGICAL_CELEBRATION - 1];
-        
-        // Create a unique key for each Mass
-        const massKey = `${massDate.toDateString()}_${massTime}`;
-        
-        if (!groupedData.has(massKey)) {
-          groupedData.set(massKey, {
-            date: massDate,
-            time: massTime,
-            massName: massName,
-            liturgicalCelebration: liturgicalCelebration,
-            ministries: []
-          });
-        }
-        
-        // Add ministry role to this mass
-        groupedData.get(massKey).ministries.push({
+        const assignment = {
+          date: new Date(row[assignCols.DATE - 1]),
+          time: row[assignCols.TIME - 1],
+          massName: row[assignCols.MASS_NAME - 1],
+          liturgicalCelebration: row[assignCols.LITURGICAL_CELEBRATION - 1],
           role: row[assignCols.MINISTRY_ROLE - 1],
           volunteer: row[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] || 'UNASSIGNED',
           status: row[assignCols.STATUS - 1] || 'Pending',
           notes: row[assignCols.NOTES - 1] || ''
-        });
+        };
+        
+        const celebration = assignment.liturgicalCelebration;
+        if (!assignmentsByLiturgy.has(celebration)) {
+          assignmentsByLiturgy.set(celebration, []);
+        }
+        assignmentsByLiturgy.get(celebration).push(assignment);
       }
     }
     
-    // Sort masses by date and time
-    const sortedMasses = Array.from(groupedData.values()).sort((a, b) => {
-      if (a.date.getTime() !== b.date.getTime()) {
-        return a.date.getTime() - b.date.getTime();
-      }
-      
-      // Handle different time formats safely
-      const timeA = typeof a.time === 'string' ? a.time : 
-                   a.time instanceof Date ? a.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
-                   String(a.time);
-      const timeB = typeof b.time === 'string' ? b.time :
-                   b.time instanceof Date ? b.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
-                   String(b.time);
-      
-      return timeA.localeCompare(timeB);
+    // Get liturgical celebrations in chronological order
+    const sortedCelebrations = Array.from(liturgicalData.keys()).sort((a, b) => {
+      const aFirstDate = liturgicalData.get(a).dates[0];
+      const bFirstDate = liturgicalData.get(b).dates[0];
+      return aFirstDate.getTime() - bFirstDate.getTime();
     });
     
-    // Generate the formatted schedule
-    for (const mass of sortedMasses) {
-      // Date header
-      const dateStr = mass.date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        month: 'long', 
-        day: 'numeric' 
-      });
+    // Generate the formatted schedule grouped by liturgical celebrations
+    for (const celebration of sortedCelebrations) {
+      const celebrationAssignments = assignmentsByLiturgy.get(celebration) || [];
       
-      monthlySheet.getRange(currentRow, 1).setValue(dateStr);
-      monthlySheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold').setBackground('#e6f4ea');
-      monthlySheet.getRange(currentRow, 1, 1, 4).merge();
+      if (celebrationAssignments.length === 0) continue; // Skip if no masses scheduled
+      
+      const liturgyInfo = liturgicalData.get(celebration);
+      
+      // Liturgical Celebration header
+      monthlySheet.getRange(currentRow, 1).setValue(celebration);
+      monthlySheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setBackground('#d9ead3');
+      monthlySheet.getRange(currentRow, 1, 1, 6).merge();
       currentRow++;
       
-      // Mass details
-      const timeStr = typeof mass.time === 'string' ? mass.time : 
-                     mass.time instanceof Date ? mass.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 
-                     String(mass.time);
-      
-      monthlySheet.getRange(currentRow, 1).setValue(`${timeStr} - ${mass.massName}`);
-      monthlySheet.getRange(currentRow, 1).setFontWeight('bold');
-      currentRow++;
-      
-      // Liturgical celebration (if different from mass name)
-      if (mass.liturgicalCelebration && mass.liturgicalCelebration !== mass.massName) {
-        monthlySheet.getRange(currentRow, 1).setValue(`Liturgy: ${mass.liturgicalCelebration}`);
-        monthlySheet.getRange(currentRow, 1).setFontStyle('italic').setFontSize(10);
+      // Rank / Season / Color info
+      if (liturgyInfo) {
+        const rankSeasonColor = `${liturgyInfo.rank} / ${liturgyInfo.season} / ${liturgyInfo.color}`;
+        monthlySheet.getRange(currentRow, 1).setValue(rankSeasonColor);
+        monthlySheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setBackground('#e6f4ea');
+        monthlySheet.getRange(currentRow, 1, 1, 6).merge();
         currentRow++;
       }
       
-      // Ministry roles table header
-      monthlySheet.getRange(currentRow, 1).setValue('Ministry Role');
-      monthlySheet.getRange(currentRow, 2).setValue('Volunteer');
-      monthlySheet.getRange(currentRow, 3).setValue('Status');
-      monthlySheet.getRange(currentRow, 4).setValue('Notes');
+      // Table headers
+      monthlySheet.getRange(currentRow, 1).setValue('Date');
+      monthlySheet.getRange(currentRow, 2).setValue('Time');
+      monthlySheet.getRange(currentRow, 3).setValue('Mass Name');
+      monthlySheet.getRange(currentRow, 4).setValue('Ministry Role');
+      monthlySheet.getRange(currentRow, 5).setValue('Assigned Volunteer');
+      monthlySheet.getRange(currentRow, 6).setValue('Status');
       
-      const headerRange = monthlySheet.getRange(currentRow, 1, 1, 4);
+      const headerRange = monthlySheet.getRange(currentRow, 1, 1, 6);
       headerRange.setFontWeight('bold').setBackground('#f1f3f4');
       headerRange.setBorder(true, true, true, true, true, true);
       currentRow++;
       
-      // Sort ministries in a logical order
-      const ministryOrder = [
-        'lector 1', 'lector 2', 'psalm', 'universal prayer', 'prayers of the faithful',
-        'em - captain', 'eucharistic minister - captain', 'em 1', 'em 2', 'em 3', 'em 4',
-        'eucharistic minister 1', 'eucharistic minister 2', 'eucharistic minister 3',
-        'usher captain', 'usher 1', 'usher 2', 'greeter', 'collection',
-        'altar server 1', 'altar server 2', 'music', 'cantor', 'organist'
-      ];
-      
-      mass.ministries.sort((a, b) => {
-        const aIndex = ministryOrder.indexOf(a.role.toLowerCase());
-        const bIndex = ministryOrder.indexOf(b.role.toLowerCase());
-        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-        if (aIndex !== -1) return -1;
-        if (bIndex !== -1) return 1;
+      // Sort assignments within celebration by date, then time, then role
+      celebrationAssignments.sort((a, b) => {
+        if (a.date.getTime() !== b.date.getTime()) {
+          return a.date.getTime() - b.date.getTime();
+        }
+        
+        // Handle time comparison safely
+        const timeA = typeof a.time === 'string' ? a.time : 
+                     a.time instanceof Date ? a.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
+                     String(a.time);
+        const timeB = typeof b.time === 'string' ? b.time :
+                     b.time instanceof Date ? b.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
+                     String(b.time);
+        
+        if (timeA !== timeB) {
+          return timeA.localeCompare(timeB);
+        }
+        
         return a.role.localeCompare(b.role);
       });
       
-      // Add ministry roles
-      for (const ministry of mass.ministries) {
-        monthlySheet.getRange(currentRow, 1).setValue(ministry.role);
-        monthlySheet.getRange(currentRow, 2).setValue(ministry.volunteer);
-        monthlySheet.getRange(currentRow, 3).setValue(ministry.status);
-        monthlySheet.getRange(currentRow, 4).setValue(ministry.notes);
+      // Add assignment rows
+      for (const assignment of celebrationAssignments) {
+        // Format date
+        const dateStr = assignment.date.toLocaleDateString('en-US', { 
+          month: 'numeric', 
+          day: 'numeric',
+          year: 'numeric'
+        });
+        
+        // Format time
+        const timeStr = typeof assignment.time === 'string' ? assignment.time : 
+                       assignment.time instanceof Date ? assignment.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 
+                       String(assignment.time);
+        
+        monthlySheet.getRange(currentRow, 1).setValue(dateStr);
+        monthlySheet.getRange(currentRow, 2).setValue(timeStr);
+        monthlySheet.getRange(currentRow, 3).setValue(assignment.massName);
+        monthlySheet.getRange(currentRow, 4).setValue(assignment.role);
+        monthlySheet.getRange(currentRow, 5).setValue(assignment.volunteer);
+        monthlySheet.getRange(currentRow, 6).setValue(assignment.status);
         
         // Format the row
-        const rowRange = monthlySheet.getRange(currentRow, 1, 1, 4);
+        const rowRange = monthlySheet.getRange(currentRow, 1, 1, 6);
         rowRange.setBorder(true, true, true, true, false, false);
         
         // Highlight unassigned roles
-        if (ministry.volunteer === 'UNASSIGNED') {
-          monthlySheet.getRange(currentRow, 2).setBackground('#fce8e6');
+        if (assignment.volunteer === 'UNASSIGNED') {
+          monthlySheet.getRange(currentRow, 5).setBackground('#fce8e6');
         }
         
         currentRow++;
       }
       
-      currentRow++; // Space between masses
+      currentRow++; // Space between celebrations
     }
     
     // Add summary section
     currentRow++;
     monthlySheet.getRange(currentRow, 1).setValue('SUMMARY');
     monthlySheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold');
-    monthlySheet.getRange(currentRow, 1, 1, 4).merge();
+    monthlySheet.getRange(currentRow, 1, 1, 6).merge();
     currentRow++;
     
     // Count assignments
@@ -442,10 +436,10 @@ function generatePrintableSchedule(monthString) {
     let assignedRoles = 0;
     let unassignedRoles = 0;
     
-    for (const mass of sortedMasses) {
-      for (const ministry of mass.ministries) {
+    for (const assignments of assignmentsByLiturgy.values()) {
+      for (const assignment of assignments) {
         totalRoles++;
-        if (ministry.volunteer === 'UNASSIGNED') {
+        if (assignment.volunteer === 'UNASSIGNED') {
           unassignedRoles++;
         } else {
           assignedRoles++;
@@ -463,13 +457,15 @@ function generatePrintableSchedule(monthString) {
     }
     
     // Format the entire sheet for better printing
-    monthlySheet.autoResizeColumns(1, 4);
+    monthlySheet.autoResizeColumns(1, 6);
     
     // Set column widths for optimal printing
-    monthlySheet.setColumnWidth(1, 150); // Ministry Role
-    monthlySheet.setColumnWidth(2, 120); // Volunteer  
-    monthlySheet.setColumnWidth(3, 80);  // Status
-    monthlySheet.setColumnWidth(4, 150); // Notes
+    monthlySheet.setColumnWidth(1, 80);  // Date
+    monthlySheet.setColumnWidth(2, 70);  // Time  
+    monthlySheet.setColumnWidth(3, 130); // Mass Name
+    monthlySheet.setColumnWidth(4, 120); // Ministry Role
+    monthlySheet.setColumnWidth(5, 130); // Assigned Volunteer
+    monthlySheet.setColumnWidth(6, 80);  // Status
     
     return `Enhanced schedule for ${displayName} has been prepared in the 'MonthlyView' sheet. Ready for printing or PDF export.`;
     
