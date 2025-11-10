@@ -214,18 +214,11 @@ function HELPER_safeArrayAccess(array, index, defaultValue = '') {
 }
 
 /**
- * Liturgical color utilities
+ * Liturgical color utilities - UPDATED TO USE CONSOLIDATED COLORS
  */
 function HELPER_getLiturgicalColorHex(colorName) {
-  const colors = {
-    'White': '#f4f4f4',
-    'Violet': '#8e44ad', 
-    'Rose': '#e91e63',
-    'Green': '#27ae60',
-    'Red': '#e74c3c',
-    'Gold': '#f1c40f'
-  };
-  return colors[colorName] || '#ecf0f1'; // Default light gray
+  // Use the consolidated liturgical colors from liturgical_colors.gs
+  return LITURGICAL_COLORS[colorName] || '#f8f9fa'; // Default to white
 }
 
 /**
