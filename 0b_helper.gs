@@ -137,23 +137,35 @@ function HELPER_readConfigSafe() {
 
 /**
  * Consolidated volunteer scoring (extracted from assignment logic)
+ * Enhanced with detailed preference debugging
  */
 function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignmentCounts, massAssignments, volunteers) {
   let score = 100; // Base score
   const counts = assignmentCounts.get(volunteer.id) || { total: 0, recent: new Date(0) };
   const roleLower = roleToFill.toLowerCase();
   
+  Logger.log(`  Scoring ${volunteer.name} for ${roleToFill} (${eventId}):`);
+  Logger.log(`    - Base score: ${score}`);
+  
   // Frequency penalty
-  score -= counts.total * 5;
+  const frequencyPenalty = counts.total * 5;
+  score -= frequencyPenalty;
+  Logger.log(`    - Frequency penalty (-${frequencyPenalty}): ${score}`);
   
   // Mass preference bonus
   if (eventId && volunteer.massPrefs.includes(eventId)) {
     score += 20;
+    Logger.log(`    - Mass preference bonus (+20 for ${eventId}): ${score}`);
+  } else if (eventId && volunteer.massPrefs.length > 0) {
+    Logger.log(`    - No mass preference match: has [${volunteer.massPrefs.join(',')}] but needs ${eventId}`);
   }
   
   // Role preference bonus
   if (volunteer.rolePrefs.includes(roleLower)) {
     score += 15;
+    Logger.log(`    - Role preference bonus (+15 for ${roleLower}): ${score}`);
+  } else if (volunteer.rolePrefs.length > 0) {
+    Logger.log(`    - No role preference match: has [${volunteer.rolePrefs.join(',')}] but needs ${roleLower}`);
   }
   
   // Family team bonus
@@ -162,6 +174,7 @@ function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignme
       const assignedVol = volunteers.get(assignedVolId);
       if (assignedVol && assignedVol.familyTeam === volunteer.familyTeam) {
         score += 25;
+        Logger.log(`    - Family team bonus (+25 with ${assignedVol.name}): ${score}`);
         break;
       }
     }
@@ -170,8 +183,10 @@ function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignme
   // Flexibility bonus
   if (volunteer.massPrefs.length === 0 && volunteer.rolePrefs.length === 0) {
     score += 3;
+    Logger.log(`    - Flexibility bonus (+3): ${score}`);
   }
   
+  Logger.log(`    - FINAL SCORE: ${score}`);
   return score;
 }
 
