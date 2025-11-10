@@ -10,21 +10,30 @@
  * Optimized main assignment function with better error handling
  */
 function ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString) {
-  // Validate inputs first
-  const { year, month } = HELPER_validateMonthString(monthString);
+  Logger.log(`Starting assignment process for ${monthString}`);
   
-  // Use safe config reading
-  const config = HELPER_readConfigSafe();
-  const scheduleYear = config["Year to Schedule"];
-  
-  if (year + 1 !== scheduleYear) { // Account for 0-indexed month
-    throw new Error(`Month ${monthString} is not in schedule year ${scheduleYear}`);
+  try {
+    // Validate inputs first
+    const { year, month } = HELPER_validateMonthString(monthString);
+    
+    // Use safe config reading
+    const config = HELPER_readConfigSafe();
+    const scheduleYear = config["Year to Schedule"];
+    
+    if (year !== scheduleYear) {
+      throw new Error(`Month ${monthString} is not in schedule year ${scheduleYear}`);
+    }
+    
+    // Performance timing
+    return HELPER_timeFunction('AutoAssignment', () => {
+      return executeAssignmentLogic(monthString, month, scheduleYear);
+    });
+    
+  } catch (e) {
+    Logger.log(`ERROR in ASSIGNMENT_autoAssignRolesForMonthOptimized: ${e.message}`);
+    Logger.log(`Stack trace: ${e.stack}`);
+    throw new Error(`Assignment failed: ${e.message}`);
   }
-  
-  // Performance timing
-  return HELPER_timeFunction('AutoAssignment', () => {
-    return executeAssignmentLogic(monthString, month, scheduleYear);
-  });
 }
 
 /**
@@ -33,6 +42,10 @@ function ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString) {
 function executeAssignmentLogic(monthString, month, scheduleYear) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+  
+  if (!assignmentsSheet) {
+    throw new Error(`Assignments sheet '${CONSTANTS.SHEETS.ASSIGNMENTS}' not found`);
+  }
   
   // Read data once and cache
   const volunteerData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.VOLUNTEERS);
@@ -50,6 +63,8 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
   // Get assignment data more efficiently
   const assignmentContext = buildAssignmentContext(assignmentsSheet, monthString, scheduleYear);
   
+  Logger.log(`Found ${assignmentContext.unassignedRoles.length} unassigned roles and ${assignmentContext.groupAssignments.length} group assignments`);
+  
   // Process assignments
   const results = processAssignments(assignmentContext, volunteers, timeoffMap, assignmentsSheet);
   
@@ -62,7 +77,6 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
 function buildVolunteerMapOptimized(volunteerData) {
   const volMap = new Map();
   const cols = CONSTANTS.COLS.VOLUNTEERS;
-  const activeStatuses = CONSTANTS.STATUS.VOLUNTEER;
   
   for (const row of volunteerData) {
     const id = HELPER_safeArrayAccess(row, cols.VOLUNTEER_ID - 1);
@@ -268,8 +282,10 @@ function processAssignments(context, volunteers, timeoffMap, assignmentsSheet) {
         massAssignments.set(volunteer.id, roleInfo.role);
         
         results.individualAssignments++;
+        Logger.log(`Assigned ${volunteer.name} to ${roleInfo.role} on ${roleInfo.date.toDateString()}`);
       } else {
         results.skipped++;
+        Logger.log(`Could not assign ${roleInfo.role} on ${roleInfo.date.toDateString()}`);
       }
     }
   }
@@ -395,4 +411,25 @@ function formatAssignmentResults(results, monthString) {
          `Group assignments: ${results.groupAssignments}, ` +
          `Individual assignments: ${results.individualAssignments}, ` +
          `Unassigned: ${results.skipped}`;
+}
+
+/**
+ * Legacy wrapper function for backward compatibility
+ */
+function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
+  return ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString);
+}
+
+/**
+ * Legacy function to build volunteer map (for substitute finding)
+ */
+function ASSIGNMENT_buildVolunteerMap(volunteerData) {
+  return buildVolunteerMapOptimized(volunteerData);
+}
+
+/**
+ * Legacy function to build timeoff map
+ */
+function ASSIGNMENT_buildTimeoffMap(timeoffData, month, year) {
+  return buildTimeoffMapOptimized(timeoffData, month, year);
 }
