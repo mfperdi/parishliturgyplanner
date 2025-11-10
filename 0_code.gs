@@ -331,6 +331,15 @@ function generatePrintableSchedule(monthString) {
       return aFirstDate.getTime() - bFirstDate.getTime();
     });
     
+    // Define liturgical color mapping
+    const liturgicalColors = {
+      'White': '#edce47',
+      'Violet': '#805977', 
+      'Rose': '#cf7f93',
+      'Green': '#2c926c',
+      'Red': '#e06666'
+    };
+    
     // Generate the formatted schedule grouped by liturgical celebrations
     for (const celebration of sortedCelebrations) {
       const celebrationAssignments = assignmentsByLiturgy.get(celebration) || [];
@@ -339,86 +348,143 @@ function generatePrintableSchedule(monthString) {
       
       const liturgyInfo = liturgicalData.get(celebration);
       
+      // Get the background color for this liturgical color
+      const bgColor = liturgyInfo && liturgicalColors[liturgyInfo.color] 
+        ? liturgicalColors[liturgyInfo.color] 
+        : '#d9ead3'; // Default green if color not found
+      
       // Liturgical Celebration header
       monthlySheet.getRange(currentRow, 1).setValue(celebration);
-      monthlySheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setBackground('#d9ead3');
-      monthlySheet.getRange(currentRow, 1, 1, 6).merge();
+      monthlySheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setBackground(bgColor);
+      monthlySheet.getRange(currentRow, 1, 1, 5).merge();
       currentRow++;
       
-      // Rank / Season / Color info
+      // Rank / Season / Color info - same background color as celebration
       if (liturgyInfo) {
         const rankSeasonColor = `${liturgyInfo.rank} / ${liturgyInfo.season} / ${liturgyInfo.color}`;
         monthlySheet.getRange(currentRow, 1).setValue(rankSeasonColor);
-        monthlySheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setBackground('#e6f4ea');
-        monthlySheet.getRange(currentRow, 1, 1, 6).merge();
+        monthlySheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setBackground(bgColor);
+        monthlySheet.getRange(currentRow, 1, 1, 5).merge();
         currentRow++;
       }
       
-      // Table headers
+      // Table headers - black background with white text
       monthlySheet.getRange(currentRow, 1).setValue('Date');
       monthlySheet.getRange(currentRow, 2).setValue('Time');
       monthlySheet.getRange(currentRow, 3).setValue('Mass Name');
       monthlySheet.getRange(currentRow, 4).setValue('Ministry Role');
       monthlySheet.getRange(currentRow, 5).setValue('Assigned Volunteer');
-      monthlySheet.getRange(currentRow, 6).setValue('Status');
       
-      const headerRange = monthlySheet.getRange(currentRow, 1, 1, 6);
-      headerRange.setFontWeight('bold').setBackground('#f1f3f4');
+      const headerRange = monthlySheet.getRange(currentRow, 1, 1, 5);
+      headerRange.setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
       headerRange.setBorder(true, true, true, true, true, true);
       currentRow++;
       
-      // Sort assignments within celebration by date, then time, then role
-      celebrationAssignments.sort((a, b) => {
+      // Group assignments by date/time/mass for cleaner display
+      const massByDateTime = new Map();
+      
+      for (const assignment of celebrationAssignments) {
+        const massKey = `${assignment.date.toDateString()}_${assignment.time}_${assignment.massName}`;
+        if (!massByDateTime.has(massKey)) {
+          massByDateTime.set(massKey, {
+            date: assignment.date,
+            time: assignment.time,
+            massName: assignment.massName,
+            assignments: []
+          });
+        }
+        massByDateTime.get(massKey).assignments.push(assignment);
+      }
+      
+      // Sort masses by date and time
+      const sortedMasses = Array.from(massByDateTime.values()).sort((a, b) => {
         if (a.date.getTime() !== b.date.getTime()) {
           return a.date.getTime() - b.date.getTime();
         }
         
-        // Handle time comparison safely
-        const timeA = typeof a.time === 'string' ? a.time : 
-                     a.time instanceof Date ? a.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
-                     String(a.time);
-        const timeB = typeof b.time === 'string' ? b.time :
-                     b.time instanceof Date ? b.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
-                     String(b.time);
+        // Convert times to comparable 24-hour format for proper sorting
+        const convertTimeToMinutes = (time) => {
+          let timeStr = typeof time === 'string' ? time : 
+                       time instanceof Date ? time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
+                       String(time);
+          
+          // Handle different time formats
+          timeStr = timeStr.trim().toUpperCase();
+          
+          // Parse time string (supports formats like "8:00 AM", "12:00 PM", "17:00", etc.)
+          let match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/);
+          if (!match) {
+            // If no match, try just hour
+            match = timeStr.match(/(\d{1,2})\s*(AM|PM)?/);
+            if (match) {
+              match = [match[0], match[1], '00', match[2]]; // Add minutes as '00'
+            } else {
+              return 0; // Default if can't parse
+            }
+          }
+          
+          let hours = parseInt(match[1]);
+          let minutes = parseInt(match[2]);
+          let meridiem = match[3];
+          
+          // Convert to 24-hour format
+          if (meridiem === 'AM' && hours === 12) {
+            hours = 0;
+          } else if (meridiem === 'PM' && hours !== 12) {
+            hours += 12;
+          }
+          
+          return hours * 60 + minutes;
+        };
         
-        if (timeA !== timeB) {
-          return timeA.localeCompare(timeB);
-        }
+        const timeA = convertTimeToMinutes(a.time);
+        const timeB = convertTimeToMinutes(b.time);
         
-        return a.role.localeCompare(b.role);
+        return timeA - timeB;
       });
       
-      // Add assignment rows
-      for (const assignment of celebrationAssignments) {
-        // Format date
-        const dateStr = assignment.date.toLocaleDateString('en-US', { 
-          month: 'numeric', 
-          day: 'numeric',
-          year: 'numeric'
-        });
+      // Add assignment rows with grouped formatting
+      for (const mass of sortedMasses) {
+        // Sort assignments within the mass by role
+        mass.assignments.sort((a, b) => a.role.localeCompare(b.role));
         
-        // Format time
-        const timeStr = typeof assignment.time === 'string' ? assignment.time : 
-                       assignment.time instanceof Date ? assignment.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 
-                       String(assignment.time);
-        
-        monthlySheet.getRange(currentRow, 1).setValue(dateStr);
-        monthlySheet.getRange(currentRow, 2).setValue(timeStr);
-        monthlySheet.getRange(currentRow, 3).setValue(assignment.massName);
-        monthlySheet.getRange(currentRow, 4).setValue(assignment.role);
-        monthlySheet.getRange(currentRow, 5).setValue(assignment.volunteer);
-        monthlySheet.getRange(currentRow, 6).setValue(assignment.status);
-        
-        // Format the row
-        const rowRange = monthlySheet.getRange(currentRow, 1, 1, 6);
-        rowRange.setBorder(true, true, true, true, false, false);
-        
-        // Highlight unassigned roles
-        if (assignment.volunteer === 'UNASSIGNED') {
-          monthlySheet.getRange(currentRow, 5).setBackground('#fce8e6');
+        for (let i = 0; i < mass.assignments.length; i++) {
+          const assignment = mass.assignments[i];
+          
+          // Only show date/time/mass name on first row of each mass
+          if (i === 0) {
+            // Format date
+            const dateStr = mass.date.toLocaleDateString('en-US', { 
+              month: 'numeric', 
+              day: 'numeric',
+              year: 'numeric'
+            });
+            
+            // Format time
+            const timeStr = typeof mass.time === 'string' ? mass.time : 
+                           mass.time instanceof Date ? mass.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 
+                           String(mass.time);
+            
+            monthlySheet.getRange(currentRow, 1).setValue(dateStr);
+            monthlySheet.getRange(currentRow, 2).setValue(timeStr);
+            monthlySheet.getRange(currentRow, 3).setValue(mass.massName);
+          }
+          // Leave date/time/mass name blank for subsequent rows of the same mass
+          
+          monthlySheet.getRange(currentRow, 4).setValue(assignment.role);
+          monthlySheet.getRange(currentRow, 5).setValue(assignment.volunteer);
+          
+          // Format the row
+          const rowRange = monthlySheet.getRange(currentRow, 1, 1, 5);
+          rowRange.setBorder(true, true, true, true, false, false);
+          
+          // Highlight unassigned roles
+          if (assignment.volunteer === 'UNASSIGNED') {
+            monthlySheet.getRange(currentRow, 5).setBackground('#fce8e6');
+          }
+          
+          currentRow++;
         }
-        
-        currentRow++;
       }
       
       currentRow++; // Space between celebrations
@@ -428,7 +494,7 @@ function generatePrintableSchedule(monthString) {
     currentRow++;
     monthlySheet.getRange(currentRow, 1).setValue('SUMMARY');
     monthlySheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold');
-    monthlySheet.getRange(currentRow, 1, 1, 6).merge();
+    monthlySheet.getRange(currentRow, 1, 1, 5).merge();
     currentRow++;
     
     // Count assignments
@@ -457,15 +523,14 @@ function generatePrintableSchedule(monthString) {
     }
     
     // Format the entire sheet for better printing
-    monthlySheet.autoResizeColumns(1, 6);
+    monthlySheet.autoResizeColumns(1, 5);
     
-    // Set column widths for optimal printing
+    // Set column widths for optimal printing (5 columns)
     monthlySheet.setColumnWidth(1, 80);  // Date
     monthlySheet.setColumnWidth(2, 70);  // Time  
-    monthlySheet.setColumnWidth(3, 130); // Mass Name
-    monthlySheet.setColumnWidth(4, 120); // Ministry Role
-    monthlySheet.setColumnWidth(5, 130); // Assigned Volunteer
-    monthlySheet.setColumnWidth(6, 80);  // Status
+    monthlySheet.setColumnWidth(3, 140); // Mass Name
+    monthlySheet.setColumnWidth(4, 130); // Ministry Role
+    monthlySheet.setColumnWidth(5, 140); // Assigned Volunteer
     
     return `Enhanced schedule for ${displayName} has been prepared in the 'MonthlyView' sheet. Ready for printing or PDF export.`;
     
