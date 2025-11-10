@@ -1,25 +1,26 @@
 /**
  * ====================================================================
- * PARISH LITURGICAL SCHEDULER - GROUPED WORKFLOW VERSION
+ * PARISH LITURGICAL SCHEDULER - ENHANCED WITH LITURGICAL PRINT
  * ====================================================================
  * File Structure:
  * - constants.gs - Global constants and column maps
  * - helper.gs - Reusable helper functions
- * - main.gs - Menu, sidebar, and wrapper functions
+ * - main.gs - Menu, sidebar, and wrapper functions (THIS FILE)
  * - 1_calendarlogic.gs - Liturgical calendar generation
  * - 1a_calendardates.gs - Date calculations
  * - 1b_calendarseasons.gs - Seasonal celebrations
  * - 2_schedulelogic.gs - Mass schedule generation
  * - 3_assignmentlogic.gs - Volunteer auto-assignment
  * - 4_timeoffslogic.gs - Timeoff request management
+ * - 5_printschedule.gs - Enhanced liturgical print schedules
  * - debug.gs - Diagnostic and testing functions
- * - Sidebar.html - User interface
+ * - SidebarEnhanced.html - Enhanced user interface
  */
 
 /**
  * @OnlyCurrentDoc
- * This script manages the Parish Liturgical Scheduler with grouped workflow.
- * It adds a custom menu on open and shows the sidebar.
+ * This script manages the Parish Liturgical Scheduler with enhanced liturgical print features.
+ * It adds a custom menu on open and shows the enhanced sidebar.
  */
 
 /**
@@ -31,21 +32,25 @@ function onOpen(e) {
       .createMenu('Parish Scheduler')
       .addItem('Show Sidebar', 'showSidebar')
       .addSeparator()
+      .addSubMenu(SpreadsheetApp.getUi().createMenu('Print Schedules')
+          .addItem('Liturgical Schedule', 'showLiturgicalScheduleMenu')
+          .addItem('Standard Schedule', 'generateCurrentMonthSchedule')
+          .addItem('Export PDF', 'exportCurrentMonthPDF'))
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Admin Tools')
           .addItem('Review Timeoffs', 'showTimeoffReview')
-          .addItem('Export Schedule', 'exportCurrentSchedule')
-          .addItem('Debug Functions', 'showDebugPanel'))
+          .addItem('Debug Functions', 'showDebugPanel')
+          .addItem('Export Data', 'exportCurrentSchedule'))
       .addToUi();
 }
 
 /**
- * Shows the main HTML sidebar.
+ * Shows the enhanced HTML sidebar.
  * This function is called by the menu item.
  */
 function showSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('Sidebar')
+  const html = HtmlService.createHtmlOutputFromFile('SidebarEnhanced')
       .setTitle('Parish Scheduler')
-      .setWidth(320);
+      .setWidth(360);
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
@@ -466,72 +471,6 @@ function generatePrintableSchedule(monthString) {
 }
 
 /**
- * (SIDEBAR) Generates and saves a PDF version of the enhanced schedule.
- * @param {string} monthString The selected month (e.g., "2026-01").
- * @returns {string} A success message with PDF link.
- */
-function generateSchedulePDF(monthString) {
-  try {
-    // First generate the enhanced schedule
-    generatePrintableSchedule(monthString);
-    
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName('MonthlyView');
-    
-    if (!sheet) {
-      throw new Error('MonthlyView sheet not found. Please generate the schedule first.');
-    }
-    
-    // Create PDF export URL
-    const url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?'
-      + 'format=pdf'
-      + '&size=letter'
-      + '&portrait=false'  // Landscape for better fit
-      + '&fitw=true'       // Fit to width
-      + '&top_margin=0.5'
-      + '&bottom_margin=0.5'
-      + '&left_margin=0.5'
-      + '&right_margin=0.5'
-      + '&gridlines=false' // Cleaner appearance
-      + '&gid=' + sheet.getSheetId();
-    
-    const token = ScriptApp.getOAuthToken();
-    const response = UrlFetchApp.fetch(url, {
-      headers: {
-        'Authorization': 'Bearer ' + token
-      }
-    });
-    
-    // Create filename
-    const [year, month] = monthString.split('-');
-    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-    const displayName = date.toLocaleDateString('en-US', { 
-      month: 'long', 
-      year: 'numeric' 
-    }).replace(' ', '_');
-    
-    const blob = response.getBlob();
-    blob.setName(`Parish_Schedule_${displayName}.pdf`);
-    
-    // Save to Drive
-    const pdfFile = DriveApp.createFile(blob);
-    
-    // Make the file shareable (view access)
-    pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
-    const fileUrl = pdfFile.getUrl();
-    Logger.log(`PDF created: ${fileUrl}`);
-    
-    return `PDF schedule created and saved to Google Drive. Access at: ${fileUrl}`;
-    
-  } catch (e) {
-    Logger.log(`Error generating PDF: ${e}`);
-    // Fallback to regular schedule if PDF generation fails
-    return `PDF generation unavailable. Please use the MonthlyView sheet for printing. ${e.message}`;
-  }
-}
-
-/**
  * (SIDEBAR) Finds and helps assign substitutes for unassigned roles.
  * @param {string} monthString The selected month (e.g., "2026-01").
  * @returns {string} A success message.
@@ -631,8 +570,81 @@ function findSubstituteAssignments(monthString) {
 }
 
 // ---================================---
-//      ADMIN HELPER FUNCTIONS
+//      MENU HELPER FUNCTIONS
 // ---================================---
+
+/**
+ * Shows the liturgical schedule generation menu.
+ */
+function showLiturgicalScheduleMenu() {
+  const ui = SpreadsheetApp.getUi();
+  
+  // Get available months
+  try {
+    const months = getMonthsForSidebar();
+    if (months.length === 0) {
+      ui.alert('No calendar data found. Please generate the liturgical calendar first.');
+      return;
+    }
+    
+    // Simple dialog for month selection
+    const response = ui.prompt(
+      'Generate Liturgical Schedule',
+      `Enter month (YYYY-MM format, e.g., ${months[0].value}):`,
+      ui.ButtonSet.OK_CANCEL
+    );
+    
+    if (response.getSelectedButton() === ui.Button.OK) {
+      const monthString = response.getResponseText().trim();
+      
+      // Validate format
+      if (!/^\d{4}-\d{2}$/.test(monthString)) {
+        ui.alert('Invalid format. Please use YYYY-MM (e.g., 2026-01).');
+        return;
+      }
+      
+      try {
+        const result = PRINT_generateLiturgicalSchedule(monthString);
+        ui.alert('Success', result, ui.ButtonSet.OK);
+      } catch (e) {
+        ui.alert('Error', `Could not generate liturgical schedule: ${e.message}`, ui.ButtonSet.OK);
+      }
+    }
+    
+  } catch (e) {
+    ui.alert('Error', `Could not load months: ${e.message}`, ui.ButtonSet.OK);
+  }
+}
+
+/**
+ * Generates schedule for current month.
+ */
+function generateCurrentMonthSchedule() {
+  try {
+    const now = new Date();
+    const monthString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    const result = generatePrintableSchedule(monthString);
+    SpreadsheetApp.getUi().alert('Success', result, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('Error', `Could not generate schedule: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Exports PDF for current month.
+ */
+function exportCurrentMonthPDF() {
+  try {
+    const now = new Date();
+    const monthString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    const result = PRINT_exportLiturgicalSchedulePDF(monthString);
+    SpreadsheetApp.getUi().alert('PDF Export', result, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('Error', `Could not export PDF: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+}
 
 /**
  * Shows a timeoff review dialog.
