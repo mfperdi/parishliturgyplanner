@@ -220,3 +220,32 @@ function CALENDAR_buildSaintMap(saintsData, calendarRegion) {
   Logger.log(`Built saints map with ${map.size} entries for region: ${calendarRegion}.`);
   return map;
 }
+
+/**
+ * Determines if the seasonal celebration is a Sunday in Ordinary Time.
+ * @param {object} seasonal The seasonal celebration object.
+ * @returns {boolean} True if it's a Sunday in Ordinary Time.
+ */
+function isSundayInOrdinaryTime(seasonal) {
+  return seasonal.season === "Ordinary Time" && 
+         seasonal.celebration.includes("Sunday in Ordinary Time") &&
+         seasonal.rank === "Feast";
+}
+
+/**
+ * Determines if a saint celebration is a "Feast of the Lord" that can override Sundays.
+ * These are the only saint celebrations that can override Sundays in Ordinary Time.
+ * @param {object} saint The saint celebration object.
+ * @returns {boolean} True if it's a feast of the Lord that can override Sundays.
+ */
+function isFeastOfTheLord(saint) {
+  // List of feasts of the Lord that CAN override Sundays in Ordinary Time
+  const feastsOfTheLord = [
+    "The Presentation of the Lord", // Feb 2
+    "The Transfiguration of the Lord", // Aug 6
+    "The Exaltation of the Holy Cross", // Sep 14
+    "The Dedication of the Lateran Basilica" // Nov 9
+  ];
+  
+  return feastsOfTheLord.includes(saint.celebration);
+}
