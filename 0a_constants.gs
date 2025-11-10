@@ -1,6 +1,6 @@
 /**
  * ====================================================================
- * CORRECTED CONSTANTS - FIXED TIMEOFFS MAPPING
+ * CORRECTED CONSTANTS - FIXED COLUMN MAPPING FOR PREFERENCES
  * ====================================================================
  */
 
@@ -109,7 +109,7 @@ const CONSTANTS = {
       FAMILY_GROUP: 13 // Added for future expansion
     },
     
-    // 'Volunteers' sheet (14 columns)
+    // 'Volunteers' sheet (14 columns) - CORRECTED PREFERENCE MAPPING
     VOLUNTEERS: {
       VOLUNTEER_ID: 1,
       FIRST_NAME: 2,
@@ -121,13 +121,13 @@ const CONSTANTS = {
       FAMILY_TEAM: 8,
       STATUS: 9,
       MINISTRY_ROLE: 10,
-      PREFERRED_MASS_TIME: 11,
-      MINISTRY_ROLE_PREFERENCE: 12,
+      PREFERRED_MASS_TIME: 11,        // Mass time preferences (e.g., "SUN-1000, SAT-1700")
+      MINISTRY_ROLE_PREFERENCE: 12,   // Role preferences (e.g., "1st reading, psalm")
       DATE_CLEARED: 13,
       DATE_TRAINED: 14
     },
     
-    // 'Timeoffs' sheet (10 columns) - CORRECTED
+    // 'Timeoffs' sheet (10 columns)
     TIMEOFFS: {
       TIMESTAMP: 1,
       VOLUNTEER_NAME: 2,
