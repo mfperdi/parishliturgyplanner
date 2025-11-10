@@ -230,7 +230,7 @@ function triggerAssignment(monthString) {
 }
 
 /**
- * (SIDEBAR) Generates a printable schedule.
+ * (SIDEBAR) Generates an enhanced printable schedule with professional formatting.
  * @param {string} monthString The selected month (e.g., "2026-01").
  * @returns {string} A success message.
  */
@@ -238,30 +238,16 @@ function generatePrintableSchedule(monthString) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     
-    // Check if MonthlyView sheet exists
+    // Create or get the enhanced monthly view sheet
     let monthlySheet = ss.getSheetByName('MonthlyView');
     if (!monthlySheet) {
-      // Create MonthlyView sheet if it doesn't exist
       monthlySheet = ss.insertSheet('MonthlyView');
-      
-      // Add headers
-      monthlySheet.getRange('A1').setValue('Month to View:');
-      monthlySheet.getRange('B1').setValue('Select Month');
-      monthlySheet.getRange('A3').setValue('Date');
-      monthlySheet.getRange('B3').setValue('Time');
-      monthlySheet.getRange('C3').setValue('Mass');
-      monthlySheet.getRange('D3').setValue('Ministry');
-      monthlySheet.getRange('E3').setValue('Volunteer');
-      monthlySheet.getRange('F3').setValue('Status');
-      monthlySheet.getRange('G3').setValue('Notes');
-      
-      // Format headers
-      const headerRange = monthlySheet.getRange('A3:G3');
-      headerRange.setFontWeight('bold');
-      headerRange.setBackground('#e6f4ea');
+    } else {
+      // Clear existing content
+      monthlySheet.clear();
     }
     
-    // Set the month to view
+    // Set up the month display name
     const [year, month] = monthString.split('-');
     const date = new Date(parseInt(year), parseInt(month) - 1, 1);
     const displayName = date.toLocaleDateString('en-US', { 
@@ -269,7 +255,34 @@ function generatePrintableSchedule(monthString) {
       year: 'numeric' 
     });
     
-    monthlySheet.getRange('B1').setValue(displayName);
+    // Get parish name from config (if available)
+    let parishName = "Parish Ministry Schedule"; // Default
+    try {
+      const config = HELPER_readConfig();
+      parishName = config["Parish Name"] || "Parish Ministry Schedule";
+    } catch (e) {
+      // Use default if config not available
+    }
+    
+    // Create header section
+    let currentRow = 1;
+    
+    // Parish header
+    monthlySheet.getRange(currentRow, 1).setValue(parishName);
+    monthlySheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold');
+    monthlySheet.getRange(currentRow, 1, 1, 4).merge();
+    currentRow++;
+    
+    // Schedule title
+    monthlySheet.getRange(currentRow, 1).setValue(`Ministry Schedule - ${displayName}`);
+    monthlySheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold');
+    monthlySheet.getRange(currentRow, 1, 1, 4).merge();
+    currentRow++;
+    
+    // Generation date
+    monthlySheet.getRange(currentRow, 1).setValue(`Generated: ${new Date().toLocaleDateString()}`);
+    monthlySheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic');
+    currentRow += 2; // Skip a row
     
     // Get assignment data for the month
     const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
@@ -277,7 +290,8 @@ function generatePrintableSchedule(monthString) {
     const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
     const header = data.shift();
     
-    const monthData = [];
+    // Filter and group data by date and time
+    const groupedData = new Map();
     
     for (const row of data) {
       if (row[0] === "") continue;
@@ -285,49 +299,235 @@ function generatePrintableSchedule(monthString) {
       const rowMonthYear = row[assignCols.MONTH_YEAR - 1];
       
       if (rowMonthYear === monthString) {
-        monthData.push([
-          row[assignCols.DATE - 1],
-          row[assignCols.TIME - 1],
-          row[assignCols.MASS_NAME - 1],
-          row[assignCols.MINISTRY_ROLE - 1],
-          row[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] || 'UNASSIGNED',
-          row[assignCols.STATUS - 1] || 'Pending',
-          row[assignCols.NOTES - 1] || ''
-        ]);
+        const massDate = new Date(row[assignCols.DATE - 1]);
+        const massTime = row[assignCols.TIME - 1];
+        const massName = row[assignCols.MASS_NAME - 1];
+        const liturgicalCelebration = row[assignCols.LITURGICAL_CELEBRATION - 1];
+        
+        // Create a unique key for each Mass
+        const massKey = `${massDate.toDateString()}_${massTime}`;
+        
+        if (!groupedData.has(massKey)) {
+          groupedData.set(massKey, {
+            date: massDate,
+            time: massTime,
+            massName: massName,
+            liturgicalCelebration: liturgicalCelebration,
+            ministries: []
+          });
+        }
+        
+        // Add ministry role to this mass
+        groupedData.get(massKey).ministries.push({
+          role: row[assignCols.MINISTRY_ROLE - 1],
+          volunteer: row[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] || 'UNASSIGNED',
+          status: row[assignCols.STATUS - 1] || 'Pending',
+          notes: row[assignCols.NOTES - 1] || ''
+        });
       }
     }
     
-    // Clear old data and write new data
-    if (monthData.length > 0) {
-      // Clear old data (keep headers)
-      const lastRow = monthlySheet.getLastRow();
-      if (lastRow > 3) {
-        monthlySheet.getRange(4, 1, lastRow - 3, 7).clearContent();
+    // Sort masses by date and time
+    const sortedMasses = Array.from(groupedData.values()).sort((a, b) => {
+      if (a.date.getTime() !== b.date.getTime()) {
+        return a.date.getTime() - b.date.getTime();
+      }
+      return a.time.localeCompare(b.time);
+    });
+    
+    // Generate the formatted schedule
+    for (const mass of sortedMasses) {
+      // Date header
+      const dateStr = mass.date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+      
+      monthlySheet.getRange(currentRow, 1).setValue(dateStr);
+      monthlySheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold').setBackground('#e6f4ea');
+      monthlySheet.getRange(currentRow, 1, 1, 4).merge();
+      currentRow++;
+      
+      // Mass details
+      const timeStr = typeof mass.time === 'string' ? mass.time : 
+                     mass.time instanceof Date ? mass.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) : 
+                     String(mass.time);
+      
+      monthlySheet.getRange(currentRow, 1).setValue(`${timeStr} - ${mass.massName}`);
+      monthlySheet.getRange(currentRow, 1).setFontWeight('bold');
+      currentRow++;
+      
+      // Liturgical celebration (if different from mass name)
+      if (mass.liturgicalCelebration && mass.liturgicalCelebration !== mass.massName) {
+        monthlySheet.getRange(currentRow, 1).setValue(`Liturgy: ${mass.liturgicalCelebration}`);
+        monthlySheet.getRange(currentRow, 1).setFontStyle('italic').setFontSize(10);
+        currentRow++;
       }
       
-      // Write new data
-      monthlySheet.getRange(4, 1, monthData.length, 7).setValues(monthData);
+      // Ministry roles table header
+      monthlySheet.getRange(currentRow, 1).setValue('Ministry Role');
+      monthlySheet.getRange(currentRow, 2).setValue('Volunteer');
+      monthlySheet.getRange(currentRow, 3).setValue('Status');
+      monthlySheet.getRange(currentRow, 4).setValue('Notes');
       
-      // Format the data
-      const dataRange = monthlySheet.getRange(4, 1, monthData.length, 7);
-      dataRange.setBorder(true, true, true, true, true, true);
+      const headerRange = monthlySheet.getRange(currentRow, 1, 1, 4);
+      headerRange.setFontWeight('bold').setBackground('#f1f3f4');
+      headerRange.setBorder(true, true, true, true, true, true);
+      currentRow++;
       
-      // Highlight unassigned roles
-      const conditionalFormatRules = monthlySheet.getConditionalFormatRules();
-      const rule = SpreadsheetApp.newConditionalFormatRule()
-        .setRanges([monthlySheet.getRange(4, 5, monthData.length, 1)])
-        .whenTextEqualTo('UNASSIGNED')
-        .setBackground('#fce8e6')
-        .build();
-      conditionalFormatRules.push(rule);
-      monthlySheet.setConditionalFormatRules(conditionalFormatRules);
+      // Sort ministries in a logical order
+      const ministryOrder = [
+        'lector 1', 'lector 2', 'psalm', 'universal prayer', 'prayers of the faithful',
+        'em - captain', 'eucharistic minister - captain', 'em 1', 'em 2', 'em 3', 'em 4',
+        'eucharistic minister 1', 'eucharistic minister 2', 'eucharistic minister 3',
+        'usher captain', 'usher 1', 'usher 2', 'greeter', 'collection',
+        'altar server 1', 'altar server 2', 'music', 'cantor', 'organist'
+      ];
+      
+      mass.ministries.sort((a, b) => {
+        const aIndex = ministryOrder.indexOf(a.role.toLowerCase());
+        const bIndex = ministryOrder.indexOf(b.role.toLowerCase());
+        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+        if (aIndex !== -1) return -1;
+        if (bIndex !== -1) return 1;
+        return a.role.localeCompare(b.role);
+      });
+      
+      // Add ministry roles
+      for (const ministry of mass.ministries) {
+        monthlySheet.getRange(currentRow, 1).setValue(ministry.role);
+        monthlySheet.getRange(currentRow, 2).setValue(ministry.volunteer);
+        monthlySheet.getRange(currentRow, 3).setValue(ministry.status);
+        monthlySheet.getRange(currentRow, 4).setValue(ministry.notes);
+        
+        // Format the row
+        const rowRange = monthlySheet.getRange(currentRow, 1, 1, 4);
+        rowRange.setBorder(true, true, true, true, false, false);
+        
+        // Highlight unassigned roles
+        if (ministry.volunteer === 'UNASSIGNED') {
+          monthlySheet.getRange(currentRow, 2).setBackground('#fce8e6');
+        }
+        
+        currentRow++;
+      }
+      
+      currentRow++; // Space between masses
     }
     
-    return `Schedule for ${displayName} has been prepared in the 'MonthlyView' sheet. You can print or export this sheet.`;
+    // Add summary section
+    currentRow++;
+    monthlySheet.getRange(currentRow, 1).setValue('SUMMARY');
+    monthlySheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold');
+    monthlySheet.getRange(currentRow, 1, 1, 4).merge();
+    currentRow++;
+    
+    // Count assignments
+    let totalRoles = 0;
+    let assignedRoles = 0;
+    let unassignedRoles = 0;
+    
+    for (const mass of sortedMasses) {
+      for (const ministry of mass.ministries) {
+        totalRoles++;
+        if (ministry.volunteer === 'UNASSIGNED') {
+          unassignedRoles++;
+        } else {
+          assignedRoles++;
+        }
+      }
+    }
+    
+    monthlySheet.getRange(currentRow, 1).setValue(`Total Ministry Roles: ${totalRoles}`);
+    currentRow++;
+    monthlySheet.getRange(currentRow, 1).setValue(`Assigned: ${assignedRoles}`);
+    currentRow++;
+    monthlySheet.getRange(currentRow, 1).setValue(`Still Needed: ${unassignedRoles}`);
+    if (unassignedRoles > 0) {
+      monthlySheet.getRange(currentRow, 1).setBackground('#fce8e6');
+    }
+    
+    // Format the entire sheet for better printing
+    monthlySheet.autoResizeColumns(1, 4);
+    
+    // Set column widths for optimal printing
+    monthlySheet.setColumnWidth(1, 150); // Ministry Role
+    monthlySheet.setColumnWidth(2, 120); // Volunteer  
+    monthlySheet.setColumnWidth(3, 80);  // Status
+    monthlySheet.setColumnWidth(4, 150); // Notes
+    
+    return `Enhanced schedule for ${displayName} has been prepared in the 'MonthlyView' sheet. Ready for printing or PDF export.`;
     
   } catch (e) {
-    Logger.log(`Error generating printable schedule: ${e}`);
-    throw new Error(`Could not generate printable schedule: ${e.message}`);
+    Logger.log(`Error generating enhanced printable schedule: ${e}`);
+    throw new Error(`Could not generate enhanced printable schedule: ${e.message}`);
+  }
+}
+
+/**
+ * (SIDEBAR) Generates and saves a PDF version of the enhanced schedule.
+ * @param {string} monthString The selected month (e.g., "2026-01").
+ * @returns {string} A success message with PDF link.
+ */
+function generateSchedulePDF(monthString) {
+  try {
+    // First generate the enhanced schedule
+    generatePrintableSchedule(monthString);
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('MonthlyView');
+    
+    if (!sheet) {
+      throw new Error('MonthlyView sheet not found. Please generate the schedule first.');
+    }
+    
+    // Create PDF export URL
+    const url = 'https://docs.google.com/spreadsheets/d/' + ss.getId() + '/export?'
+      + 'format=pdf'
+      + '&size=letter'
+      + '&portrait=false'  // Landscape for better fit
+      + '&fitw=true'       // Fit to width
+      + '&top_margin=0.5'
+      + '&bottom_margin=0.5'
+      + '&left_margin=0.5'
+      + '&right_margin=0.5'
+      + '&gridlines=false' // Cleaner appearance
+      + '&gid=' + sheet.getSheetId();
+    
+    const token = ScriptApp.getOAuthToken();
+    const response = UrlFetchApp.fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + token
+      }
+    });
+    
+    // Create filename
+    const [year, month] = monthString.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const displayName = date.toLocaleDateString('en-US', { 
+      month: 'long', 
+      year: 'numeric' 
+    }).replace(' ', '_');
+    
+    const blob = response.getBlob();
+    blob.setName(`Parish_Schedule_${displayName}.pdf`);
+    
+    // Save to Drive
+    const pdfFile = DriveApp.createFile(blob);
+    
+    // Make the file shareable (view access)
+    pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    
+    const fileUrl = pdfFile.getUrl();
+    Logger.log(`PDF created: ${fileUrl}`);
+    
+    return `PDF schedule created and saved to Google Drive. Access at: ${fileUrl}`;
+    
+  } catch (e) {
+    Logger.log(`Error generating PDF: ${e}`);
+    // Fallback to regular schedule if PDF generation fails
+    return `PDF generation unavailable. Please use the MonthlyView sheet for printing. ${e.message}`;
   }
 }
 
