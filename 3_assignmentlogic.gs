@@ -72,7 +72,7 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
 }
 
 /**
- * Optimized volunteer map building with better validation
+ * Optimized volunteer map building with CORRECTED preference reading
  */
 function buildVolunteerMapOptimized(volunteerData) {
   const volMap = new Map();
@@ -100,8 +100,15 @@ function buildVolunteerMapOptimized(volunteerData) {
       continue;
     }
     
-    const massPrefs = parseListField(HELPER_safeArrayAccess(row, cols.PREFERRED_MASS_TIME - 1, ''));
-    const rolePrefs = parseListField(HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE_PREFERENCE - 1, ''));
+    // CORRECTED: Read preferences from the right columns
+    // PREFERRED_MASS_TIME (column 11) = Mass time preferences like "SUN-1000, SAT-1700"
+    const massPrefsRaw = HELPER_safeArrayAccess(row, cols.PREFERRED_MASS_TIME - 1, '');
+    const massPrefs = parseListField(massPrefsRaw, false); // Don't lowercase EventIDs
+    
+    // MINISTRY_ROLE_PREFERENCE (column 12) = Role preferences like "1st reading, psalm"
+    const rolePrefsRaw = HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE_PREFERENCE - 1, '');
+    const rolePrefs = parseListField(rolePrefsRaw); // Lowercase for role matching
+    
     const familyTeam = HELPER_safeArrayAccess(row, cols.FAMILY_TEAM - 1) || null;
     
     volMap.set(id, {
@@ -110,10 +117,13 @@ function buildVolunteerMapOptimized(volunteerData) {
       email: HELPER_safeArrayAccess(row, cols.EMAIL - 1),
       familyTeam: familyTeam,
       ministries: ministries,
-      massPrefs: massPrefs,
-      rolePrefs: rolePrefs,
+      massPrefs: massPrefs,       // EventIDs like ["SUN-1000", "SAT-1700"]
+      rolePrefs: rolePrefs,       // Roles like ["1st reading", "psalm"]
       status: "Active"
     });
+    
+    // Debug logging for preferences
+    Logger.log(`${name}: massPrefs=[${massPrefs.join(',')}], rolePrefs=[${rolePrefs.join(',')}]`);
   }
   
   Logger.log(`Built optimized volunteer map with ${volMap.size} volunteers`);
@@ -122,13 +132,18 @@ function buildVolunteerMapOptimized(volunteerData) {
 
 /**
  * Helper function to safely parse comma-separated fields
+ * @param {string} fieldValue The field value to parse
+ * @param {boolean} toLowerCase Whether to convert to lowercase (default true)
  */
-function parseListField(fieldValue) {
+function parseListField(fieldValue, toLowerCase = true) {
   if (!fieldValue) return [];
-  return String(fieldValue)
+  
+  const items = String(fieldValue)
     .split(',')
-    .map(s => s.trim().toLowerCase())
+    .map(s => s.trim())
     .filter(s => s.length > 0);
+  
+  return toLowerCase ? items.map(s => s.toLowerCase()) : items;
 }
 
 /**
@@ -294,12 +309,19 @@ function processAssignments(context, volunteers, timeoffMap, assignmentsSheet) {
 }
 
 /**
- * Simplified volunteer finding with extracted scoring logic
+ * Simplified volunteer finding with extracted scoring logic and detailed logging
  */
 function findOptimalVolunteer(roleInfo, volunteers, timeoffMap, assignmentCounts, massAssignments) {
+  Logger.log(`\n🎯 Looking for volunteer for ${roleInfo.role} on ${roleInfo.date.toDateString()} (${roleInfo.eventId})`);
+  
   const candidates = filterCandidates(roleInfo, volunteers, timeoffMap, assignmentCounts, massAssignments);
   
-  if (candidates.length === 0) return null;
+  Logger.log(`📋 Found ${candidates.length} eligible candidates`);
+  
+  if (candidates.length === 0) {
+    Logger.log(`❌ No eligible volunteers found for ${roleInfo.role}`);
+    return null;
+  }
   
   // Score and sort candidates
   for (const candidate of candidates) {
@@ -314,6 +336,15 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMap, assignmentCounts
   }
   
   candidates.sort((a, b) => b.score - a.score);
+  
+  Logger.log(`🏆 Selected ${candidates[0].volunteer.name} (score: ${candidates[0].score}) for ${roleInfo.role}`);
+  
+  // Show top 3 candidates for debugging
+  const topCandidates = candidates.slice(0, 3);
+  topCandidates.forEach((candidate, index) => {
+    Logger.log(`  ${index + 1}. ${candidate.volunteer.name}: ${candidate.score} points`);
+  });
+  
   return candidates[0].volunteer;
 }
 
