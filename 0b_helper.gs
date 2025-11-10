@@ -1,127 +1,190 @@
 /**
  * ====================================================================
- * HELPERS.GS
+ * IMPROVED HELPER FUNCTIONS - CONSOLIDATED UTILITIES
  * ====================================================================
- * This file contains re-usable functions that are called by many
- * different logic modules.
+ * This consolidates common functionality and adds missing error handling
  */
 
 /**
- * Reads all data from a given sheet, skipping the header row.
- * @param {string} sheetName The name of the sheet to read.
- * @returns {Array<Array<any>>} A 2D array of the data.
+ * Enhanced data reading with caching and error handling
  */
-function HELPER_readSheetData(sheetName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    Logger.log(`HELPER_readSheetData: Sheet not found: ${sheetName}`);
-    throw new Error(`Sheet not found: '${sheetName}'. Please check your sheet names.`);
-  }
-  
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) {
-    // Logger.log(`HELPER_readSheetData: No data in ${sheetName}.`);
-    return []; // No data below the header
-  }
-  
-  // Read from row 2, column 1, to the last row and last column
-  const data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
-  // Logger.log(`HELPER_readSheetData: Read ${data.length} rows from ${sheetName}.`);
-  return data;
-}
+const SHEET_CACHE = new Map();
+const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
-/**
- * Reads the 'Config' sheet and returns a key-value object.
- * @returns {object} A map of settings, e.g., { "Year to Schedule": 2026 }
- */
-function HELPER_readConfig() {
-  const configData = HELPER_readSheetData(CONSTANTS.SHEETS.CONFIG);
-  const config = {};
-  const configCols = CONSTANTS.COLS.CONFIG;
+function HELPER_readSheetDataCached(sheetName, useCache = true) {
+  const now = new Date().getTime();
   
-  for (const row of configData) {
-    const setting = row[configCols.SETTING - 1];
-    let value = row[configCols.VALUE - 1];
-    
-    // Auto-convert TRUE/FALSE strings to booleans
-    if (String(value).toUpperCase() === "TRUE") {
-      value = true;
-    } else if (String(value).toUpperCase() === "FALSE") {
-      value = false;
-    }
-    
-    if (setting) {
-      config[setting] = value;
+  if (useCache && SHEET_CACHE.has(sheetName)) {
+    const cached = SHEET_CACHE.get(sheetName);
+    if (now - cached.timestamp < CACHE_EXPIRY) {
+      return cached.data;
     }
   }
-  // Logger.log(`HELPER_readConfig: Config loaded: ${JSON.stringify(config)}`);
-  return config;
+  
+  try {
+    const data = HELPER_readSheetData(sheetName);
+    if (useCache) {
+      SHEET_CACHE.set(sheetName, { data: data, timestamp: now });
+    }
+    return data;
+  } catch (e) {
+    Logger.log(`ERROR reading sheet ${sheetName}: ${e.message}`);
+    throw new Error(`Failed to read sheet '${sheetName}': ${e.message}`);
+  }
 }
 
 /**
- * Translates a liturgical rank (text) into a number for comparison.
- * Lower number = higher precedence.
- * @param {string} rankName The text rank (e.g., "Solemnity", "Feast").
- * @returns {number} The numerical rank (1-99).
+ * Consolidated date formatting
  */
-function HELPER_translateRank(rankName) {
-  if (!rankName || typeof rankName !== 'string') {
-    return 99; // Default to lowest rank
+function HELPER_formatDate(date, format = 'default') {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+    return 'Invalid Date';
   }
   
-  switch (rankName.toLowerCase()) {
-    case "solemnity":
-      return 1;
-    case "feast":
-      return 2;
-    case "memorial":
-      return 3;
-    case "optional memorial":
-      return 4;
-    // --- Special Ranks for Seasons (used by 1b_CalendarSeasons) ---
-    case "triduum":
-      return 1;
-    case "easter octave":
-      return 1;
-    case "lent": // Lenten Weekday
-      return 3; 
-    case "advent weekday (dec 17-24)":
-      return 3; // Higher rank than other weekdays
-    // --- Default Weekday ---
-    case "weekday":
-    default:
-      return 7; // Rank 7 for Ordinary Time/Advent/Easter weekdays
+  const formats = {
+    'default': { month: 'numeric', day: 'numeric', year: 'numeric' },
+    'long': { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' },
+    'short': { weekday: 'short', month: 'short', day: 'numeric' },
+    'month-year': { month: 'long', year: 'numeric' },
+    'iso': null // Special case for ISO format
+  };
+  
+  if (format === 'iso') {
+    return date.toISOString().split('T')[0];
+  }
+  
+  const options = formats[format] || formats['default'];
+  return date.toLocaleDateString('en-US', options);
+}
+
+/**
+ * Consolidated time formatting
+ */
+function HELPER_formatTime(time) {
+  if (!time) return '';
+  
+  if (typeof time === 'string') return time;
+  
+  if (time instanceof Date) {
+    return time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+  }
+  
+  return String(time);
+}
+
+/**
+ * Enhanced config reader with validation
+ */
+function HELPER_readConfigSafe() {
+  try {
+    const config = HELPER_readConfig();
+    
+    // Validate critical settings
+    const requiredSettings = ['Year to Schedule'];
+    const missing = requiredSettings.filter(setting => !config[setting]);
+    
+    if (missing.length > 0) {
+      throw new Error(`Missing required config settings: ${missing.join(', ')}`);
+    }
+    
+    // Validate year
+    const year = config["Year to Schedule"];
+    if (year < 2020 || year > 2050) {
+      throw new Error(`Invalid year: ${year}. Must be between 2020-2050`);
+    }
+    
+    return config;
+  } catch (e) {
+    Logger.log(`Config validation failed: ${e.message}`);
+    throw e;
   }
 }
 
 /**
- * Converts a number to its ordinal string (e.g., 1 -> "1st", 2 -> "2nd").
- * @param {number} n The number to convert.
- * @returns {string} The ordinal string.
+ * Consolidated volunteer scoring (extracted from assignment logic)
  */
-function HELPER_getOrdinal(n) {
-  if (n === null || isNaN(n)) return ""; // Safety check
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignmentCounts, massAssignments, volunteers) {
+  let score = 100; // Base score
+  const counts = assignmentCounts.get(volunteer.id) || { total: 0, recent: new Date(0) };
+  const roleLower = roleToFill.toLowerCase();
+  
+  // Frequency penalty
+  score -= counts.total * 5;
+  
+  // Mass preference bonus
+  if (eventId && volunteer.massPrefs.includes(eventId)) {
+    score += 20;
+  }
+  
+  // Role preference bonus
+  if (volunteer.rolePrefs.includes(roleLower)) {
+    score += 15;
+  }
+  
+  // Family team bonus
+  if (volunteer.familyTeam && massAssignments) {
+    for (const [assignedVolId, assignedRole] of massAssignments) {
+      const assignedVol = volunteers.get(assignedVolId);
+      if (assignedVol && assignedVol.familyTeam === volunteer.familyTeam) {
+        score += 25;
+        break;
+      }
+    }
+  }
+  
+  // Flexibility bonus
+  if (volunteer.massPrefs.length === 0 && volunteer.rolePrefs.length === 0) {
+    score += 3;
+  }
+  
+  return score;
 }
 
 /**
- * Finds the date of the preceding Sunday for a given date.
- * @param {Date} currentDate The date to start from.
- * @returns {Date} The date of the previous Sunday.
+ * Input validation utilities
  */
-function HELPER_getPreviousSunday(currentDate) {
-  const prevSunday = new Date(currentDate.getTime());
-  prevSunday.setDate(prevSunday.getDate() - prevSunday.getDay()); // 0 is Sunday, so this finds it
-  return prevSunday;
+function HELPER_validateMonthString(monthString) {
+  if (!monthString || !/^\d{4}-\d{2}$/.test(monthString)) {
+    throw new Error(`Invalid month format: ${monthString}. Expected YYYY-MM`);
+  }
+  
+  const [year, month] = monthString.split('-').map(n => parseInt(n));
+  if (month < 1 || month > 12) {
+    throw new Error(`Invalid month: ${month}. Must be 1-12`);
+  }
+  
+  return { year, month: month - 1 }; // Return 0-indexed month
 }
 
 /**
- * Legacy function name for backwards compatibility
- * @deprecated Use HELPER_getPreviousSunday instead
+ * Safe array operations
  */
-function getPreviousSunday(currentDate) {
-  return HELPER_getPreviousSunday(currentDate);
+function HELPER_safeArrayAccess(array, index, defaultValue = '') {
+  return (array && array.length > index) ? array[index] : defaultValue;
+}
+
+/**
+ * Liturgical color utilities
+ */
+function HELPER_getLiturgicalColorHex(colorName) {
+  const colors = {
+    'White': '#f4f4f4',
+    'Violet': '#8e44ad', 
+    'Rose': '#e91e63',
+    'Green': '#27ae60',
+    'Red': '#e74c3c',
+    'Gold': '#f1c40f'
+  };
+  return colors[colorName] || '#ecf0f1'; // Default light gray
+}
+
+/**
+ * Performance monitoring wrapper
+ */
+function HELPER_timeFunction(funcName, func) {
+  const start = new Date().getTime();
+  const result = func();
+  const end = new Date().getTime();
+  Logger.log(`⏱️ ${funcName} took ${end - start}ms`);
+  return result;
 }
