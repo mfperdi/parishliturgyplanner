@@ -48,7 +48,7 @@ function onOpen(e) {
  * This function is called by the menu item.
  */
 function showSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('SidebarEnhanced')
+  const html = HtmlService.createHtmlOutputFromFile('Sidebar')
       .setTitle('Parish Scheduler')
       .setWidth(360);
   SpreadsheetApp.getUi().showSidebar(html);
@@ -337,7 +337,16 @@ function generatePrintableSchedule(monthString) {
       if (a.date.getTime() !== b.date.getTime()) {
         return a.date.getTime() - b.date.getTime();
       }
-      return a.time.localeCompare(b.time);
+      
+      // Handle different time formats safely
+      const timeA = typeof a.time === 'string' ? a.time : 
+                   a.time instanceof Date ? a.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
+                   String(a.time);
+      const timeB = typeof b.time === 'string' ? b.time :
+                   b.time instanceof Date ? b.time.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'}) :
+                   String(b.time);
+      
+      return timeA.localeCompare(timeB);
     });
     
     // Generate the formatted schedule
