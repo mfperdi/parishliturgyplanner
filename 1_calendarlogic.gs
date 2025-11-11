@@ -61,44 +61,75 @@ function CALENDAR_generateLiturgicalCalendar() {
     const saintRankNum = saint ? HELPER_translateRank(saint.rank) : 99; // 99 = no saint
     
     // --- D. Determine the final celebration (Override > Saint > Seasonal) ---
-    let finalCelebration;
-    let optionalMemorial = ""; // For the new column
-    
-    if (override) {
-      // 1. Override always wins
-      // We take the celebration info from the override,
-      // but keep the season from the seasonal calculation.
-      finalCelebration = {
-        celebration: override.celebration,
-        rank: override.rank,
-        color: override.color,
-        season: seasonal.season // Use the *actual* season
-      };
-      
-    } else if (saint && saintRankNum === 4) {
-      // 2. SPECIAL CASE: Optional Memorial (rank 4) ALWAYS goes to Optional Memorial column
-      // The seasonal day always wins the main column
-      finalCelebration = seasonal;
-      optionalMemorial = saint.celebration;
-      
-    } else if (saint && (saintRankNum < seasonalRankNum)) {
-      // 3. Saint's rank is higher (lower number) than the season
-      // Use the saint's info, but keep the seasonal season.
-      finalCelebration = {
-        celebration: saint.celebration,
-        rank: saint.rank,
-        color: saint.color,
-        season: seasonal.season // Use the *actual* season
-      };
-      
-    } else if (saint && seasonal.season === "Lent" && saintRankNum === 3 && seasonalRankNum === 3) {
-      // 4. Special rule: Lenten Weekday (Rank 3) beats a Memorial (Rank 3)
-      finalCelebration = seasonal;
-      
-    } else {
-      // 5. Seasonal day wins
-      finalCelebration = seasonal;
-    }
+let finalCelebration;
+let optionalMemorial = ""; // For the new column
+
+// DEBUG: Log details for January 25, 2026
+if (currentDate.getMonth() === 0 && currentDate.getDate() === 25 && currentDate.getFullYear() === 2026) {
+  Logger.log("=== DEBUGGING JAN 25, 2026 ===");
+  Logger.log(`Date: ${currentDate}`);
+  Logger.log(`Day of Week: ${dayOfWeek} (0=Sunday)`);
+  Logger.log(`Seasonal: ${JSON.stringify(seasonal)}`);
+  Logger.log(`Saint: ${JSON.stringify(saint)}`);
+  Logger.log(`seasonalRankNum: ${seasonalRankNum}`);
+  Logger.log(`saintRankNum: ${saintRankNum}`);
+  Logger.log(`isSundayInOrdinaryTime(seasonal): ${isSundayInOrdinaryTime(seasonal)}`);
+  if (saint) {
+    Logger.log(`isFeastOfTheLord(saint): ${isFeastOfTheLord(saint)}`);
+  }
+  Logger.log("=== END DEBUG ===");
+}
+
+if (override) {
+  // 1. Override always wins
+  finalCelebration = {
+    celebration: override.celebration,
+    rank: override.rank,
+    color: override.color,
+    season: seasonal.season
+  };
+  
+} else if (saint && saintRankNum === 4) {
+
+if (override) {
+  // 1. Override always wins
+  finalCelebration = {
+    celebration: override.celebration,
+    rank: override.rank,
+    color: override.color,
+    season: seasonal.season
+  };
+  
+} else if (saint && saintRankNum === 4) {
+  // 2. SPECIAL CASE: Optional Memorial (rank 4) ALWAYS goes to Optional Memorial column
+  finalCelebration = seasonal;
+  optionalMemorial = saint.celebration;
+  
+} else if (saint && isSundayInOrdinaryTime(seasonal) && !isFeastOfTheLord(saint)) {
+  // 3. SUNDAY IN ORDINARY TIME PROTECTION: Only feasts of the Lord can override
+  finalCelebration = seasonal;
+  if (saintRankNum === 4) { // Optional Memorial can go to optional column
+    optionalMemorial = saint.celebration;
+  }
+  // Memorials and Feasts of saints are omitted on Sundays in Ordinary Time
+  
+} else if (saint && (saintRankNum < seasonalRankNum)) {
+  // 4. Saint's rank is higher (lower number) than the season
+  finalCelebration = {
+    celebration: saint.celebration,
+    rank: saint.rank,
+    color: saint.color,
+    season: seasonal.season
+  };
+  
+} else if (saint && seasonal.season === "Lent" && saintRankNum === 3 && seasonalRankNum === 3) {
+  // 5. Special rule: Lenten Weekday (Rank 3) beats a Memorial (Rank 3)
+  finalCelebration = seasonal;
+  
+} else {
+  // 6. Seasonal day wins
+  finalCelebration = seasonal;
+}
     
     // --- E. Build the row for the sheet ---
     const newRow = new Array(calCols.COLOR).fill(""); 
@@ -229,7 +260,7 @@ function CALENDAR_buildSaintMap(saintsData, calendarRegion) {
 function isSundayInOrdinaryTime(seasonal) {
   return seasonal.season === "Ordinary Time" && 
          seasonal.celebration.includes("Sunday in Ordinary Time") &&
-         seasonal.rank === "Feast";
+         seasonal.rank === "Sunday"; // <-- Bug Fix: Was "Feast"
 }
 
 /**
@@ -248,4 +279,4 @@ function isFeastOfTheLord(saint) {
   ];
   
   return feastsOfTheLord.includes(saint.celebration);
-}
+}}
