@@ -15,7 +15,6 @@
 function CALENDAR_generateLiturgicalCalendar() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const calSheet = ss.getSheetByName(CONSTANTS.SHEETS.CALENDAR);
-  
   // 1. Read all supporting data
   const config = HELPER_readConfig();
   const scheduleYear = config["Year to Schedule"];
@@ -23,36 +22,35 @@ function CALENDAR_generateLiturgicalCalendar() {
   
   const overrideData = HELPER_readSheetData(CONSTANTS.SHEETS.OVERRIDES);
   const saintsData = HELPER_readSheetData(CONSTANTS.SHEETS.SAINTS_CALENDAR);
-
   // 2. Calculate all critical (moveable) feast dates
   // This function is in 1a_CalendarDates.gs
   const dates = CALENDAR_calculateLiturgicalDates(scheduleYear, config);
-  
   // 3. Build lookup maps for overrides and saints
   const overrideMap = CALENDAR_buildOverrideMap(overrideData, scheduleYear);
   const saintMap = CALENDAR_buildSaintMap(saintsData, calendarRegion);
-  
   // 4. --- Main Generation Loop ---
   Logger.log(`Starting calendar generation for ${scheduleYear}...`);
   const newCalendarRows = [];
   const calCols = CONSTANTS.COLS.CALENDAR;
   
-  let currentDate = new Date(scheduleYear, 0, 1); // Start on Jan 1
-  const endDate = new Date(scheduleYear, 11, 31);   // End on Dec 31
+  let currentDate = new Date(scheduleYear, 0, 1);
+  // Start on Jan 1
+  const endDate = new Date(scheduleYear, 11, 31);
+  // End on Dec 31
   
   while (currentDate <= endDate) {
-    const dayOfWeek = currentDate.getDay(); // 0=Sun, 1=Mon...
-    const dayKey = (currentDate.getMonth() + 1) + "/" + currentDate.getDate(); // "M/D"
+    const dayOfWeek = currentDate.getDay();
+    // 0=Sun, 1=Mon...
+    const dayKey = (currentDate.getMonth() + 1) + "/" + currentDate.getDate();
+    // "M/D"
     
     // --- A. Check for a manual override ---
     const override = overrideMap.get(dayKey);
-    
     // --- B. Get the seasonal and saint celebrations ---
     
     // This function is in 1b_CalendarSeasons.gs
     // *** THIS IS THE FIX: Added dayOfWeek ***
     const seasonal = CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates);
-    
     const saint = saintMap.get(dayKey);
 
     // --- C. Get numerical ranks for comparison ---
@@ -61,79 +59,58 @@ function CALENDAR_generateLiturgicalCalendar() {
     const saintRankNum = saint ? HELPER_translateRank(saint.rank) : 99; // 99 = no saint
     
     // --- D. Determine the final celebration (Override > Saint > Seasonal) ---
-let finalCelebration;
-let optionalMemorial = ""; // For the new column
-
-// DEBUG: Log details for January 25, 2026
-if (currentDate.getMonth() === 0 && currentDate.getDate() === 25 && currentDate.getFullYear() === 2026) {
-  Logger.log("=== DEBUGGING JAN 25, 2026 ===");
-  Logger.log(`Date: ${currentDate}`);
-  Logger.log(`Day of Week: ${dayOfWeek} (0=Sunday)`);
-  Logger.log(`Seasonal: ${JSON.stringify(seasonal)}`);
-  Logger.log(`Saint: ${JSON.stringify(saint)}`);
-  Logger.log(`seasonalRankNum: ${seasonalRankNum}`);
-  Logger.log(`saintRankNum: ${saintRankNum}`);
-  Logger.log(`isSundayInOrdinaryTime(seasonal): ${isSundayInOrdinaryTime(seasonal)}`);
-  if (saint) {
-    Logger.log(`isFeastOfTheLord(saint): ${isFeastOfTheLord(saint)}`);
-  }
-  Logger.log("=== END DEBUG ===");
-}
-
-if (override) {
-  // 1. Override always wins
-  finalCelebration = {
-    celebration: override.celebration,
-    rank: override.rank,
-    color: override.color,
-    season: seasonal.season
-  };
-  
-} else if (saint && saintRankNum === 4) {
-
-if (override) {
-  // 1. Override always wins
-  finalCelebration = {
-    celebration: override.celebration,
-    rank: override.rank,
-    color: override.color,
-    season: seasonal.season
-  };
-  
-} else if (saint && saintRankNum === 4) {
-  // 2. SPECIAL CASE: Optional Memorial (rank 4) ALWAYS goes to Optional Memorial column
-  finalCelebration = seasonal;
-  optionalMemorial = saint.celebration;
-  
-} else if (saint && isSundayInOrdinaryTime(seasonal) && !isFeastOfTheLord(saint)) {
-  // 3. SUNDAY IN ORDINARY TIME PROTECTION: Only feasts of the Lord can override
-  finalCelebration = seasonal;
-  if (saintRankNum === 4) { // Optional Memorial can go to optional column
-    optionalMemorial = saint.celebration;
-  }
-  // Memorials and Feasts of saints are omitted on Sundays in Ordinary Time
-  
-} else if (saint && (saintRankNum < seasonalRankNum)) {
-  // 4. Saint's rank is higher (lower number) than the season
-  finalCelebration = {
-    celebration: saint.celebration,
-    rank: saint.rank,
-    color: saint.color,
-    season: seasonal.season
-  };
-  
-} else if (saint && seasonal.season === "Lent" && saintRankNum === 3 && seasonalRankNum === 3) {
-  // 5. Special rule: Lenten Weekday (Rank 3) beats a Memorial (Rank 3)
-  finalCelebration = seasonal;
-  
-} else {
-  // 6. Seasonal day wins
-  finalCelebration = seasonal;
-}
+    let finalCelebration;
+    let optionalMemorial = ""; // For the new column
+    
+    if (override) {
+      // 1. Override always wins
+      finalCelebration = {
+        celebration: override.celebration,
+        rank: override.rank,
+        color: override.color,
+        season: seasonal.season // Use the *actual* season
+      };
+    } else if (saint && saintRankNum === 4) {
+      // 2. SPECIAL CASE: Optional Memorial (rank 4)
+      // The seasonal day always wins the main column
+      finalCelebration = seasonal;
+      optionalMemorial = saint.celebration;
+      
+    } else if (isSundayInOrdinaryTime(seasonal)) {
+      // 3. NEW LOGIC: Handle Sundays in Ordinary Time
+      // They outrank Feasts of Saints (Rank 7) but not Feasts of the Lord (Rank 5)
+      if (saint && saint.rank === "Feast" && isFeastOfTheLord(saint)) {
+        // "Feast of the Lord" (e.g. Transfiguration) wins
+        finalCelebration = {
+          celebration: saint.celebration,
+          rank: saint.rank,
+          color: saint.color,
+          season: seasonal.season
+        };
+      } else {
+        // The Sunday wins against regular Saint Feasts (like Conversion of St. Paul) or Memorials
+        finalCelebration = seasonal;
+        // (Note: if the saint was a Memorial, it is suppressed per this logic)
+      }
+      
+    } else if (saint && (saintRankNum < seasonalRankNum)) {
+      // 4. Original logic: Saint's rank is higher (lower number)
+      finalCelebration = {
+        celebration: saint.celebration,
+        rank: saint.rank,
+        color: saint.color,
+        season: seasonal.season // Use the *actual* season
+      };
+    } else if (saint && seasonal.season === "Lent" && saintRankNum === 3 && seasonalRankNum === 3) {
+      // 5. Original logic: Lenten Weekday beats a Memorial
+      finalCelebration = seasonal;
+    } else {
+      // 6. Original logic: Seasonal day wins
+      finalCelebration = seasonal;
+    }
     
     // --- E. Build the row for the sheet ---
-    const newRow = new Array(calCols.COLOR).fill(""); 
-    
+    const newRow = new Array(calCols.COLOR).fill("");
     newRow[calCols.DATE - 1] = new Date(currentDate);
     newRow[calCols.WEEKDAY - 1] = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
     newRow[calCols.LITURGICAL_CELEBRATION - 1] = finalCelebration.celebration;
@@ -141,7 +118,6 @@ if (override) {
     newRow[calCols.SEASON - 1] = finalCelebration.season;
     newRow[calCols.RANK - 1] = finalCelebration.rank; // This will be the text (e.g., "Solemnity")
     newRow[calCols.COLOR - 1] = finalCelebration.color;
-    
     newCalendarRows.push(newRow);
     
     // Go to the next day
@@ -166,24 +142,23 @@ if (override) {
 /**
  * Builds a Map of manual overrides for the year.
  * @param {Array<Array<any>>} overrideData Data from 'CalendarOverrides' sheet.
- *@param {number} scheduleYear The year being scheduled.
+ * @param {number} scheduleYear The year being scheduled.
  * @returns {Map<string, object>} A map where key is "M/D"
  * and value is { celebration, rank, color, season }.
  */
 function CALENDAR_buildOverrideMap(overrideData, scheduleYear) {
   const map = new Map();
   const overrideCols = CONSTANTS.COLS.OVERRIDES;
-  
   for (const row of overrideData) {
     const month = parseInt(row[overrideCols.MONTH - 1], 10);
     const day = parseInt(row[overrideCols.DAY - 1], 10);
     const celebration = row[overrideCols.LITURGICAL_CELEBRATION - 1];
     const rank = row[overrideCols.RANK - 1];
     const color = row[overrideCols.COLOR - 1];
-    let calendar = row[overrideCols.CALENDAR - 1]; // e.g., "Parish"
+    let calendar = row[overrideCols.CALENDAR - 1];
+    // e.g., "Parish"
 
     if (!month || !day || !celebration || !rank) continue;
-    
     const key = month + "/" + day;
     
     map.set(key, {
@@ -207,7 +182,6 @@ function CALENDAR_buildOverrideMap(overrideData, scheduleYear) {
 function CALENDAR_buildSaintMap(saintsData, calendarRegion) {
   const map = new Map();
   const saintsCols = CONSTANTS.COLS.SAINTS_CALENDAR;
-  
   for (const row of saintsData) {
     const month = parseInt(row[saintsCols.MONTH - 1], 10);
     const day = parseInt(row[saintsCols.DAY - 1], 10);
@@ -215,10 +189,10 @@ function CALENDAR_buildSaintMap(saintsData, calendarRegion) {
     const rank = row[saintsCols.RANK - 1];
     const color = row[saintsCols.COLOR - 1];
     let calendarName = row[saintsCols.CALENDAR - 1];
-    if (!calendarName) calendarName = "General Roman Calendar"; // Default
+    if (!calendarName) calendarName = "General Roman Calendar";
+    // Default
 
     if (!month || !day || !celebration || !rank) continue;
-    
     // Add the saint if they are "General Roman Calendar", match the user's region,
     // or are explicitly for the Parish or Diocese.
     if (calendarName === "General Roman Calendar" || 
@@ -227,17 +201,16 @@ function CALENDAR_buildSaintMap(saintsData, calendarRegion) {
         calendarName === "Diocese of Sacramento") { // This should be dynamic, but hardcoded for now
       
       const key = month + "/" + day;
-      
       const newSaint = {
         celebration: celebration,
         rank: rank, // Keep as text (e.g., "Solemnity")
         color: color,
         season: "Saints"
       };
-      
       // Check if a saint already exists for this day
       if (map.has(key)) {
-        // A saint is already on this day. Compare ranks.
+        // A saint is already on this day.
+        // Compare ranks.
         const existingSaint = map.get(key);
         // New saint's rank is higher (lower number), so it replaces the existing one
         if (HELPER_translateRank(newSaint.rank) < HELPER_translateRank(existingSaint.rank)) {
@@ -267,7 +240,7 @@ function isSundayInOrdinaryTime(seasonal) {
  * Determines if a saint celebration is a "Feast of the Lord" that can override Sundays.
  * These are the only saint celebrations that can override Sundays in Ordinary Time.
  * @param {object} saint The saint celebration object.
- * @returns {boolean} True if it's a feast of the Lord that can override Sundays.
+ * @returns {boolean} True if it'static feast of the Lord that can override Sundays.
  */
 function isFeastOfTheLord(saint) {
   // List of feasts of the Lord that CAN override Sundays in Ordinary Time
@@ -277,6 +250,5 @@ function isFeastOfTheLord(saint) {
     "The Exaltation of the Holy Cross", // Sep 14
     "The Dedication of the Lateran Basilica" // Nov 9
   ];
-  
   return feastsOfTheLord.includes(saint.celebration);
-}}
+}
