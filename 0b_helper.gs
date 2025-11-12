@@ -233,9 +233,8 @@ function HELPER_timeFunction(funcName, func) {
 }
 
 /**
- * REPLACEMENT for HELPER_translateRank
- * A precedence object based on romcal and the official "Table of Liturgical Days"
- * Lower numbers have higher precedence.
+ * REPLACEMENT for PRECEDENCE object in 0b_helper.gs
+ * This is the master list of all liturgical ranks and their precedence.
  */
 const PRECEDENCE = {
   // === Group I ===
@@ -245,48 +244,49 @@ const PRECEDENCE = {
   // 2. Nativity, Epiphany, Ascension, Pentecost,
   //    Sundays of Advent, Lent, Easter, Ash Wednesday,
   //    Weekdays of Holy Week, Days in Octave of Easter
-  'SOLEMNITY_HIGH': 2.1,
-  'Advent Sunday': 2.2,  //
-  'Lent Sunday': 2.2,    //
-  'Easter Sunday': 2.2,  //
-  'ASH_WEDNESDAY': 2.3,    //
-  'HOLY_WEEK_WEEKDAY': 2.4, //
-  'EASTER_OCTAVE_DAY': 2.5, //
+  'SOLEMNITY_HIGH': 2.1,   // For Easter, Pentecost, Nativity, Epiphany, Ascension
+  'Advent Sunday': 2.2,
+  'Lent Sunday': 2.2,
+  'Easter Sunday': 2.2,    // Includes Divine Mercy Sunday
+  'ASH_WEDNESDAY': 2.3,
+  'HOLY_WEEK_WEEKDAY': 2.4,
+  'EASTER_OCTAVE_DAY': 2.5,
   
   // 3. Solemnities (General)
-  'SOLEMNITY': 3,          //
+  'SOLEMNITY': 3,          // For general Solemnities of Lord, Mary, Saints
   
   // 4. Proper Solemnities (e.g., Patron)
-  'PROPER_SOLEMNITY': 4,   //
+  'PROPER_SOLEMNITY': 4,
 
   // === Group II ===
   // 5. Feasts of the Lord
-  'Feast-Lord': 5,         //
+  'Feast-Lord': 5,         // For Baptism of the Lord, Transfiguration, etc.
   
   // 6. Sundays of Christmas Time and Ordinary Time
-  'Sunday-OT': 6,          //
+  'Sunday-OT': 6,          // For Ordinary Time & Christmas Time Sundays
   
   // 7. Feasts of Mary and Saints (General)
-  'Feast': 7,              //
+  'Feast': 7,
   
   // 8. Proper Feasts
-  'PROPER_FEAST': 8,       //
+  'PROPER_FEAST': 8,
   
   // === Group III ===
-  // 9. Weekdays of Advent (Dec 17-24) & Weekdays of Lent
-  'Weekday-High': 9,       //
+  // 9. Weekdays of Advent (Dec 17-24), Lent, & Christmas Octave
+  'Weekday-High': 9.1,     // For Lent Weekdays & Advent 17-24
+  'CHRISTMAS_OCTAVE_DAY': 9.2, // For days in Christmas Octave
   
   // 10. Obligatory Memorials
-  'Memorial': 10,          //
+  'Memorial': 10,
   
   // 11. Proper Memorials
-  'PROPER_MEMORIAL': 11,   //
+  'PROPER_MEMORIAL': 11,
   
   // 12. Optional Memorials
-  'Optional Memorial': 12, //
+  'Optional Memorial': 12,
   
   // 13. Other Weekdays
-  'Weekday': 13            //
+  'Weekday': 13           // For Advent (before 17th), Christmas (after Octave), Easter (after Octave), Ordinary Time
 };
 
 /**
