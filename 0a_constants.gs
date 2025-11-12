@@ -22,7 +22,8 @@ const CONSTANTS = {
   // 2. Column Number Maps
   COLS: {
     // 'Config' sheet
-    CONFIG: {
+    CONFIG: 
+{
       SETTING: 1,
       VALUE: 2
     },
@@ -54,7 +55,8 @@ const CONSTANTS = {
       DAY: 2,
       LITURGICAL_CELEBRATION: 3,
       RANK: 4,
-      COLOR: 5,
+    
+  COLOR: 5,
       CALENDAR: 6,
       NOTES: 7
     },
@@ -69,17 +71,18 @@ const CONSTANTS = {
       DESCRIPTION: 6,
       TEMPLATE_NAME: 7,
       ASSIGNED_GROUP: 8,
-      NOTES: 9
+      
+NOTES: 9
     },
     
-// 'SpecialMasses' sheet (10 columns)
+    // 'SpecialMasses' sheet (10 columns) - UPDATED
     SPECIAL_MASSES: {
       EVENT_ID: 1,
       DATE: 2,
       TIME: 3,
       IS_ACTIVE: 4,
       IS_ANTICIPATED: 5,
-      OVERRIDE_TYPE: 6,
+      OVERRIDE_TYPE: 6,      // <-- NEW COLUMN
       DESCRIPTION: 7,
       TEMPLATE_NAME: 8,
       ASSIGNED_GROUP: 9,
@@ -102,7 +105,8 @@ const CONSTANTS = {
       MINISTRY_ROLE: 5,
       EVENT_ID: 6,
       MONTH_YEAR: 7,
-      ASSIGNED_GROUP: 8,
+   
+   ASSIGNED_GROUP: 8,
       ASSIGNED_VOLUNTEER_ID: 9,
       ASSIGNED_VOLUNTEER_NAME: 10,
       STATUS: 11,
@@ -116,7 +120,8 @@ const CONSTANTS = {
       FIRST_NAME: 2,
       LAST_NAME: 3,
       FULL_NAME: 4,
-      EMAIL: 5,
+   
+   EMAIL: 5,
       PHONE: 6,
       PARENT_GUARDIAN_NAME: 7,
       FAMILY_TEAM: 8,
@@ -128,7 +133,8 @@ const CONSTANTS = {
       DATE_TRAINED: 14
     },
     
-    // 'Timeoffs' sheet (10 columns)
+  
+  // 'Timeoffs' sheet (10 columns)
     TIMEOFFS: {
       TIMESTAMP: 1,
       VOLUNTEER_NAME: 2,
@@ -145,7 +151,8 @@ const CONSTANTS = {
   
   // 3. Status Values (for validation)
   STATUS: {
-    VOLUNTEER: ['Active', 'Inactive', 'Training'],
+ 
+   VOLUNTEER: ['Active', 'Inactive', 'Training'],
     TIMEOFF: ['Pending', 'Approved', 'Rejected'],
     ASSIGNMENT: ['Unassigned', 'Assigned', 'Substitute Needed']
   },
