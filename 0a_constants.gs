@@ -72,17 +72,18 @@ const CONSTANTS = {
       NOTES: 9
     },
     
-    // 'SpecialMasses' sheet (9 columns)
+// 'SpecialMasses' sheet (10 columns)
     SPECIAL_MASSES: {
       EVENT_ID: 1,
       DATE: 2,
       TIME: 3,
       IS_ACTIVE: 4,
       IS_ANTICIPATED: 5,
-      DESCRIPTION: 6,
-      TEMPLATE_NAME: 7,
-      ASSIGNED_GROUP: 8,
-      NOTES: 9
+      OVERRIDE_TYPE: 6,
+      DESCRIPTION: 7,
+      TEMPLATE_NAME: 8,
+      ASSIGNED_GROUP: 9,
+      NOTES: 10
     },
     
     // 'MassTemplates' sheet (3 columns)
