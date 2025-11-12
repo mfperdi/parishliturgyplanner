@@ -246,61 +246,102 @@ const PRECEDENCE = {
   //    Sundays of Advent, Lent, Easter, Ash Wednesday,
   //    Weekdays of Holy Week, Days in Octave of Easter
   'SOLEMNITY_HIGH': 2.1,
-  'Advent Sunday': 2.2,  // Your custom rank
-  'Lent Sunday': 2.2,    // Your custom rank
-  'Easter Sunday': 2.2,  // Your custom rank
-  'ASH_WEDNESDAY': 2.3,
-  'HOLY_WEEK_WEEKDAY': 2.4,
-  'EASTER_OCTAVE_DAY': 2.5,
+  'Advent Sunday': 2.2,  //
+  'Lent Sunday': 2.2,    //
+  'Easter Sunday': 2.2,  //
+  'ASH_WEDNESDAY': 2.3,    //
+  'HOLY_WEEK_WEEKDAY': 2.4, //
+  'EASTER_OCTAVE_DAY': 2.5, //
   
   // 3. Solemnities (General)
-  'SOLEMNITY': 3,
+  'SOLEMNITY': 3,          //
   
   // 4. Proper Solemnities (e.g., Patron)
-  'PROPER_SOLEMNITY': 4,
+  'PROPER_SOLEMNITY': 4,   //
 
   // === Group II ===
   // 5. Feasts of the Lord
-  'Feast-Lord': 5,
+  'Feast-Lord': 5,         //
   
   // 6. Sundays of Christmas Time and Ordinary Time
-  'Sunday-OT': 6,
+  'Sunday-OT': 6,          //
   
   // 7. Feasts of Mary and Saints (General)
-  'Feast': 7,
+  'Feast': 7,              //
   
   // 8. Proper Feasts
-  'PROPER_FEAST': 8,
+  'PROPER_FEAST': 8,       //
   
   // === Group III ===
   // 9. Weekdays of Advent (Dec 17-24) & Weekdays of Lent
-  'Weekday-High': 9,
+  'Weekday-High': 9,       //
   
   // 10. Obligatory Memorials
-  'Memorial': 10,
+  'Memorial': 10,          //
   
   // 11. Proper Memorials
-  'PROPER_MEMORIAL': 11,
+  'PROPER_MEMORIAL': 11,   //
   
   // 12. Optional Memorials
-  'Optional Memorial': 12,
+  'Optional Memorial': 12, //
   
   // 13. Other Weekdays
-  'Weekday': 13
+  'Weekday': 13            //
 };
 
-// Wrapper function to safely get a precedence number
+/**
+ * Wrapper function to safely get a precedence number
+ * This REPLACES the old HELPER_translateRank logic
+ */
 function HELPER_getPrecedence(rankText) {
   return PRECEDENCE[rankText] || 13; // Default to lowest rank (Weekday)
-}2,
-    'Memorial': 3,
-    'Optional Memorial': 4,
-    'Commemoration': 5,
-    'Ferial': 6,
-    'Weekday': 7
-  };
-  
-  return ranks[rankText] || 7; // Default to weekday if unknown
+}
+
+/**
+ * NEW FUNCTION: Translates a detailed internal rank key into a
+ * simple, user-facing rank for the spreadsheet output.
+ * This is called AFTER the precedence logic is finished.
+ */
+function HELPER_simplifyRank(detailedRank) {
+  switch (detailedRank) {
+    // Solemnities (Rank 1-4)
+    case 'TRIDUUM':
+    case 'SOLEMNITY_HIGH':
+    case 'SOLEMNITY':
+    case 'PROPER_SOLEMNITY':
+    case 'EASTER_OCTAVE_DAY': // Days in Easter Octave are treated as Solemnities
+      return 'Solemnity';
+
+    // Feasts (Rank 5, 7, 8)
+    case 'Feast-Lord':
+    case 'Feast':
+    case 'PROPER_FEAST':
+      return 'Feast';
+
+    // Sundays (Rank 2, 6)
+    case 'Advent Sunday':     //
+    case 'Lent Sunday':       //
+    case 'Easter Sunday':     //
+    case 'Sunday-OT':         //
+      return 'Sunday'; 
+
+    // Memorials (Rank 10, 11)
+    case 'Memorial':
+    case 'PROPER_MEMORIAL':
+      return 'Memorial';
+    
+    // Optional Memorials (Rank 12)
+    case 'Optional Memorial':
+      return 'Optional Memorial';
+
+    // Weekdays (Rank 2.3, 2.4, 9, 13)
+    case 'ASH_WEDNESDAY':       //
+    case 'HOLY_WEEK_WEEKDAY':   //
+    case 'Weekday-High':      //
+    case 'Weekday':
+    default:
+      return 'Weekday';
+  }
 }
 
 /**
