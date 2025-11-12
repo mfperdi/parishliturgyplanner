@@ -233,12 +233,66 @@ function HELPER_timeFunction(funcName, func) {
 }
 
 /**
- * MISSING FUNCTION: Translate liturgical rank text to number for comparison
+ * REPLACEMENT for HELPER_translateRank
+ * A precedence object based on romcal and the official "Table of Liturgical Days"
+ * Lower numbers have higher precedence.
  */
-function HELPER_translateRank(rankText) {
-  const ranks = {
-    'Solemnity': 1,
-    'Feast': 2,
+const PRECEDENCE = {
+  // === Group I ===
+  // 1. Paschal Triduum
+  'TRIDUUM': 1,
+  
+  // 2. Nativity, Epiphany, Ascension, Pentecost,
+  //    Sundays of Advent, Lent, Easter, Ash Wednesday,
+  //    Weekdays of Holy Week, Days in Octave of Easter
+  'SOLEMNITY_HIGH': 2.1,
+  'Advent Sunday': 2.2,  // Your custom rank
+  'Lent Sunday': 2.2,    // Your custom rank
+  'Easter Sunday': 2.2,  // Your custom rank
+  'ASH_WEDNESDAY': 2.3,
+  'HOLY_WEEK_WEEKDAY': 2.4,
+  'EASTER_OCTAVE_DAY': 2.5,
+  
+  // 3. Solemnities (General)
+  'SOLEMNITY': 3,
+  
+  // 4. Proper Solemnities (e.g., Patron)
+  'PROPER_SOLEMNITY': 4,
+
+  // === Group II ===
+  // 5. Feasts of the Lord
+  'Feast-Lord': 5,
+  
+  // 6. Sundays of Christmas Time and Ordinary Time
+  'Sunday-OT': 6,
+  
+  // 7. Feasts of Mary and Saints (General)
+  'Feast': 7,
+  
+  // 8. Proper Feasts
+  'PROPER_FEAST': 8,
+  
+  // === Group III ===
+  // 9. Weekdays of Advent (Dec 17-24) & Weekdays of Lent
+  'Weekday-High': 9,
+  
+  // 10. Obligatory Memorials
+  'Memorial': 10,
+  
+  // 11. Proper Memorials
+  'PROPER_MEMORIAL': 11,
+  
+  // 12. Optional Memorials
+  'Optional Memorial': 12,
+  
+  // 13. Other Weekdays
+  'Weekday': 13
+};
+
+// Wrapper function to safely get a precedence number
+function HELPER_getPrecedence(rankText) {
+  return PRECEDENCE[rankText] || 13; // Default to lowest rank (Weekday)
+}2,
     'Memorial': 3,
     'Optional Memorial': 4,
     'Commemoration': 5,
