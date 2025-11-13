@@ -1,9 +1,9 @@
 /**
  * ====================================================================
- * 2. SCHEDULE GENERATION LOGIC (3-LAYER LOGIC)
+ * 2. SCHEDULE GENERATION LOGIC (3-LAYER LOGIC with Date Ranges)
  * ====================================================================
  * This file contains all logic for "Step 1: Generate Schedule".
- * It reads masses in three layers:
+ * It reads masses in three layers and respects Start/End dates.
  * 1. WeeklyMasses (Baseline)
  * 2. MonthlyMasses (Overrides)
  * 3. YearlyMasses (Final Overrides)
@@ -11,7 +11,6 @@
 
 /**
  * Main function to generate the unassigned schedule for a given month.
- * Called by Code.gs
  * @param {string} monthString A string like "2026-01" (for Jan 2026).
  * @returns {string} A success message.
  */
@@ -71,10 +70,8 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       
       if (nextDayLiturgy) {
         liturgicalCelebration = nextDayLiturgy;
-        // Logger.log(`DEBUG: Anticipated Mass on ${mass.date.toDateString()} uses liturgy from ${nextDay.toDateString()}: ${liturgicalCelebration}`);
       } else {
         Logger.log(`WARNING: Could not find liturgy for next day ${nextDay.toDateString()} for anticipated Mass on ${mass.date.toDateString()}`);
-        // Still use next day logic - build from scratch if needed
         const sundayOrdinal = Math.ceil(nextDay.getDate() / 7);
         liturgicalCelebration = `${sundayOrdinal}${sundayOrdinal === 1 ? 'st' : sundayOrdinal === 2 ? 'nd' : sundayOrdinal === 3 ? 'rd' : 'th'} Sunday in Ordinary Time`;
       }
@@ -126,10 +123,6 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
 /**
  * Clears all 'Unassigned' rows for the given month/year.
- * This function preserves filters by clearing content, not deleting rows.
- * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The 'Assignments' sheet.
- * @param {number} month The month (0-indexed).
- * @param {number} year The year.
  */
 function SCHEDULE_clearOldAssignments(sheet, month, year) {
   const data = sheet.getDataRange().getValues();
@@ -147,14 +140,12 @@ function SCHEDULE_clearOldAssignments(sheet, month, year) {
 
       const rowStatus = row[assignCols.STATUS - 1];
       
-      // Check if the row should be deleted
       const isThisMonth = rowDate.getMonth() === month && rowDate.getFullYear() === year;
       const isUnassigned = rowStatus === "Unassigned" || rowStatus === ""; // Also clear blank status
       
       if (isThisMonth && isUnassigned) {
-        // This row should be deleted, so we *don't* add it to rowsToKeep
+        // Don't keep this row
       } else {
-        // This row is from a different month OR is already "Assigned", so we keep it.
         rowsToKeep.push(row);
       }
     } catch (e) {
@@ -175,8 +166,6 @@ function SCHEDULE_clearOldAssignments(sheet, month, year) {
 
 /**
  * Reads 'MassTemplates' and builds a Map for fast lookups.
- * @returns {Map<string, Array<object>>} A map where key is TemplateName
- * and value is an array of {roleName, skill} objects.
  */
 function SCHEDULE_buildTemplateMap() {
   const templateData = HELPER_readSheetData(CONSTANTS.SHEETS.TEMPLATES);
@@ -201,10 +190,7 @@ function SCHEDULE_buildTemplateMap() {
 }
 
 /**
- * ENHANCED: Builds a map of liturgical celebrations for the month and spillover dates.
- * @param {number} month The month (0-indexed).
- * @param {number} year The year.
- * @returns {Map<string, string>} A map where key is "YYYY-MM-DD" and value is the liturgical celebration name.
+ * Builds a map of liturgical celebrations for the month and spillover dates.
  */
 function SCHEDULE_buildLiturgicalMap(month, year) {
   const liturgicalMap = new Map();
@@ -217,7 +203,7 @@ function SCHEDULE_buildLiturgicalMap(month, year) {
       const calDate = new Date(row[calCols.DATE - 1]);
       if (isNaN(calDate.getTime())) continue; // Skip invalid dates
       
-      // Include this month AND the first few days of next month for anticipated Mass logic
+      // Include this month AND the first few days of next month
       const includeDate = (
         (calDate.getMonth() === month && calDate.getFullYear() === year) ||
         (calDate.getMonth() === (month + 1) % 12 && calDate.getDate() <= 7 && 
@@ -240,13 +226,50 @@ function SCHEDULE_buildLiturgicalMap(month, year) {
 }
 
 /**
+ * NEW: Helper function to check if a date falls within a start/end range.
+ * Handles blank dates as "all year".
+ * @param {Date} dateToCheck The date of the mass being scheduled.
+ * @param {Date} startDate The start date from the rule (can be invalid/blank).
+ * @param {Date} endDate The end date from the rule (can be invalid/blank).
+ * @returns {boolean} True if the mass should be scheduled.
+ */
+function HELPER_isDateInRange(dateToCheck, startDate, endDate) {
+  const checkTime = dateToCheck.getTime();
+  
+  const startIsValid = startDate && !isNaN(startDate.getTime());
+  const endIsValid = endDate && !isNaN(endDate.getTime());
+
+  // If no valid dates are set, the rule is active all year
+  if (!startIsValid && !endIsValid) {
+    return true;
+  }
+  
+  // If a start date is set, check if we're on or after it
+  if (startIsValid) {
+    // Start date is inclusive (midnight at the start of the day)
+    const startTime = new Date(startDate.getTime());
+    startTime.setHours(0, 0, 0, 0); 
+    if (checkTime < startTime.getTime()) {
+      return false; // Date is before the start date
+    }
+  }
+  
+  // If an end date is set, check if we're on or before it
+  if (endIsValid) {
+    // End date is inclusive (23:59 at the end of the day)
+    const endTime = new Date(endDate.getTime());
+    endTime.setHours(23, 59, 59, 999);
+    if (checkTime > endTime.getTime()) {
+      return false; // Date is after the end date
+    }
+  }
+  
+  return true; // Date is within the range
+}
+
+
+/**
  * NEW: Helper function to find the specific date for a monthly rule
- * e.g., "1st Friday" or "Last Saturday"
- * @param {number} year The year.
- * @param {number} month The month (0-indexed).
- * @param {string|number} weekOfMonth The rule (1, 2, 3, 4, 5, or "Last").
- * @param {string} dayOfWeek The day to find (e.g., "Friday").
- * @returns {Date|null} The specific date, or null if not found.
  */
 function HELPER_findDateForMonthlyRule(year, month, weekOfMonth, dayOfWeek) {
   const dayIndex = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(dayOfWeek);
@@ -264,6 +287,8 @@ function HELPER_findDateForMonthlyRule(year, month, weekOfMonth, dayOfWeek) {
   } else {
     // Start from the 1st and go forwards
     const weekNum = parseInt(weekOfMonth);
+    if (isNaN(weekNum) || weekNum < 1 || weekNum > 5) return null; // Invalid week number
+    
     let count = 0;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
@@ -287,7 +312,7 @@ function HELPER_findDateForMonthlyRule(year, month, weekOfMonth, dayOfWeek) {
  * @returns {Array<object>} An array of mass objects.
  */
 function SCHEDULE_findMassesForMonth(month, year) {
-  const masses = [];
+  let masses = []; // Use 'let' so we can filter
   const weeklyData = HELPER_readSheetData(CONSTANTS.SHEETS.WEEKLY_MASSES);
   const monthlyData = HELPER_readSheetData(CONSTANTS.SHEETS.MONTHLY_MASSES);
   const yearlyData = HELPER_readSheetData(CONSTANTS.SHEETS.YEARLY_MASSES);
@@ -328,8 +353,14 @@ function SCHEDULE_findMassesForMonth(month, year) {
       
       const recurringDay = row[weekCols.DAY_OF_WEEK - 1];
       if (recurringDay === dayOfWeek) {
+        // *** NEW: Check date range ***
+        const startDate = new Date(row[weekCols.START_DATE - 1]);
+        const endDate = new Date(row[weekCols.END_DATE - 1]);
+        if (!HELPER_isDateInRange(currentDate, startDate, endDate)) {
+          continue; // Skip this rule, it's not active on this date
+        }
+      
         let isAnticipated = (row[weekCols.IS_ANTICIPATED - 1] === true);
-        
         masses.push({
           date: currentDate,
           time: row[weekCols.TIME - 1],
@@ -357,6 +388,13 @@ function SCHEDULE_findMassesForMonth(month, year) {
           
           const recurringDay = row[weekCols.DAY_OF_WEEK - 1];
           if (recurringDay === dayOfWeek) {
+            // *** NEW: Check date range ***
+            const startDate = new Date(row[weekCols.START_DATE - 1]);
+            const endDate = new Date(row[weekCols.END_DATE - 1]);
+            if (!HELPER_isDateInRange(currentDate, startDate, endDate)) {
+              continue; // Skip this rule, it's not active on this date
+            }
+          
             let isAnticipated = (row[weekCols.IS_ANTICIPATED - 1] === true);
             masses.push({
               date: currentDate,
@@ -378,6 +416,8 @@ function SCHEDULE_findMassesForMonth(month, year) {
 
   // --- 2. Find and Apply Monthly Masses ---
   Logger.log("Layer 2: Applying Monthly Mass Rules");
+  const monthlyMassesToAdd = []; // Store monthly masses separately to avoid modifying array while looping
+
   for (const row of monthlyData) {
     const isActive = row[monCols.IS_ACTIVE - 1];
     if (isActive === false) continue;
@@ -385,42 +425,43 @@ function SCHEDULE_findMassesForMonth(month, year) {
     const weekOfMonth = row[monCols.WEEK_OF_MONTH - 1];
     const dayOfWeek = row[monCols.DAY_OF_WEEK - 1];
     
-    // Find the specific date for this rule (e.g., "1st Friday")
     const specialDate = HELPER_findDateForMonthlyRule(year, month, weekOfMonth, dayOfWeek);
     
     if (!specialDate) {
-      // Logger.log(`> Rule ${row[monCols.EVENT_ID - 1]} did not match any date this month.`);
-      continue; // Rule doesn't apply this month (e.g., "5th Sunday" in a 4-Sunday month)
+      continue; // Rule doesn't apply this month
+    }
+
+    // *** NEW: Check date range ***
+    const startDate = new Date(row[monCols.START_DATE - 1]);
+    const endDate = new Date(row[monCols.END_DATE - 1]);
+    if (!HELPER_isDateInRange(specialDate, startDate, endDate)) {
+      continue; // Skip this rule, it's not active on this date
     }
 
     const dateKey = specialDate.toDateString();
     const overrideType = (row[monCols.OVERRIDE_TYPE - 1] || '').toLowerCase();
-
+    
     if (overrideType === 'overrideday') {
-      // --- Type 2: OverrideDay Logic ---
       Logger.log(`Applying MONTHLY OVERRIDE for ${dateKey}`);
-      for (let i = masses.length - 1; i >= 0; i--) {
-        if (masses[i].date.toDateString() === dateKey) {
-          masses.splice(i, 1);
-        }
-      }
+      // Filter out all masses on this day
+      masses = masses.filter(m => m.date.toDateString() !== dateKey);
     } else {
-      // --- Type 1: Append/Sponsorship Logic ---
+      // Append/Sponsorship Logic
       Logger.log(`Applying MONTHLY APPEND for ${dateKey}`);
       const specialTime = new Date(row[monCols.TIME - 1]).toTimeString();
-      for (let i = masses.length - 1; i >= 0; i--) {
-        const recurringTime = new Date(masses[i].time).toTimeString();
-        if (masses[i].date.toDateString() === dateKey && recurringTime === specialTime) {
-          Logger.log(`> Replacing weekly mass at ${specialTime}`);
-          masses.splice(i, 1);
-          break; 
-        }
-      }
+      
+      // Filter out the one mass this replaces
+      masses = masses.filter(m => {
+        const isMatch = m.date.toDateString() === dateKey && 
+                        new Date(m.time).toTimeString() === specialTime;
+        if (isMatch) Logger.log(`> Replacing weekly mass at ${specialTime}`);
+        return !isMatch; // Keep if NOT a match
+      });
     }
 
-    // --- Finally, Add the Monthly Mass ---
+    // Add the new monthly mass
     let isAnticipated = (row[monCols.IS_ANTICIPATED - 1] === true);
-    masses.push({
+    monthlyMassesToAdd.push({
       date: specialDate,
       time: row[monCols.TIME - 1],
       description: row[monCols.DESCRIPTION - 1] || "",
@@ -432,6 +473,10 @@ function SCHEDULE_findMassesForMonth(month, year) {
     });
     Logger.log(`DEBUG: Added monthly mass - ${row[monCols.EVENT_ID - 1]} on ${dateKey}`);
   }
+  
+  // Add all new monthly masses to the main list
+  masses.push(...monthlyMassesToAdd);
+
 
   // --- 3. Find and Apply Yearly (Date-Specific) Masses ---
   Logger.log("Layer 3: Applying Yearly Mass Rules");
@@ -445,7 +490,6 @@ function SCHEDULE_findMassesForMonth(month, year) {
     const specialDate = new Date(row[yearCols.DATE - 1]);
     if (isNaN(specialDate.getTime())) continue; 
 
-    // Check if the date is in our scheduling window
     const inMonth = (specialDate.getFullYear() === year && specialDate.getMonth() === month);
     const inSpillover = (includeNextSunday && specialDate.getFullYear() === endYear && specialDate.getMonth() === endMonth && specialDate.getDate() <= endDay);
 
@@ -458,6 +502,8 @@ function SCHEDULE_findMassesForMonth(month, year) {
     yearlyMassesByDate.get(dateKey).push(row);
   }
 
+  const yearlyMassesToAdd = []; // Store masses to add
+  
   // Process each date that has yearly masses
   for (const [dateKey, yearlyMassRows] of yearlyMassesByDate) {
     const specialDate = new Date(dateKey); 
@@ -467,33 +513,28 @@ function SCHEDULE_findMassesForMonth(month, year) {
     );
 
     if (isOverrideDay) {
-      // --- Type 2: OverrideDay Logic ---
       Logger.log(`Applying YEARLY OVERRIDE for ${dateKey}`);
-      for (let i = masses.length - 1; i >= 0; i--) {
-        if (masses[i].date.toDateString() === dateKey) {
-          masses.splice(i, 1); // Deletes weekly AND monthly masses
-        }
-      }
+      // Filter out all masses (weekly or monthly) on this day
+      masses = masses.filter(m => m.date.toDateString() !== dateKey);
     } else {
-      // --- Type 1: Append/Sponsorship Logic ---
+      // Append/Sponsorship Logic
       Logger.log(`Applying YEARLY APPEND for ${dateKey}`);
       for (const specialRow of yearlyMassRows) {
         const specialTime = new Date(specialRow[yearCols.TIME - 1]).toTimeString();
-        for (let i = masses.length - 1; i >= 0; i--) {
-          const recurringTime = new Date(masses[i].time).toTimeString();
-          if (masses[i].date.toDateString() === dateKey && recurringTime === specialTime) {
-            Logger.log(`> Replacing existing mass at ${specialTime}`);
-            masses.splice(i, 1);
-            break; 
-          }
-        }
+        // Filter out the one mass this replaces
+        masses = masses.filter(m => {
+          const isMatch = m.date.toDateString() === dateKey && 
+                          new Date(m.time).toTimeString() === specialTime;
+          if (isMatch) Logger.log(`> Replacing existing mass at ${specialTime}`);
+          return !isMatch; // Keep if NOT a match
+        });
       }
     }
 
-    // --- Finally, Add the Yearly Masses ---
+    // Add the new yearly masses
     for (const specialRow of yearlyMassRows) {
       let isAnticipated = (specialRow[yearCols.IS_ANTICIPATED - 1] === true);
-      masses.push({
+      yearlyMassesToAdd.push({
         date: specialDate,
         time: specialRow[yearCols.TIME - 1],
         description: specialRow[yearCols.DESCRIPTION - 1] || "",
@@ -506,12 +547,16 @@ function SCHEDULE_findMassesForMonth(month, year) {
       Logger.log(`DEBUG: Added yearly mass - ${specialRow[yearCols.EVENT_ID - 1]} on ${dateKey}`);
     }
   }
+  
+  // Add all new yearly masses to the main list
+  masses.push(...yearlyMassesToAdd);
 
   Logger.log(`> Found ${masses.length} total masses to schedule after all 3 layers.`);
 
   // --- 4. SORTING ---
   // Sort the final list by date, then by time.
   masses.sort((a, b) => {
+    // Combine date and time into a single, comparable value
     const timeA = new Date(a.time);
     const fullDateA = new Date(a.date.getTime());
     fullDateA.setHours(timeA.getHours(), timeA.getMinutes(), timeA.getSeconds());
