@@ -1,11 +1,12 @@
 /**
  * ====================================================================
- * 2. SCHEDULE GENERATION LOGIC (ENHANCED WITH EVENTID SUPPORT)
+ * 2. SCHEDULE GENERATION LOGIC (3-LAYER LOGIC)
  * ====================================================================
  * This file contains all logic for "Step 1: Generate Schedule".
- * It reads mass templates and recurring/special masses to create
- * all the "Unassigned" rows for a given month.
- * * ENHANCED: Now properly populates EventID column for mass preference matching.
+ * It reads masses in three layers:
+ * 1. WeeklyMasses (Baseline)
+ * 2. MonthlyMasses (Overrides)
+ * 3. YearlyMasses (Final Overrides)
  */
 
 /**
@@ -37,7 +38,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
   Logger.log("2. Reading mass templates...");
   const templateMap = SCHEDULE_buildTemplateMap();
   
-  // 3. Find all masses that need to be scheduled this month
+  // 3. Find all masses that need to be scheduled this month (using 3-layer logic)
   Logger.log("3. Finding all masses for the month...");
   const massesToSchedule = SCHEDULE_findMassesForMonth(month, scheduleYear);
   
@@ -98,7 +99,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName;
       newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
       newRow[assignCols.MONTH_YEAR - 1] = monthString;
-      newRow[assignCols.ASSIGNED_GROUP - 1] = mass.assignedGroup || ""; // Column H
+      newRow[assignCols.ASSIGNED_GROUP - 1] = mass.assignedGroup || ""; 
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] = "";
       newRow[assignCols.STATUS - 1] = "Unassigned"; // Set default status
@@ -224,4 +225,303 @@ function SCHEDULE_buildLiturgicalMap(month, year) {
       );
       
       if (includeDate) {
-        const dateKey = `${calDate.getFullYear()}-${(calDate.getMonth() + 1).toString
+        const dateKey = `${calDate.getFullYear()}-${(calDate.getMonth() + 1).toString().padStart(2, '0')}-${calDate.getDate().toString().padStart(2, '0')}`;
+        const liturgicalCelebration = row[calCols.LITURGICAL_CELEBRATION - 1];
+        liturgicalMap.set(dateKey, liturgicalCelebration);
+      }
+    }
+    
+    Logger.log(`> Built liturgical map with ${liturgicalMap.size} entries for ${month + 1}/${year} including spillover dates.`);
+  } catch (error) {
+    Logger.log(`Warning: Could not read liturgical calendar: ${error}. Mass names will use default descriptions.`);
+  }
+  
+  return liturgicalMap;
+}
+
+/**
+ * NEW: Helper function to find the specific date for a monthly rule
+ * e.g., "1st Friday" or "Last Saturday"
+ * @param {number} year The year.
+ * @param {number} month The month (0-indexed).
+ * @param {string|number} weekOfMonth The rule (1, 2, 3, 4, 5, or "Last").
+ * @param {string} dayOfWeek The day to find (e.g., "Friday").
+ * @returns {Date|null} The specific date, or null if not found.
+ */
+function HELPER_findDateForMonthlyRule(year, month, weekOfMonth, dayOfWeek) {
+  const dayIndex = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(dayOfWeek);
+  if (dayIndex === -1) return null;
+
+  if (weekOfMonth === 'Last') {
+    // Start from the last day of the month and go backwards
+    const lastDayOfMonth = new Date(year, month + 1, 0); // Day 0 of next month is last day of this month
+    for (let d = lastDayOfMonth.getDate(); d >= 1; d--) {
+      const dt = new Date(year, month, d);
+      if (dt.getDay() === dayIndex) {
+        return dt; // Found the last one
+      }
+    }
+  } else {
+    // Start from the 1st and go forwards
+    const weekNum = parseInt(weekOfMonth);
+    let count = 0;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(year, month, d);
+      if (dt.getDay() === dayIndex) {
+        count++;
+        if (count === weekNum) {
+          return dt; // Found the Nth day
+        }
+      }
+    }
+  }
+  
+  return null; // Rule didn't match (e.g., no "5th Friday")
+}
+
+/**
+ * Finds all recurring and special masses for a given month using 3-layer logic.
+ * @param {number} month The month (0-indexed).
+ * @param {number} year The year.
+ * @returns {Array<object>} An array of mass objects.
+ */
+function SCHEDULE_findMassesForMonth(month, year) {
+  const masses = [];
+  const weeklyData = HELPER_readSheetData(CONSTANTS.SHEETS.WEEKLY_MASSES);
+  const monthlyData = HELPER_readSheetData(CONSTANTS.SHEETS.MONTHLY_MASSES);
+  const yearlyData = HELPER_readSheetData(CONSTANTS.SHEETS.YEARLY_MASSES);
+  
+  const weekCols = CONSTANTS.COLS.WEEKLY_MASSES;
+  const monCols = CONSTANTS.COLS.MONTHLY_MASSES;
+  const yearCols = CONSTANTS.COLS.YEARLY_MASSES;
+  
+  // --- 1. Find Weekly Masses (Baseline) ---
+  Logger.log("Layer 1: Generating Weekly Masses");
+  const daysInMonth = new Date(year, month + 1, 0).getDate(); // Get last day of month
+  const lastDayOfMonth = new Date(year, month, daysInMonth);
+  const includeNextSunday = lastDayOfMonth.getDay() === 6; // Last day is Saturday
+  
+  let endDay = daysInMonth;
+  let endMonth = month;
+  let endYear = year;
+  
+  if (includeNextSunday) {
+    endDay = 7; 
+    if (month === 11) { // December
+      endMonth = 0; // January
+      endYear = year + 1;
+    } else {
+      endMonth = month + 1;
+    }
+    Logger.log(`Including spillover dates through ${endYear}-${(endMonth + 1).toString().padStart(2, '0')}-07 for weekend masses`);
+  }
+  
+  // Process current month
+  for (let day = 1; day <= daysInMonth; day++) {
+    const currentDate = new Date(year, month, day);
+    const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' }); // e.g., "Sunday"
+    
+    for (const row of weeklyData) {
+      const isActive = row[weekCols.IS_ACTIVE - 1];
+      if (isActive === false) continue; 
+      
+      const recurringDay = row[weekCols.DAY_OF_WEEK - 1];
+      if (recurringDay === dayOfWeek) {
+        let isAnticipated = (row[weekCols.IS_ANTICIPATED - 1] === true);
+        
+        masses.push({
+          date: currentDate,
+          time: row[weekCols.TIME - 1],
+          description: row[weekCols.DESCRIPTION - 1] || dayOfWeek,
+          templateName: row[weekCols.TEMPLATE_NAME - 1],
+          eventId: row[weekCols.EVENT_ID - 1],
+          isAnticipated: isAnticipated,
+          assignedGroup: row[weekCols.ASSIGNED_GROUP - 1] || "",
+          notes: row[weekCols.NOTES - 1] || ""
+        });
+      }
+    }
+  }
+  
+  // Process spillover dates if needed
+  if (includeNextSunday) {
+    for (let day = 1; day <= endDay; day++) {
+      const currentDate = new Date(endYear, endMonth, day);
+      const dayOfWeek = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+      
+      if (dayOfWeek === 'Sunday') {
+        for (const row of weeklyData) {
+          const isActive = row[weekCols.IS_ACTIVE - 1];
+          if (isActive === false) continue;
+          
+          const recurringDay = row[weekCols.DAY_OF_WEEK - 1];
+          if (recurringDay === dayOfWeek) {
+            let isAnticipated = (row[weekCols.IS_ANTICIPATED - 1] === true);
+            masses.push({
+              date: currentDate,
+              time: row[weekCols.TIME - 1],
+              description: row[weekCols.DESCRIPTION - 1] || dayOfWeek,
+              templateName: row[weekCols.TEMPLATE_NAME - 1],
+              eventId: row[weekCols.EVENT_ID - 1],
+              isAnticipated: isAnticipated,
+              assignedGroup: row[weekCols.ASSIGNED_GROUP - 1] || "",
+              notes: row[weekCols.NOTES - 1] || ""
+            });
+          }
+        }
+        break; // Only need the first Sunday
+      }
+    }
+  }
+  Logger.log(`> Found ${masses.length} weekly mass instances.`);
+
+  // --- 2. Find and Apply Monthly Masses ---
+  Logger.log("Layer 2: Applying Monthly Mass Rules");
+  for (const row of monthlyData) {
+    const isActive = row[monCols.IS_ACTIVE - 1];
+    if (isActive === false) continue;
+
+    const weekOfMonth = row[monCols.WEEK_OF_MONTH - 1];
+    const dayOfWeek = row[monCols.DAY_OF_WEEK - 1];
+    
+    // Find the specific date for this rule (e.g., "1st Friday")
+    const specialDate = HELPER_findDateForMonthlyRule(year, month, weekOfMonth, dayOfWeek);
+    
+    if (!specialDate) {
+      // Logger.log(`> Rule ${row[monCols.EVENT_ID - 1]} did not match any date this month.`);
+      continue; // Rule doesn't apply this month (e.g., "5th Sunday" in a 4-Sunday month)
+    }
+
+    const dateKey = specialDate.toDateString();
+    const overrideType = (row[monCols.OVERRIDE_TYPE - 1] || '').toLowerCase();
+
+    if (overrideType === 'overrideday') {
+      // --- Type 2: OverrideDay Logic ---
+      Logger.log(`Applying MONTHLY OVERRIDE for ${dateKey}`);
+      for (let i = masses.length - 1; i >= 0; i--) {
+        if (masses[i].date.toDateString() === dateKey) {
+          masses.splice(i, 1);
+        }
+      }
+    } else {
+      // --- Type 1: Append/Sponsorship Logic ---
+      Logger.log(`Applying MONTHLY APPEND for ${dateKey}`);
+      const specialTime = new Date(row[monCols.TIME - 1]).toTimeString();
+      for (let i = masses.length - 1; i >= 0; i--) {
+        const recurringTime = new Date(masses[i].time).toTimeString();
+        if (masses[i].date.toDateString() === dateKey && recurringTime === specialTime) {
+          Logger.log(`> Replacing weekly mass at ${specialTime}`);
+          masses.splice(i, 1);
+          break; 
+        }
+      }
+    }
+
+    // --- Finally, Add the Monthly Mass ---
+    let isAnticipated = (row[monCols.IS_ANTICIPATED - 1] === true);
+    masses.push({
+      date: specialDate,
+      time: row[monCols.TIME - 1],
+      description: row[monCols.DESCRIPTION - 1] || "",
+      templateName: row[monCols.TEMPLATE_NAME - 1],
+      eventId: row[monCols.EVENT_ID - 1],
+      isAnticipated: isAnticipated,
+      assignedGroup: row[monCols.ASSIGNED_GROUP - 1] || "",
+      notes: row[monCols.NOTES - 1] || ""
+    });
+    Logger.log(`DEBUG: Added monthly mass - ${row[monCols.EVENT_ID - 1]} on ${dateKey}`);
+  }
+
+  // --- 3. Find and Apply Yearly (Date-Specific) Masses ---
+  Logger.log("Layer 3: Applying Yearly Mass Rules");
+  const yearlyMassesByDate = new Map();
+  
+  // Group all valid yearly masses by their date
+  for (const row of yearlyData) {
+    const isActive = row[yearCols.IS_ACTIVE - 1];
+    if (isActive === false) continue; 
+
+    const specialDate = new Date(row[yearCols.DATE - 1]);
+    if (isNaN(specialDate.getTime())) continue; 
+
+    // Check if the date is in our scheduling window
+    const inMonth = (specialDate.getFullYear() === year && specialDate.getMonth() === month);
+    const inSpillover = (includeNextSunday && specialDate.getFullYear() === endYear && specialDate.getMonth() === endMonth && specialDate.getDate() <= endDay);
+
+    if (!inMonth && !inSpillover) continue; 
+    
+    const dateKey = specialDate.toDateString();
+    if (!yearlyMassesByDate.has(dateKey)) {
+      yearlyMassesByDate.set(dateKey, []);
+    }
+    yearlyMassesByDate.get(dateKey).push(row);
+  }
+
+  // Process each date that has yearly masses
+  for (const [dateKey, yearlyMassRows] of yearlyMassesByDate) {
+    const specialDate = new Date(dateKey); 
+
+    const isOverrideDay = yearlyMassRows.some(row =>
+      (row[yearCols.OVERRIDE_TYPE - 1] || '').toLowerCase() === 'override'
+    );
+
+    if (isOverrideDay) {
+      // --- Type 2: OverrideDay Logic ---
+      Logger.log(`Applying YEARLY OVERRIDE for ${dateKey}`);
+      for (let i = masses.length - 1; i >= 0; i--) {
+        if (masses[i].date.toDateString() === dateKey) {
+          masses.splice(i, 1); // Deletes weekly AND monthly masses
+        }
+      }
+    } else {
+      // --- Type 1: Append/Sponsorship Logic ---
+      Logger.log(`Applying YEARLY APPEND for ${dateKey}`);
+      for (const specialRow of yearlyMassRows) {
+        const specialTime = new Date(specialRow[yearCols.TIME - 1]).toTimeString();
+        for (let i = masses.length - 1; i >= 0; i--) {
+          const recurringTime = new Date(masses[i].time).toTimeString();
+          if (masses[i].date.toDateString() === dateKey && recurringTime === specialTime) {
+            Logger.log(`> Replacing existing mass at ${specialTime}`);
+            masses.splice(i, 1);
+            break; 
+          }
+        }
+      }
+    }
+
+    // --- Finally, Add the Yearly Masses ---
+    for (const specialRow of yearlyMassRows) {
+      let isAnticipated = (specialRow[yearCols.IS_ANTICIPATED - 1] === true);
+      masses.push({
+        date: specialDate,
+        time: specialRow[yearCols.TIME - 1],
+        description: specialRow[yearCols.DESCRIPTION - 1] || "",
+        templateName: specialRow[yearCols.TEMPLATE_NAME - 1],
+        eventId: specialRow[yearCols.EVENT_ID - 1],
+        isAnticipated: isAnticipated,
+        assignedGroup: specialRow[yearCols.ASSIGNED_GROUP - 1] || "",
+        notes: specialRow[yearCols.NOTES - 1] || ""
+      });
+      Logger.log(`DEBUG: Added yearly mass - ${specialRow[yearCols.EVENT_ID - 1]} on ${dateKey}`);
+    }
+  }
+
+  Logger.log(`> Found ${masses.length} total masses to schedule after all 3 layers.`);
+
+  // --- 4. SORTING ---
+  // Sort the final list by date, then by time.
+  masses.sort((a, b) => {
+    const timeA = new Date(a.time);
+    const fullDateA = new Date(a.date.getTime());
+    fullDateA.setHours(timeA.getHours(), timeA.getMinutes(), timeA.getSeconds());
+
+    const timeB = new Date(b.time);
+    const fullDateB = new Date(b.date.getTime());
+    fullDateB.setHours(timeB.getHours(), timeB.getMinutes(), timeB.getSeconds());
+
+    return fullDateA.getTime() - fullDateB.getTime();
+  });
+
+  return masses;
+}
