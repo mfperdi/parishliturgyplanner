@@ -5,23 +5,30 @@
  * This file contains the logic to determine the "Proper of Time"
  * (the seasonal celebration) for any given date.
  *
- * UPDATED: Fixes Jan 1, Ash Wednesday, and all "0th Week" counting bugs.
+ * UPDATED: Fixes all "0th Week" counting bugs for all seasons.
  */
 
 /**
  * Determines the "Proper of Time" (seasonal) celebration for a given date.
  * @param {Date} currentDate The date to check.
  * @param {number} dayOfWeek The day of the week (0=Sun).
- * @param {object} dates The map of calculated moveable feast dates.
+ *@param {object} dates The map of calculated moveable feast dates.
  * @returns {object} { celebration, season, rank, color }
  */
 function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   
   const oneDay = 86400000; // milliseconds in one day
   
-  // Helper to get week number (1-based)
-  // We use floor + 1 to get week number. (e.g., day 0-6 = week 1, day 7-13 = week 2)
-  const getWeek = (start, end) => Math.floor((setDateToNoon(end).getTime() - setDateToNoon(start).getTime()) / oneDay / 7) + 1;
+  // *** FIX: This helper function is now corrected ***
+  // It correctly calculates the week number.
+  // (e.g., days 0-6 = week 1, days 7-13 = week 2)
+  const getWeek = (start, end) => {
+    const startTime = setDateToNoon(start).getTime();
+    const endTime = setDateToNoon(end).getTime();
+    // Calculate days elapsed (rounding up to handle DST)
+    const daysElapsed = Math.round((endTime - startTime) / oneDay);
+    return Math.floor(daysElapsed / 7) + 1;
+  };
 
   // --- Set current date to noon for reliable comparison ---
   const currTime = setDateToNoon(currentDate).getTime();
@@ -62,7 +69,6 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   // 2. --- Lent Season ---
   if (currTime >= dates.ashWednesday.getTime() && currTime < dates.easter.getTime()) {
     
-    // This comparison now works because both dates are set to noon
     if (currTime === dates.ashWednesday.getTime()) {
       return { celebration: "Ash Wednesday", season: "Lent", rank: "ASH_WEDNESDAY", color: "Violet" };
     }
@@ -83,7 +89,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       return { celebration: "Holy Saturday", season: "Triduum", rank: "TRIDUUM", color: "White" };
     }
     
-    // *** LENT FIX: Anchor all week counts to the 1st Sunday of Lent ***
+    // Find the 1st Sunday of Lent (the Sunday *after* Ash Wednesday)
     let firstSundayOfLent = new Date(dates.ashWednesday.getTime());
     firstSundayOfLent.setDate(firstSundayOfLent.getDate() + (7 - firstSundayOfLent.getDay()));
     firstSundayOfLent = setDateToNoon(firstSundayOfLent);
@@ -139,7 +145,6 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   if (currTime >= dates.firstSundayOfAdvent.getTime() && currTime < dates.christmasDay.getTime()) {
       // Sundays of Advent
     if (dayOfWeek === 0) {
-      // *** ADVENT FIX: Anchor all week counts to the 1st Sunday of Advent ***
       const adventWeek = getWeek(dates.firstSundayOfAdvent, currentDate);
       return { celebration: `${HELPER_getOrdinal(adventWeek)} Sunday of Advent`, season: "Advent", rank: "Advent Sunday", color: "Violet" };
     }
@@ -198,14 +203,21 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   }
 
   // Find the start of Ordinary Time (Monday after Baptism)
-  const firstOTMonday = setDateToNoon(new Date(dates.baptism.getTime() + oneDay));
+  let firstOTMonday = new Date(dates.baptism.getTime());
+  if (firstOTMonday.getDay() === 0) { // If Baptism is a Sunday
+    firstOTMonday.setDate(firstOTMonday.getDate() + 1); // Start is Monday
+  } else { // Baptism is a Monday
+    // firstOTMonday is correct
+  }
+  firstOTMonday = setDateToNoon(firstOTMonday);
+
 
   // Sundays in Ordinary Time
   if (dayOfWeek === 0) {
     let ordWeek;
     if (currTime < dates.ashWednesday.getTime()) {
-      // *** OT FIX: Baptism is Week 1, so the *next* Sunday is Week 2 ***
-      ordWeek = getWeek(dates.baptism, currentDate);
+      // The Sunday *after* Baptism is the 2nd Sunday.
+      ordWeek = getWeek(dates.baptism, currentDate); 
     } else {
       // Count backwards from 34th week (Christ the King)
       const weeksFromEnd = Math.floor((dates.christTheKing.getTime() - currTime) / oneDay / 7);
@@ -218,7 +230,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   const weekdayName = currentDate.toLocaleDateString(undefined, { weekday: 'long' });
   let ordWeek;
   if (currTime < dates.ashWednesday.getTime()) {
-    // *** OT FIX: The week *of* firstOTMonday is Week 1 ***
+    // The week *of* firstOTMonday is Week 1.
     ordWeek = getWeek(firstOTMonday, currentDate);
   } else {
     // Get week number based on *preceding Sunday*
@@ -227,7 +239,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
     ordWeek = 34 - weeksFromEnd;
   }
   
-  return { celebration: `${weekdayName} of the ${HELPER_getOrdinal(ordWeek)} Week in Ordinary Time`, season: season, rank: "Weekday", color: color };
+  return { celebration: `${weekdayName} of the ${HELPER_getOrdinal(ordWeek)} Week in Ordinary Time`, season: season, rank: "Weekday", color: "Green" };
 }
 
 /**
@@ -244,7 +256,10 @@ function getPreviousSunday(currentDate) {
  */
 function setDateToNoon(date) {
   if (!date || isNaN(date.getTime())) {
-    return null; // Handle invalid dates
+    // Try to parse it if it's a string (this is a fallback)
+    const d = new Date(date);
+    if (!d || isNaN(d.getTime())) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
   }
   return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
 }
