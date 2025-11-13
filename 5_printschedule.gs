@@ -175,7 +175,7 @@ function getAssignmentDataForMonth(monthString) {
       if (rowMonthYear === monthString && row[assignCols.DATE - 1]) {
         assignments.push({
           date: new Date(row[assignCols.DATE - 1]),
-          time: HELPER_safeArrayAccess(row, assignCols.TIME - 1),
+          time: new Date(row[assignCols.TIME - 1]), // Ensure this is a Date object for sorting
           massName: HELPER_safeArrayAccess(row, assignCols.MASS_NAME - 1),
           liturgicalCelebration: HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1),
           ministryRole: HELPER_safeArrayAccess(row, assignCols.MINISTRY_ROLE - 1),
@@ -192,8 +192,9 @@ function getAssignmentDataForMonth(monthString) {
       if (a.date.getTime() !== b.date.getTime()) {
         return a.date.getTime() - b.date.getTime();
       }
-      if (a.time !== b.time) {
-        return HELPER_formatTime(a.time).localeCompare(HELPER_formatTime(b.time));
+      // *** FIX 1: Compare time objects directly, not as strings ***
+      if (a.time.getTime() !== b.time.getTime()) {
+        return a.time.getTime() - b.time.getTime();
       }
       return a.ministryRole.localeCompare(b.ministryRole);
     });
@@ -361,7 +362,7 @@ function createAssignmentRows(sheet, assignments, startRow, config) {
   const massByDateTime = new Map();
   
   for (const assignment of assignments) {
-    const massKey = `${assignment.date.toDateString()}_${assignment.time}_${assignment.massName}`;
+    const massKey = `${assignment.date.toDateString()}_${assignment.time.toTimeString()}_${assignment.massName}`;
     if (!massByDateTime.has(massKey)) {
       massByDateTime.set(massKey, {
         date: assignment.date,
@@ -378,7 +379,8 @@ function createAssignmentRows(sheet, assignments, startRow, config) {
     if (a.date.getTime() !== b.date.getTime()) {
       return a.date.getTime() - b.date.getTime();
     }
-    return HELPER_formatTime(a.time).localeCompare(HELPER_formatTime(b.time));
+    // *** FIX 2: Compare time objects directly, not as strings ***
+    return a.time.getTime() - b.time.getTime();
   });
   
   // Create rows for each mass
@@ -391,7 +393,8 @@ function createAssignmentRows(sheet, assignments, startRow, config) {
       
       // Only show date/time/mass name on first row of each mass
       if (i === 0) {
-        sheet.getRange(currentRow, 1).setValue(HELPER_formatDate(mass.date, 'short'));
+        // *** FIX 3: Bypass helper and use direct formatting for the date ***
+        sheet.getRange(currentRow, 1).setValue(mass.date).setNumberFormat('M/d/yyyy');
         sheet.getRange(currentRow, 2).setValue(HELPER_formatTime(mass.time));
         sheet.getRange(currentRow, 3).setValue(mass.massName);
       }
@@ -552,5 +555,5 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
   };
   
   const mergedOptions = { ...defaultOptions, ...customOptions };
-  return generatePrintableSchedule(monthString, mergedOptions);
+  return generatePrintableS(monthString, mergedOptions);
 }
