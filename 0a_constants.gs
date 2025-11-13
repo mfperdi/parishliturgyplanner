@@ -1,6 +1,6 @@
 /**
  * ====================================================================
- * CONSTANTS - UPDATED FOR 3-LAYER SCHEDULE LOGIC
+ * CONSTANTS - UPDATED FOR 3-LAYER SCHEDULE LOGIC (with Date Ranges)
  * ====================================================================
  */
 
@@ -11,9 +11,9 @@ const CONSTANTS = {
     VOLUNTEERS: "Volunteers", 
     TIMEOFFS: "Timeoffs",
     TEMPLATES: "MassTemplates",
-    WEEKLY_MASSES: "WeeklyMasses",       // <-- RENAMED
-    MONTHLY_MASSES: "MonthlyMasses",     // <-- NEW
-    YEARLY_MASSES: "YearlyMasses",       // <-- RENAMED
+    WEEKLY_MASSES: "WeeklyMasses",       
+    MONTHLY_MASSES: "MonthlyMasses",     
+    YEARLY_MASSES: "YearlyMasses",       
     SAINTS_CALENDAR: "SaintsCalendar",
     OVERRIDES: "CalendarOverrides",
     CALENDAR: "LiturgicalCalendar",
@@ -60,35 +60,39 @@ const CONSTANTS = {
       NOTES: 7
     },
     
-    // 'WeeklyMasses' sheet (9 columns) - RENAMED
+    // 'WeeklyMasses' sheet (11 columns) - UPDATED
     WEEKLY_MASSES: {
       EVENT_ID: 1,
       DAY_OF_WEEK: 2,
       TIME: 3,
-      IS_ACTIVE: 4,
-      IS_ANTICIPATED: 5,
-      DESCRIPTION: 6,
-      TEMPLATE_NAME: 7,
-      ASSIGNED_GROUP: 8,
-      NOTES: 9
-    },
-
-    // 'MonthlyMasses' sheet (11 columns) - NEW
-    MONTHLY_MASSES: {
-      EVENT_ID: 1,
-      WEEK_OF_MONTH: 2,
-      DAY_OF_WEEK: 3,
-      TIME: 4,
-      IS_ACTIVE: 5,
-      IS_ANTICIPATED: 6,
-      OVERRIDE_TYPE: 7,
+      START_DATE: 4,        // <-- NEW
+      END_DATE: 5,          // <-- NEW
+      IS_ACTIVE: 6,
+      IS_ANTICIPATED: 7,
       DESCRIPTION: 8,
       TEMPLATE_NAME: 9,
       ASSIGNED_GROUP: 10,
       NOTES: 11
     },
+
+    // 'MonthlyMasses' sheet (13 columns) - UPDATED
+    MONTHLY_MASSES: {
+      EVENT_ID: 1,
+      WEEK_OF_MONTH: 2,
+      DAY_OF_WEEK: 3,
+      TIME: 4,
+      START_DATE: 5,        // <-- NEW
+      END_DATE: 6,          // <-- NEW
+      IS_ACTIVE: 7,
+      IS_ANTICIPATED: 8,
+      OVERRIDE_TYPE: 9,
+      DESCRIPTION: 10,
+      TEMPLATE_NAME: 11,
+      ASSIGNED_GROUP: 12,
+      NOTES: 13
+    },
     
-    // 'YearlyMasses' sheet (10 columns) - RENAMED
+    // 'YearlyMasses' sheet (10 columns) - (Unchanged)
     YEARLY_MASSES: {
       EVENT_ID: 1,
       DATE: 2,
