@@ -26,6 +26,9 @@ function createSafeDate(year, month, day) {
  * @returns {Date}
  */
 function setDateToNoon(date) {
+  if (!date || isNaN(date.getTime())) {
+    return null; // Handle invalid dates
+  }
   return createSafeDate(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
@@ -38,12 +41,11 @@ function setDateToNoon(date) {
  */
 function CALENDAR_calculateLiturgicalDates(year, config) {
   const dates = {};
-  const oneDay = 86400000; // 24 * 60 * 60 * 1000
   
   // --- Core Moveable Feasts (based on Easter) ---
   dates.easter = setDateToNoon(getEaster(year));
   
-  // Use .setDate() for DST-safe date math instead of fixed milliseconds
+  // Use .setDate() for DST-safe date math
   let ashWed = new Date(dates.easter.getTime());
   ashWed.setDate(ashWed.getDate() - 46);
   dates.ashWednesday = setDateToNoon(ashWed);
