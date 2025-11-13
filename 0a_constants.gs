@@ -1,6 +1,6 @@
 /**
  * ====================================================================
- * CONSTANTS - UPDATED FOR 3-LAYER SCHEDULE LOGIC (with Date Ranges)
+ * CONSTANTS - UPDATED FOR 3-LAYER SCHEDULE LOGIC (with Smart Dates)
  * ====================================================================
  */
 
@@ -60,13 +60,13 @@ const CONSTANTS = {
       NOTES: 7
     },
     
-    // 'WeeklyMasses' sheet (11 columns) - UPDATED
+    // 'WeeklyMasses' sheet (11 columns)
     WEEKLY_MASSES: {
       EVENT_ID: 1,
       DAY_OF_WEEK: 2,
       TIME: 3,
-      START_DATE: 4,        // <-- NEW
-      END_DATE: 5,          // <-- NEW
+      START_DATE: 4,
+      END_DATE: 5,
       IS_ACTIVE: 6,
       IS_ANTICIPATED: 7,
       DESCRIPTION: 8,
@@ -75,14 +75,14 @@ const CONSTANTS = {
       NOTES: 11
     },
 
-    // 'MonthlyMasses' sheet (13 columns) - UPDATED
+    // 'MonthlyMasses' sheet (13 columns)
     MONTHLY_MASSES: {
       EVENT_ID: 1,
       WEEK_OF_MONTH: 2,
       DAY_OF_WEEK: 3,
       TIME: 4,
-      START_DATE: 5,        // <-- NEW
-      END_DATE: 6,          // <-- NEW
+      START_DATE: 5,
+      END_DATE: 6,
       IS_ACTIVE: 7,
       IS_ANTICIPATED: 8,
       OVERRIDE_TYPE: 9,
@@ -92,18 +92,19 @@ const CONSTANTS = {
       NOTES: 13
     },
     
-    // 'YearlyMasses' sheet (10 columns) - (Unchanged)
+    // 'YearlyMasses' sheet (11 columns) - UPDATED
     YEARLY_MASSES: {
       EVENT_ID: 1,
       DATE: 2,
-      TIME: 3,
-      IS_ACTIVE: 4,
-      IS_ANTICIPATED: 5,
-      OVERRIDE_TYPE: 6,
-      DESCRIPTION: 7,
-      TEMPLATE_NAME: 8,
-      ASSIGNED_GROUP: 9,
-      NOTES: 10
+      LITURGICAL_CELEBRATION: 3, // <-- UPDATED
+      TIME: 4,
+      IS_ACTIVE: 5,
+      IS_ANTICIPATED: 6,
+      OVERRIDE_TYPE: 7,
+      DESCRIPTION: 8,
+      TEMPLATE_NAME: 9,
+      ASSIGNED_GROUP: 10,
+      NOTES: 11
     },
     
     // 'MassTemplates' sheet (3 columns)
