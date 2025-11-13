@@ -371,7 +371,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
           
             masses.push({
               date: currentDate,
-              time: row[weekCols.TIME - SHOW_YOUR_WORK: 1],
+              time: row[weekCols.TIME - 1], // <-- *** THIS IS THE FIX ***
               description: row[weekCols.DESCRIPTION - 1] || 'Sunday',
               templateName: row[weekCols.TEMPLATE_NAME - 1],
               eventId: row[weekCols.EVENT_ID - 1],
