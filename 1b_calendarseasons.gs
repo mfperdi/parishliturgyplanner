@@ -5,7 +5,7 @@
  * This file contains the logic to determine the "Proper of Time"
  * (the seasonal celebration) for any given date.
  *
- * UPDATED to use consistent rank keys that match the PRECEDENCE object.
+ * UPDATED to fix Ash Wednesday, Lenten Sunday, and All Saints' Day logic.
  */
 
 /**
@@ -55,7 +55,9 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
 
   // 2. --- Lent Season ---
   if (currentDate >= dates.ashWednesday && currentDate < dates.easter) {
-    if (currentDate.getTime() === dates.ashWednesday.getTime()) {
+    
+    // *** FIX 1: Check toDateString() for reliable matching ***
+    if (currentDate.toDateString() === dates.ashWednesday.toDateString()) {
       return { celebration: "Ash Wednesday", season: "Lent", rank: "ASH_WEDNESDAY", color: "Violet" };
     }
     if (currentDate.getTime() === dates.palmSunday.getTime()) {
@@ -71,7 +73,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
     if (currentDate.getTime() === dates.goodFriday.getTime()) {
       return { celebration: "Good Friday of the Passion of the Lord", season: "Triduum", rank: "TRIDUUM", color: "Red" };
     }
-     if (currentDate.getTime() === dates.holySaturday.getTime()) {
+      if (currentDate.getTime() === dates.holySaturday.getTime()) {
       return { celebration: "Holy Saturday", season: "Triduum", rank: "TRIDUUM", color: "White" };
     }
     
@@ -79,7 +81,8 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
     if (dayOfWeek === 0) {
       // Get week number *relative to 1st Sunday of Lent*
       const firstSundayOfLent = new Date(dates.ashWednesday.getTime() + (7 - dates.ashWednesday.getDay()) * oneDay);
-      const lentWeek = getWeek(firstSundayOfLent, currentDate) + 1; // +1 because Ash Wednesday week is "Week 0"
+      // *** FIX 2: Removed erroneous "+ 1" from week calculation ***
+      const lentWeek = getWeek(firstSundayOfLent, currentDate);
       return { celebration: `${HELPER_getOrdinal(lentWeek)} Sunday of Lent`, season: "Lent", rank: "Lent Sunday", color: "Violet" };
     }
     
@@ -153,7 +156,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
     }
     
     // Handle Sundays in Christmas Octave
-     if (dayOfWeek === 0) {
+      if (dayOfWeek === 0) {
       return { celebration: "The Holy Family of Jesus, Mary and Joseph", season: "Christmas", rank: "Sunday-OT", color: "White" };
     }
     // Weekdays in Christmas Octave
@@ -176,6 +179,15 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   if (currentDate.getTime() === dates.christTheKing.getTime()) {
     return { celebration: "Our Lord Jesus Christ, King of the Universe", season: season, rank: "SOLEMNITY", color: "White" };
   }
+
+  // *** FIX 3: Add explicit checks for fixed Solemnities in Ordinary Time ***
+  if (currentDate.getMonth() === 10 && currentDate.getDate() === 1) { // Nov 1
+    return { celebration: "All Saints' Day", season: season, rank: "SOLEMNITY", color: "White" };
+  }
+  if (currentDate.getMonth() === 10 && currentDate.getDate() === 2) { // Nov 2
+    return { celebration: "The Commemoration of All the Faithful Departed (All Souls' Day)", season: season, rank: "SOLEMNITY_HIGH", color: "Violet" }; // Or White/Black
+  }
+  // (Add other fixed feasts here as needed, e.g., Sacred Heart, St. Joseph, etc.)
 
   // Sundays in Ordinary Time
   if (dayOfWeek === 0) {
@@ -207,4 +219,15 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
   }
   
   return { celebration: `${weekdayName} of the ${HELPER_getOrdinal(ordWeek)} Week in Ordinary Time`, season: season, rank: "Weekday", color: color };
+}
+
+/**
+ * Helper function to get the preceding Sunday for a given date.
+ * Assumes a helper function `getPreviousSunday` exists (likely in 0b_helper.gs)
+ * If not, this is a simple implementation.
+ */
+function getPreviousSunday(currentDate) {
+  const prevSunday = new Date(currentDate.getTime());
+  prevSunday.setDate(prevSunday.getDate() - prevSunday.getDay());
+  return prevSunday;
 }
