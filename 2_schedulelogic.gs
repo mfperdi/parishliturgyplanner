@@ -93,18 +93,13 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
     for (const role of roles) {
       const newRow = new Array(assignCols.FAMILY_GROUP).fill("");
 
-      // Calculate the correct MonthYear from the actual mass date (handles spillover dates)
-      const massYear = mass.date.getFullYear();
-      const massMonth = (mass.date.getMonth() + 1).toString().padStart(2, '0');
-      const actualMonthYear = `${massYear}-${massMonth}`;
-
       newRow[assignCols.DATE - 1] = mass.date;
       newRow[assignCols.TIME - 1] = mass.time;
       newRow[assignCols.MASS_NAME - 1] = mass.description;
       newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration;
       newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName;
       newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
-      newRow[assignCols.MONTH_YEAR - 1] = actualMonthYear;
+      newRow[assignCols.MONTH_YEAR - 1] = monthString;
       newRow[assignCols.ASSIGNED_GROUP - 1] = mass.assignedGroup || "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] = "";
