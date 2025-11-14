@@ -238,37 +238,74 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
   if (printConfig && printConfig.parishLogoUrl) {
     try {
       const logoHeight = printConfig.parishLogoHeight || 60;
-      // Merge cells for logo row and center
-      sheet.getRange(currentRow, 1, 1, 5).merge().setHorizontalAlignment('center');
-      // Set row height to accommodate logo
+      const logoWidth = printConfig.parishLogoWidth || 80;
+
+      // Set row height and column width to accommodate logo
       sheet.setRowHeight(currentRow, logoHeight + 10);
-      // Insert logo into the merged cell using URL
-      sheet.getRange(currentRow, 1).insertImage(printConfig.parishLogoUrl);
+      sheet.setColumnWidth(1, logoWidth);
+
+      // Insert logo into cell A1 and get the image object
+      const image = sheet.getRange(currentRow, 1).insertImage(printConfig.parishLogoUrl);
+
+      // Position and size the image to fit within cell A1
+      image.setAnchorCell(sheet.getRange(currentRow, 1));
+      image.setWidth(logoWidth - 5);  // Slight padding
+      image.setHeight(logoHeight);
+
+      // Parish Name in column B (next to logo), left justified
+      sheet.getRange(currentRow, 2).setValue(parishName);
+      sheet.getRange(currentRow, 2).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('left');
+
       currentRow++;
-      currentRow++; // Extra space after logo
+
+      // Schedule title in column B row 2, left justified
+      const scheduleTitle = (printConfig && printConfig.scheduleTitle) || 'Ministry Schedule';
+      const title = config.layoutStyle === 'liturgical'
+        ? `${scheduleTitle} - ${displayName} (Liturgical Order)`
+        : `${scheduleTitle} - ${displayName}`;
+
+      sheet.getRange(currentRow, 2).setValue(title);
+      sheet.getRange(currentRow, 2).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('left');
+
+      currentRow++;
+
     } catch (e) {
       Logger.log(`Warning: Could not insert parish logo: ${e.message}`);
+      // If logo fails, fall back to centered header layout
+      sheet.getRange(currentRow, 1).setValue(parishName);
+      sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.getRange(currentRow, 1, 1, 5).merge();
+      currentRow++;
+
+      const scheduleTitle = (printConfig && printConfig.scheduleTitle) || 'Ministry Schedule';
+      const title = config.layoutStyle === 'liturgical'
+        ? `${scheduleTitle} - ${displayName} (Liturgical Order)`
+        : `${scheduleTitle} - ${displayName}`;
+
+      sheet.getRange(currentRow, 1).setValue(title);
+      sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
+      sheet.getRange(currentRow, 1, 1, 5).merge();
+      currentRow++;
     }
+  } else {
+    // No logo - use centered header layout
+    sheet.getRange(currentRow, 1).setValue(parishName);
+    sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.getRange(currentRow, 1, 1, 5).merge();
+    currentRow++;
+
+    const scheduleTitle = (printConfig && printConfig.scheduleTitle) || 'Ministry Schedule';
+    const title = config.layoutStyle === 'liturgical'
+      ? `${scheduleTitle} - ${displayName} (Liturgical Order)`
+      : `${scheduleTitle} - ${displayName}`;
+
+    sheet.getRange(currentRow, 1).setValue(title);
+    sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.getRange(currentRow, 1, 1, 5).merge();
+    currentRow++;
   }
 
-  // Parish header
-  sheet.getRange(currentRow, 1).setValue(parishName);
-  sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
-  sheet.getRange(currentRow, 1, 1, 5).merge();
-  currentRow++;
-
-  // Schedule title - use configured title
-  const scheduleTitle = (printConfig && printConfig.scheduleTitle) || 'Ministry Schedule';
-  const title = config.layoutStyle === 'liturgical'
-    ? `${scheduleTitle} - ${displayName} (Liturgical Order)`
-    : `${scheduleTitle} - ${displayName}`;
-
-  sheet.getRange(currentRow, 1).setValue(title);
-  sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
-  sheet.getRange(currentRow, 1, 1, 5).merge();
-  currentRow++;
-
-  // Generation info
+  // Generation info - centered across all columns
   const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
   sheet.getRange(currentRow, 1).setValue(generatedText);
   sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('center');
