@@ -234,6 +234,9 @@ function SCHEDULE_buildLiturgicalMap(month, year) {
  * Helper function to check if a date falls within a start/end range.
  */
 function HELPER_isDateInRange(dateToCheck, startDate, endDate) {
+  // Ensure dateToCheck is valid
+  if (!dateToCheck || isNaN(dateToCheck.getTime())) return false;
+  
   const checkTime = dateToCheck.getTime();
   
   const startIsValid = startDate && !isNaN(new Date(startDate).getTime());
@@ -329,7 +332,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
     Logger.log(`Including spillover dates through ${endYear}-${(endMonth + 1).toString().padStart(2, '0')}-07`);
   }
   
-  // *** NEW: Check if Day 1 belongs to the previous month's spillover ***
+  // *** FIX: Check if Day 1 belongs to the previous month's spillover ***
   let startDay = 1;
   const firstDayOfMonth = new Date(year, month, 1, 12, 0, 0);
   if (firstDayOfMonth.getDay() === 0) { // If Day 1 is a Sunday
@@ -340,7 +343,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
       startDay = 2; // Start processing on Day 2
     }
   }
-  // *** END NEW LOGIC ***
+  // *** END FIX ***
 
   // Process current month, starting from the correct day
   for (let day = startDay; day <= daysInMonth; day++) {
@@ -409,8 +412,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
     const dayOfWeek = row[monCols.DAY_OF_WEEK - 1];
     // Find the date for the *current* month
     const specialDate = HELPER_findDateForMonthlyRule(year, month, weekOfMonth, dayOfWeek);
-    if (!specialDate) continue; 
-
+    
     // Find if the date for the *next* month (for spillover) is also needed
     let spilloverDate = null;
     if (includeNextSunday && endMonth !== month) {
@@ -420,12 +422,20 @@ function SCHEDULE_findMassesForMonth(month, year) {
       }
     }
     
-    const datesToProcess = [specialDate];
-    if (spilloverDate) {
-      datesToProcess.push(spilloverDate);
-    }
+    const datesToProcess = [];
+    if(specialDate) datesToProcess.push(specialDate);
+    if(spilloverDate) datesToProcess.push(spilloverDate);
+
+    if (datesToProcess.length === 0) continue;
     
     for (const dateToProcess of datesToProcess) {
+      
+      // *** FIX: Skip Day 1 if it's a spillover day ***
+      if (startDay === 2 && dateToProcess.getDate() === 1 && dateToProcess.getMonth() === month) {
+        Logger.log(`> Skipping Monthly rule ${row[monCols.EVENT_ID - 1]} because it lands on spillover Day 1.`);
+        continue;
+      }
+      
       const startDate = new Date(row[monCols.START_DATE - 1]);
       const endDate = new Date(row[monCols.END_DATE - 1]);
       if (!HELPER_isDateInRange(dateToProcess, startDate, endDate)) continue;
@@ -500,6 +510,12 @@ function SCHEDULE_findMassesForMonth(month, year) {
       specialDate = setDateToNoon(staticDate); // Use static date, set to noon
     } else {
       continue; 
+    }
+    
+    // *** FIX: Skip Day 1 if it's a spillover day ***
+    if (startDay === 2 && specialDate.getDate() === 1 && specialDate.getMonth() === month) {
+      Logger.log(`> Skipping Yearly rule ${row[yearCols.EVENT_ID - 1]} because it lands on spillover Day 1.`);
+      continue;
     }
 
     const inMonth = (specialDate.getFullYear() === year && specialDate.getMonth() === month);
