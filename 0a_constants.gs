@@ -166,7 +166,7 @@ const CONSTANTS = {
   
   // 3. Status Values (for validation)
   STATUS: {
-    VOLUNTEER: ['Active', 'Inactive', 'Training'],
+    VOLUNTEER: ['Active', 'Inactive', 'Substitute Only', 'Ministry Sponsor', 'Parent/Guardian'],
     TIMEOFF: ['Pending', 'Approved', 'Rejected'],
     ASSIGNMENT: ['Unassigned', 'Assigned', 'Substitute Needed']
   },

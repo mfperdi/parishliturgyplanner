@@ -99,7 +99,12 @@ The system uses multiple interconnected sheets within a single spreadsheet:
 
 **Volunteers** - Volunteer database
 - Columns: Volunteer ID, First Name, Last Name, Full Name, Email, Phone, Parent/Guardian Name, Family Team, Status, Ministry Role, Preferred Mass Time, Ministry Role Preference, Date Cleared, Date Trained
-- Status: Active, Inactive, Training
+- Status: Active, Inactive, Substitute Only, Ministry Sponsor, Parent/Guardian
+  - **Active**: Regular volunteers included in auto-assignment
+  - **Inactive**: Volunteers not currently available
+  - **Substitute Only**: Backup volunteers (manual assignment only)
+  - **Ministry Sponsor**: Ministry coordinators (manual assignment only)
+  - **Parent/Guardian**: Adults accompanying youth (manual assignment only)
 - Ministry Role: Comma-separated list (e.g., "Lector, Eucharistic Minister")
 - Preferred Mass Time: Event IDs (e.g., "SUN-1000, SAT-1700")
 - Ministry Role Preference: Specific roles (e.g., "1st reading, psalm")
@@ -262,7 +267,7 @@ Base score: 100
 2. Validate Volunteers sheet:
    - Unique Volunteer IDs
    - Valid email formats
-   - Valid status values (Active, Inactive, Training)
+   - Valid status values (Active, Inactive, Substitute Only, Ministry Sponsor, Parent/Guardian)
    - Valid date formats and logical date ordering
    - No duplicate emails
 3. Validate Mass Templates:
