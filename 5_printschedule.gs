@@ -39,7 +39,10 @@ function generatePrintableSchedule(monthString, options = {}) {
     if (!scheduleSheet) {
       scheduleSheet = ss.insertSheet(config.sheetName);
     } else {
-      scheduleSheet.clear();
+      // Clear only from row 4 onward, preserving the manual header setup in rows 1-3
+      if (scheduleSheet.getLastRow() >= 4) {
+        scheduleSheet.getRange(4, 1, scheduleSheet.getLastRow() - 3, scheduleSheet.getMaxColumns()).clear();
+      }
     }
     
     // Get month display name
@@ -229,116 +232,25 @@ function groupAssignmentsByLiturgy(assignments) {
 }
 
 /**
- * Creates the schedule header section with optional logo.
+ * Creates the schedule header section.
+ * ASSUMES: Rows 1-2 are manually set up with logo and header text.
+ * UPDATES: Only cell B3 with the current generated timestamp.
  */
 function createScheduleHeader(sheet, parishName, displayName, config, printConfig) {
-  let currentRow = 1;
+  // Rows 1-2 are manually set up by the user with:
+  // - A1:A3 merged with logo image
+  // - B1: Parish Name
+  // - B2: Schedule Title
 
-  // Insert parish logo if configured
-  if (printConfig && printConfig.parishLogoUrl) {
-    try {
-      const logoHeight = printConfig.parishLogoHeight || 60;
-      const logoWidth = printConfig.parishLogoWidth || 80;
+  // Update only the generated timestamp in B3
+  const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
+  sheet.getRange(3, 2).setValue(generatedText);
+  sheet.getRange(3, 2).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('left');
 
-      Logger.log(`DEBUG: Logo URL: ${printConfig.parishLogoUrl}`);
-      Logger.log(`DEBUG: Logo dimensions: ${logoWidth}x${logoHeight}`);
+  Logger.log('Updated generated timestamp in cell B3');
 
-      // Set column width for logo
-      sheet.setColumnWidth(1, logoWidth + 10);
-      Logger.log(`DEBUG: Set column 1 width to ${logoWidth + 10}`);
-
-      // Merge A1:A3 first
-      Logger.log(`DEBUG: Merging cells A1:A3`);
-      sheet.getRange(1, 1, 3, 1).merge();
-      Logger.log(`DEBUG: Cells merged successfully`);
-
-      // Insert image at column 1, row 1
-      Logger.log(`DEBUG: Inserting image at column 1, row 1`);
-      const image = sheet.insertImage(printConfig.parishLogoUrl, 1, 1);
-      Logger.log(`DEBUG: Image inserted, type: ${typeof image}`);
-
-      // CRITICAL: Anchor the image to cell A1 (the merged cell)
-      Logger.log(`DEBUG: Anchoring image to cell A1`);
-      image.setAnchorCell(sheet.getRange(1, 1));
-      Logger.log(`DEBUG: Image anchored successfully`);
-
-      // Set image size
-      image.setWidth(logoWidth);
-      image.setHeight(logoHeight);
-      Logger.log(`DEBUG: Image sized to ${logoWidth}x${logoHeight}`);
-
-      // Set offsets for padding
-      image.setAnchorCellXOffset(5);
-      image.setAnchorCellYOffset(5);
-      Logger.log(`DEBUG: Image offset set to (5,5)`);
-
-      // Parish Name in column B1, left justified
-      sheet.getRange(1, 2).setValue(parishName);
-      sheet.getRange(1, 2).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('left');
-
-      // Schedule title in column B2, left justified (from config, without month appended)
-      const scheduleTitle = (printConfig && printConfig.scheduleTitle) || 'Ministry Schedule';
-      sheet.getRange(2, 2).setValue(scheduleTitle);
-      sheet.getRange(2, 2).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('left');
-
-      // Generated timestamp in column B3, left justified
-      const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-      sheet.getRange(3, 2).setValue(generatedText);
-      sheet.getRange(3, 2).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('left');
-
-      currentRow = 5; // Move to row 5 after the header section (with 1 blank row)
-
-    } catch (e) {
-      Logger.log(`Warning: Could not insert parish logo: ${e.message}`);
-      // If logo fails, fall back to centered header layout
-      sheet.getRange(currentRow, 1).setValue(parishName);
-      sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
-      sheet.getRange(currentRow, 1, 1, 5).merge();
-      currentRow++;
-
-      const scheduleTitle = (printConfig && printConfig.scheduleTitle) || 'Ministry Schedule';
-      const title = config.layoutStyle === 'liturgical'
-        ? `${scheduleTitle} - ${displayName} (Liturgical Order)`
-        : `${scheduleTitle} - ${displayName}`;
-
-      sheet.getRange(currentRow, 1).setValue(title);
-      sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
-      sheet.getRange(currentRow, 1, 1, 5).merge();
-      currentRow++;
-
-      // Generated timestamp
-      const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-      sheet.getRange(currentRow, 1).setValue(generatedText);
-      sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('center');
-      sheet.getRange(currentRow, 1, 1, 5).merge();
-      currentRow += 2; // Skip a row
-    }
-  } else {
-    // No logo - use centered header layout
-    sheet.getRange(currentRow, 1).setValue(parishName);
-    sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
-    sheet.getRange(currentRow, 1, 1, 5).merge();
-    currentRow++;
-
-    const scheduleTitle = (printConfig && printConfig.scheduleTitle) || 'Ministry Schedule';
-    const title = config.layoutStyle === 'liturgical'
-      ? `${scheduleTitle} - ${displayName} (Liturgical Order)`
-      : `${scheduleTitle} - ${displayName}`;
-
-    sheet.getRange(currentRow, 1).setValue(title);
-    sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
-    sheet.getRange(currentRow, 1, 1, 5).merge();
-    currentRow++;
-
-    // Generated timestamp
-    const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-    sheet.getRange(currentRow, 1).setValue(generatedText);
-    sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('center');
-    sheet.getRange(currentRow, 1, 1, 5).merge();
-    currentRow += 2; // Skip a row
-  }
-
-  return currentRow;
+  // Row 4 is blank, schedule content starts at row 5
+  return 5;
 }
 
 /**
