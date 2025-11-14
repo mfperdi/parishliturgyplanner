@@ -235,7 +235,12 @@ Before generating anything:
 **Minimum Required:**
 - Volunteer ID (unique, e.g., V001, V002)
 - Full Name
-- Status (Active, Inactive, or Training)
+- Status (choose one):
+  - **Active** - Regular volunteers (auto-assigned to roles)
+  - **Inactive** - Not currently available
+  - **Substitute Only** - Backup volunteers (manual assignment only)
+  - **Ministry Sponsor** - Ministry coordinators (manual assignment only)
+  - **Parent/Guardian** - Adults accompanying youth (manual assignment only)
 - Ministry Role (comma-separated: "Lector, Eucharistic Minister")
 
 **Optional but Recommended:**
