@@ -238,12 +238,10 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
   if (printConfig && printConfig.parishLogoUrl) {
     try {
       const logoHeight = printConfig.parishLogoHeight || 60;
-      // Merge cells for logo row and center
-      sheet.getRange(currentRow, 1, 1, 5).merge().setHorizontalAlignment('center');
       // Set row height to accommodate logo
       sheet.setRowHeight(currentRow, logoHeight + 10);
-      // Insert logo into the merged cell using URL
-      sheet.getRange(currentRow, 1).insertImage(printConfig.parishLogoUrl);
+      // Insert logo using Sheet.insertImage(url, column, row)
+      sheet.insertImage(printConfig.parishLogoUrl, 1, currentRow);
       currentRow++;
       currentRow++; // Extra space after logo
     } catch (e) {
