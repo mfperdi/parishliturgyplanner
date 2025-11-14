@@ -97,7 +97,9 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
     // Sundays of Lent
     if (dayOfWeek === 0) {
       const lentWeek = getWeek(firstSundayOfLent, currentDate);
-      return { celebration: `${HELPER_getOrdinal(lentWeek)} Sunday of Lent`, season: "Lent", rank: "Lent Sunday", color: "Violet" };
+      // 4th Sunday of Lent (Laetare Sunday) uses Rose color
+      const color = (lentWeek === 4) ? "Rose" : "Violet";
+      return { celebration: `${HELPER_getOrdinal(lentWeek)} Sunday of Lent`, season: "Lent", rank: "Lent Sunday", color: color };
     }
     
     // Weekdays of Lent
@@ -146,7 +148,9 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       // Sundays of Advent
     if (dayOfWeek === 0) {
       const adventWeek = getWeek(dates.firstSundayOfAdvent, currentDate);
-      return { celebration: `${HELPER_getOrdinal(adventWeek)} Sunday of Advent`, season: "Advent", rank: "Advent Sunday", color: "Violet" };
+      // 3rd Sunday of Advent (Gaudete Sunday) uses Rose color
+      const color = (adventWeek === 3) ? "Rose" : "Violet";
+      return { celebration: `${HELPER_getOrdinal(adventWeek)} Sunday of Advent`, season: "Advent", rank: "Advent Sunday", color: color };
     }
     
     // Weekdays of Advent
