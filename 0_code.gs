@@ -50,7 +50,7 @@ function onOpen(e) {
  * This function is called by the menu item.
  */
 function showSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('sidebar')
+  const html = HtmlService.createHtmlOutputFromFile('Sidebar')
       .setTitle('Parish Scheduler')
       .setWidth(360);
   SpreadsheetApp.getUi().showSidebar(html);
