@@ -171,17 +171,31 @@ function HELPER_readPrintScheduleConfig() {
     // Read parish logo from Config sheet - use first image found
     try {
       const images = configSheet.getImages();
+      Logger.log(`DEBUG: Found ${images.length} images in Config sheet`);
 
       if (images.length > 0) {
-        // Use the first image found in the Config sheet
-        defaults.parishLogoBlob = images[0].getBlob();
-        Logger.log(`✓ Found parish logo image in Config sheet (using first of ${images.length} image(s))`);
+        // Debug: Log what type of object we're getting
+        Logger.log(`DEBUG: Type of images array: ${typeof images}`);
+        Logger.log(`DEBUG: Type of images[0]: ${typeof images[0]}`);
+        Logger.log(`DEBUG: images[0] is null? ${images[0] === null}`);
+        Logger.log(`DEBUG: images[0] is undefined? ${images[0] === undefined}`);
+
+        if (images[0] && typeof images[0].getBlob === 'function') {
+          defaults.parishLogoBlob = images[0].getBlob();
+          Logger.log(`✓ Found parish logo image in Config sheet (using first of ${images.length} image(s))`);
+        } else {
+          // Try alternative methods to get the image
+          Logger.log(`DEBUG: Available methods on images[0]: ${Object.getOwnPropertyNames(images[0]).join(', ')}`);
+          Logger.log(`✗ Image object doesn't have getBlob() method`);
+          Logger.log('  → The image type may not be compatible with Apps Script API');
+        }
       } else {
         Logger.log('⚠ No images found in Config sheet.');
         Logger.log('  → Insert logo: Insert > Image > Image over cells (NOT "Image in cell")');
       }
     } catch (e) {
       Logger.log(`✗ Could not read parish logo: ${e.message}`);
+      Logger.log(`DEBUG: Error stack: ${e.stack}`);
       Logger.log('  → This usually means you used "Image in cell" instead of "Image over cells"');
       Logger.log('  → Solution: Delete the image and re-insert using Insert > Image > Image over cells');
     }
