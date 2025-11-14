@@ -200,7 +200,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
 
   // Fixed feasts in Ordinary Time
   if (currentDate.getMonth() === 10 && currentDate.getDate() === 1) { // Nov 1
-    return { celebration: "All Saints' Day", season: season, rank: "SOLEMNITY", color: "White" };
+    return { celebration: "Solemenity of All Saints", season: season, rank: "SOLEMNITY", color: "White" };
   }
   if (currentDate.getMonth() === 10 && currentDate.getDate() === 2) { // Nov 2
     return { celebration: "The Commemoration of All the Faithful Departed (All Souls' Day)", season: season, rank: "SOLEMNITY_HIGH", color: "Violet" };
