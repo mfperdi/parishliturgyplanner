@@ -363,7 +363,6 @@
     <div class="phase-step" id="phase-completion">Completion</div>
   </div>
 
-  <!-- SETUP PHASE -->
   <div class="phase-container">
     <div class="phase-header setup">
       <span>⚙️</span>
@@ -385,7 +384,6 @@
     </div>
   </div>
 
-  <!-- SCHEDULING PHASE -->
   <div class="phase-container">
     <div class="phase-header">
       <span>📅</span>
@@ -446,7 +444,6 @@
     </div>
   </div>
 
-  <!-- COMPLETION PHASE -->
   <div class="phase-container">
     <div class="phase-header completion">
       <span>📄</span>
@@ -482,7 +479,6 @@
     </div>
   </div>
 
-  <!-- STATUS FEEDBACK -->
   <div id="status-message" class="status-message" role="status" aria-live="polite"></div>
 
   <script>
@@ -692,22 +688,37 @@
         .triggerCalendarGeneration();
     });
     
+    // *** MODIFIED btnStep1 listener ***
     btnStep1.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
       
       const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const msg = `Generating ministry roles for ${selectedText}...`;
-      showLoading(msg);
       
-      google.script.run
-        .withSuccessHandler((message) => {
-          const friendlyMessage = message.replace(selectedMonth, selectedText);
-          showSuccess(friendlyMessage);
-          refreshWorkflowData();
-        })
-        .withFailureHandler(showError)
-        .triggerScheduleGeneration(selectedMonth);
+      // --- NEW: Add confirmation logic ---
+      const message = "Are you sure you want to generate the schedule for " + selectedText + "?\n\n" +
+                      "This will delete ALL existing assignments for this month (both 'Assigned' and 'Unassigned') and start over.\n\n" +
+                      "This action cannot be undone.";
+      
+      if (confirm(message)) {
+        // User clicked "OK", proceed with generation.
+        const msg = `Generating ministry roles for ${selectedText}...`;
+        showLoading(msg); // Show loading *after* confirm
+        
+        google.script.run
+          .withSuccessHandler((message) => {
+            const friendlyMessage = message.replace(selectedMonth, selectedText);
+            showSuccess(friendlyMessage);
+            refreshWorkflowData();
+          })
+          .withFailureHandler(showError)
+          .triggerScheduleGeneration(selectedMonth);
+          
+      } else {
+        // User clicked "Cancel", do nothing.
+        return;
+      }
+      // --- END: New logic ---
     });
     
     btnTimeoffs.addEventListener('click', () => {
@@ -795,8 +806,9 @@
       
       // Auto-hide success message after 5 seconds
       setTimeout(() => {
+        // Re-check class, in case another message has appeared
         if (statusMessage.classList.contains('status-success')) {
-          statusMessage.style.display = 'none';
+           statusMessage.className = 'status-message hidden';
         }
       }, 5000);
       
