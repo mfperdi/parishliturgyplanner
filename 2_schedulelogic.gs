@@ -92,7 +92,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       newRow[assignCols.DATE - 1] = mass.date;
       newRow[assignCols.TIME - 1] = mass.time;
       newRow[assignCols.MASS_NAME - 1] = mass.description;
-      newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration;
+      newRow[assignCols.LITURGICAL_CELEBRation - 1] = liturgicalCelebration;
       newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName;
       newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
       newRow[assignCols.MONTH_YEAR - 1] = monthString;
@@ -166,6 +166,7 @@ function SCHEDULE_clearOldAssignments(sheet, monthString) {
     sheet.getRange(2, 1, rowsToKeep.length, rowsToKeep[0].length).setValues(rowsToKeep);
   }
 }
+
 
 /**
  * Reads 'MassTemplates' and builds a Map for fast lookups.
@@ -349,7 +350,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
   // *** END FIX ***
 
   // Process current month, starting from the correct day
-  for (let day = startDay; day <= daysInMonth; day++) {
+  for (let day = startDay; day <= daysInMonth; day++) { // <-- MODIFIED to use startDay
     const currentDate = new Date(year, month, day, 12, 0, 0); // Use noon
     const dayOfWeek = currentDate.toLocaleString('en-US', { weekday: 'long' });
     
@@ -444,23 +445,7 @@ function SCHEDULE_findMassesForMonth(month, year) {
       if (!HELPER_isDateInRange(dateToProcess, startDate, endDate)) continue;
 
       const dateKey = dateToProcess.toDateString();
-      const overrideType = (row[monCols.OVERRIDE_TYPE - allLogs.filter(log => log.type === 'tool_code' && log.command.includes('renameSheet')).map(log => {
-    const oldName = log.command.match(/oldName:\s*"(.*?)"/)[1];
-    const newName = log.command.match(/newName:\s*"(.*?)"/)[1];
-    return { oldName, newName };
-}).forEach(rename => {
-    // Update references in code
-    Object.keys(code).forEach(key => {
-        if (key.endsWith('.gs') || key.endsWith('.html')) {
-            code[key] = code[key].replace(new RegExp(rename.oldName, 'g'), rename.newName);
-        }
-    });
-    // Update file names in the 'files' object
-    if (files[rename.oldName]) {
-        files[rename.newName] = files[rename.oldName];
-        delete files[rename.oldName];
-    }
-});1] || '').toLowerCase();
+      const overrideType = (row[monCols.OVERRIDE_TYPE - 1] || '').toLowerCase();
       
       if (overrideType === 'overrideday') {
         Logger.log(`Applying MONTHLY OVERRIDE for ${dateKey}`);
@@ -575,4 +560,51 @@ function SCHEDULE_findMassesForMonth(month, year) {
       const specialRow = item.row;
       yearlyMassesToAdd.push({
         date: item.calculatedDate, // Use the correct calculated date
-        time: specialRow[yearCols.TIME - Same issue. 1st Sunday in Ordinary time is 1/11 but 1/12 is 1st Week in Ordinary time. I should be able to specify when the week starts so I will just specify it as starting Monday.
+        time: specialRow[yearCols.TIME - 1],
+        description: specialRow[yearCols.DESCRIPTION - 1] || "",
+        templateName: specialRow[yearCols.TEMPLATE_NAME - 1],
+        eventId: specialRow[yearCols.EVENT_ID - 1],
+        isAnticipated: (specialRow[yearCols.IS_ANTICIPATED - 1] === true),
+        assignedGroup: specialRow[yearCols.ASSIGNED_GROUP - 1] || "",
+        notes: specialRow[yearCols.NOTES - 1] || ""
+      });
+      Logger.log(`DEBUG: Added yearly mass - ${specialRow[yearCols.EVENT_ID - 1]} on ${dateKey}`);
+    }
+  }
+  masses.push(...yearlyMassesToAdd);
+
+  Logger.log(`> Found ${masses.length} total masses to schedule after all 3 layers.`);
+
+  // --- 4. SORTING ---
+  masses.sort((a, b) => {
+    // Handle potential invalid date/time values during sort
+    try {
+      const timeA = new Date(a.time);
+      const fullDateA = new Date(a.date.getTime());
+      fullDateA.setHours(timeA.getHours(), timeA.getMinutes(), timeB.getSeconds());
+
+      const timeB = new Date(b.time);
+      const fullDateB = new Date(b.date.getTime());
+      fullDateB.setHours(timeB.getHours(), timeB.getMinutes(), timeB.getSeconds());
+
+      if (isNaN(fullDateA.getTime()) || isNaN(fullDateB.getTime())) return 0;
+
+      return fullDateA.getTime() - fullDateB.getTime();
+    } catch (e) {
+      return 0; // Don't crash on invalid dates
+    }
+  });
+
+  return masses;
+}
+
+/**
+ * Helper function to set a date to noon (local time) to avoid timezone bugs.
+ */
+function setDateToNoon(date) {
+  if (!date || isNaN(new Date(date).getTime())) {
+    return null; // Handle invalid dates
+  }
+  const d = new Date(date);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+}
