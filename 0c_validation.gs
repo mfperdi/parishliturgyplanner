@@ -374,7 +374,7 @@ function validateMonthlyMasses(validTemplates) {
     const cols = CONSTANTS.COLS.MONTHLY_MASSES;
 
     const eventIds = new Set();
-    const validWeeks = ['1', '2', '3', '4', '5', 'Last'];
+    const validWeeks = ['1st', '2nd', '3rd', '4th', '5th', 'Last'];
     const validDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const validOverrides = ['', 'overrideday', 'append'];
 
