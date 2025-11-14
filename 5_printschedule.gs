@@ -235,7 +235,7 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
   let currentRow = 1;
 
   // Insert parish logo if configured
-  if (printConfig && printConfig.parishLogoUrl) {
+  if (printConfig && printConfig.parishLogoBlob) {
     try {
       const logoHeight = printConfig.parishLogoHeight || 60;
       // Merge cells for logo row and center
@@ -243,7 +243,7 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
       // Set row height to accommodate logo
       sheet.setRowHeight(currentRow, logoHeight + 10);
       // Insert logo into the merged cell (in-cell image, anchored to cell)
-      sheet.getRange(currentRow, 1).insertImage(printConfig.parishLogoUrl);
+      sheet.getRange(currentRow, 1).insertImage(printConfig.parishLogoBlob);
       currentRow++;
       currentRow++; // Extra space after logo
     } catch (e) {
