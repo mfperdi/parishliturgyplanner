@@ -139,11 +139,11 @@ function HELPER_readConfigSafe() {
  * Read print schedule configuration with sensible defaults
  * Configurable settings:
  * - Print Schedule Title: Custom title (e.g., "Lector Ministry Schedule")
- * - Parish Logo: Insert image directly into Config sheet, column B of "Parish Logo" row
+ * - Parish Logo: Insert any image into Config sheet (will use first image found)
  * - Parish Logo Height: Row height for logo in pixels (default: 60, max: 300)
  *   Note: Logo scales to fit within the row height
- * - Ministry Group Color [GroupName]: Background color for specific ministry groups (hex code)
- *   Examples: "Ministry Group Color Spanish", "Ministry Group Color Knights of Columbus"
+ * - Assigned Group Color [GroupName]: Background color for specific assigned groups (hex code)
+ *   Examples: "Assigned Group Color Spanish", "Assigned Group Color Knights of Columbus"
  * - Liturgical Color [ColorName]: Override default liturgical colors (e.g., "Liturgical Color White")
  *
  * @returns {object} Print configuration object with defaults
@@ -153,7 +153,7 @@ function HELPER_readPrintScheduleConfig() {
     scheduleTitle: 'Ministry Schedule',
     parishLogoBlob: null,
     parishLogoHeight: 60,
-    ministryGroupColors: {}, // Will hold colors for each ministry group
+    ministryGroupColors: {}, // Will hold colors for each assigned group
     liturgicalColors: {} // Will hold any liturgical color overrides
   };
 
@@ -167,36 +167,15 @@ function HELPER_readPrintScheduleConfig() {
       defaults.scheduleTitle = config['Print Schedule Title'];
     }
 
-    // Read parish logo from Config sheet
-    // Look for an image inserted in the "Parish Logo" row
+    // Read parish logo from Config sheet - use ANY image found
     try {
-      const configData = configSheet.getDataRange().getValues();
-      let parishLogoRow = -1;
-
-      // Find the "Parish Logo" row
-      for (let i = 0; i < configData.length; i++) {
-        if (configData[i][0] === 'Parish Logo') {
-          parishLogoRow = i + 1; // Convert to 1-indexed row number
-          break;
-        }
-      }
-
-      if (parishLogoRow > 0) {
-        // Get all images from the Config sheet
-        const images = configSheet.getImages();
-
-        // Find image that overlaps with the Parish Logo row, column B
-        for (const image of images) {
-          const anchorRow = image.getAnchorRow();
-          const anchorCol = image.getAnchorColumn();
-
-          // Check if image is in or near the Parish Logo row, column B (column 2)
-          if (anchorRow === parishLogoRow && anchorCol === 2) {
-            defaults.parishLogoBlob = image.getBlob();
-            Logger.log('Found parish logo image in Config sheet');
-            break;
-          }
-        }
+      const images = configSheet.getImages();
+      if (images.length > 0) {
+        // Use the first image found in the Config sheet
+        defaults.parishLogoBlob = images[0].getBlob();
+        Logger.log(`Found parish logo image in Config sheet (${images.length} total images)`);
+      } else {
+        Logger.log('No images found in Config sheet');
       }
     } catch (e) {
       Logger.log(`Note: Could not read parish logo from Config sheet: ${e.message}`);
@@ -212,15 +191,26 @@ function HELPER_readPrintScheduleConfig() {
       }
     }
 
-    // Read ministry group colors
-    // Format: "Ministry Group Color Spanish" = "#ffcccc"
-    const ministryGroupColorKeys = Object.keys(config).filter(key => key.startsWith('Ministry Group Color '));
-    for (const key of ministryGroupColorKeys) {
-      const groupName = key.replace('Ministry Group Color ', '');
+    // Read assigned group colors
+    // Supports both "Assigned Group Color" and "Ministry Sponsor Color" (backward compatible)
+    const assignedGroupColorKeys = Object.keys(config).filter(key =>
+      key.startsWith('Assigned Group Color ') ||
+      key.startsWith('Ministry Sponsor Color ')
+    );
+
+    for (const key of assignedGroupColorKeys) {
+      let groupName;
+      if (key.startsWith('Assigned Group Color ')) {
+        groupName = key.replace('Assigned Group Color ', '');
+      } else if (key.startsWith('Ministry Sponsor Color ')) {
+        groupName = key.replace('Ministry Sponsor Color ', '');
+      }
+
       const colorValue = config[key];
       // Validate hex color format
       if (/^#[0-9A-Fa-f]{6}$/.test(colorValue)) {
         defaults.ministryGroupColors[groupName] = colorValue;
+        Logger.log(`Loaded color for group "${groupName}": ${colorValue}`);
       } else {
         Logger.log(`Warning: Invalid color format for ${key}: ${colorValue}`);
       }
@@ -234,12 +224,13 @@ function HELPER_readPrintScheduleConfig() {
       const colorValue = config[key];
       if (/^#[0-9A-Fa-f]{6}$/.test(colorValue)) {
         defaults.liturgicalColors[colorName] = colorValue;
+        Logger.log(`Loaded liturgical color override for "${colorName}": ${colorValue}`);
       } else {
         Logger.log(`Warning: Invalid color format for ${key}: ${colorValue}`);
       }
     }
 
-    Logger.log(`Print schedule config loaded`);
+    Logger.log(`Print schedule config loaded: ${Object.keys(defaults.ministryGroupColors).length} group colors, ${Object.keys(defaults.liturgicalColors).length} liturgical color overrides`);
     return defaults;
 
   } catch (e) {
