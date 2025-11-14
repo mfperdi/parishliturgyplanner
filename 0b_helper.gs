@@ -291,8 +291,16 @@ const PRECEDENCE = {
 /**
  * Wrapper function to safely get a precedence number
  * This REPLACES the old HELPER_translateRank logic
+ *
+ * Normalizes rank text from SaintsCalendar to match PRECEDENCE keys
  */
 function HELPER_getPrecedence(rankText) {
+  // Normalize "Solemnity" to match the PRECEDENCE key 'SOLEMNITY'
+  if (rankText === 'Solemnity') {
+    return PRECEDENCE['SOLEMNITY'];
+  }
+
+  // All other ranks match directly (Memorial, Optional Memorial, Feast, etc.)
   return PRECEDENCE[rankText] || 13; // Default to lowest rank (Weekday)
 }
 
