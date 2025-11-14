@@ -31,7 +31,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
   // 1. Clear out ANY old rows for this month (Assigned or Unassigned)
   Logger.log(`1. Clearing ALL old rows for ${monthString}...`);
-  SCHEDULE_clearOldAssignments(assignmentsSheet, monthString, scheduleYear, month); 
+  SCHEDULE_clearOldAssignments(assignmentsSheet, monthString); 
 
   // 2. Read all mass templates
   Logger.log("2. Reading mass templates...");
@@ -126,10 +126,8 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
  * This is now a destructive reset function.
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The 'Assignments' sheet.
  * @param {string} monthString The month to clear (e.g., "2026-01").
- * @param {number} year (DEPRECATED - kept for compatibility, but unused)
- * @param {number} month (DEPRECATED - kept for compatibility, but unused)
  */
-function SCHEDULE_clearOldAssignments(sheet, monthString, year, month) {
+function SCHEDULE_clearOldAssignments(sheet, monthString) {
   const data = sheet.getDataRange().getValues();
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
   const header = data.shift(); // Remove header
@@ -232,6 +230,11 @@ function SCHEDULE_buildLiturgicalMap(month, year) {
 
 /**
  * Helper function to check if a date falls within a start/end range.
+ * Handles blank dates as "all year".
+ * @param {Date} dateToCheck The date of the mass being scheduled.
+ *_@param {Date | string} startDate The start date from the rule (can be invalid/blank)._
+ * @param {Date | string} endDate The end date from the rule (can be invalid/blank).
+ * @returns {boolean} True if the mass should be scheduled.
  */
 function HELPER_isDateInRange(dateToCheck, startDate, endDate) {
   // Ensure dateToCheck is valid
@@ -441,7 +444,23 @@ function SCHEDULE_findMassesForMonth(month, year) {
       if (!HELPER_isDateInRange(dateToProcess, startDate, endDate)) continue;
 
       const dateKey = dateToProcess.toDateString();
-      const overrideType = (row[monCols.OVERRIDE_TYPE - 1] || '').toLowerCase();
+      const overrideType = (row[monCols.OVERRIDE_TYPE - allLogs.filter(log => log.type === 'tool_code' && log.command.includes('renameSheet')).map(log => {
+    const oldName = log.command.match(/oldName:\s*"(.*?)"/)[1];
+    const newName = log.command.match(/newName:\s*"(.*?)"/)[1];
+    return { oldName, newName };
+}).forEach(rename => {
+    // Update references in code
+    Object.keys(code).forEach(key => {
+        if (key.endsWith('.gs') || key.endsWith('.html')) {
+            code[key] = code[key].replace(new RegExp(rename.oldName, 'g'), rename.newName);
+        }
+    });
+    // Update file names in the 'files' object
+    if (files[rename.oldName]) {
+        files[rename.newName] = files[rename.oldName];
+        delete files[rename.oldName];
+    }
+});1] || '').toLowerCase();
       
       if (overrideType === 'overrideday') {
         Logger.log(`Applying MONTHLY OVERRIDE for ${dateKey}`);
@@ -556,44 +575,4 @@ function SCHEDULE_findMassesForMonth(month, year) {
       const specialRow = item.row;
       yearlyMassesToAdd.push({
         date: item.calculatedDate, // Use the correct calculated date
-        time: specialRow[yearCols.TIME - 1],
-        description: specialRow[yearCols.DESCRIPTION - 1] || "",
-        templateName: specialRow[yearCols.TEMPLATE_NAME - 1],
-        eventId: specialRow[yearCols.EVENT_ID - 1],
-        isAnticipated: (specialRow[yearCols.IS_ANTICIPATED - 1] === true),
-        assignedGroup: specialRow[yearCols.ASSIGNED_GROUP - 1] || "",
-        notes: specialRow[yearCols.NOTES - 1] || ""
-      });
-      Logger.log(`DEBUG: Added yearly mass - ${specialRow[yearCols.EVENT_ID - 1]} on ${dateKey}`);
-    }
-  }
-  masses.push(...yearlyMassesToAdd);
-
-  Logger.log(`> Found ${masses.length} total masses to schedule after all 3 layers.`);
-
-  // --- 4. SORTING ---
-  masses.sort((a, b) => {
-    const timeA = new Date(a.time);
-    const fullDateA = new Date(a.date.getTime());
-    fullDateA.setHours(timeA.getHours(), timeA.getMinutes(), timeA.getSeconds());
-
-    const timeB = new Date(b.time);
-    const fullDateB = new Date(b.date.getTime());
-    fullDateB.setHours(timeB.getHours(), timeB.getMinutes(), timeB.getSeconds());
-
-    return fullDateA.getTime() - fullDateB.getTime();
-  });
-
-  return masses;
-}
-
-/**
- * Helper function to set a date to noon (local time) to avoid timezone bugs.
- */
-function setDateToNoon(date) {
-  if (!date || isNaN(new Date(date).getTime())) {
-    return null; // Handle invalid dates
-  }
-  const d = new Date(date);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
-}
+        time: specialRow[yearCols.TIME - Same issue. 1st Sunday in Ordinary time is 1/11 but 1/12 is 1st Week in Ordinary time. I should be able to specify when the week starts so I will just specify it as starting Monday.
