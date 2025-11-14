@@ -175,12 +175,15 @@ function HELPER_readPrintScheduleConfig() {
       if (images.length > 0) {
         // Use the first image found in the Config sheet
         defaults.parishLogoBlob = images[0].getBlob();
-        Logger.log(`Found parish logo image in Config sheet (using first of ${images.length} image(s))`);
+        Logger.log(`✓ Found parish logo image in Config sheet (using first of ${images.length} image(s))`);
       } else {
-        Logger.log('No images found in Config sheet. Insert logo using Insert > Image > Image over cells');
+        Logger.log('⚠ No images found in Config sheet.');
+        Logger.log('  → Insert logo: Insert > Image > Image over cells (NOT "Image in cell")');
       }
     } catch (e) {
-      Logger.log(`Warning: Could not read parish logo from Config sheet: ${e.message}`);
+      Logger.log(`✗ Could not read parish logo: ${e.message}`);
+      Logger.log('  → This usually means you used "Image in cell" instead of "Image over cells"');
+      Logger.log('  → Solution: Delete the image and re-insert using Insert > Image > Image over cells');
     }
 
     // Read parish logo height
