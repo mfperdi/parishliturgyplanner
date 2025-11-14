@@ -237,25 +237,11 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
   // Insert parish logo if configured
   if (printConfig && printConfig.parishLogoUrl) {
     try {
-      const logoHeight = printConfig.parishLogoHeight || 60;
-      const logoWidth = printConfig.parishLogoWidth || 80;
-
-      // Set row height and column width to accommodate logo
-      sheet.setRowHeight(1, logoHeight + 10);
-      sheet.setRowHeight(2, logoHeight / 3);
-      sheet.setRowHeight(3, logoHeight / 3);
-      sheet.setColumnWidth(1, logoWidth);
-
-      // Merge A1:A3 for the logo first
+      // Merge A1:A3 for the logo
       sheet.getRange(1, 1, 3, 1).merge();
 
-      // Insert logo into cell A1 using sheet.insertImage (column, row format)
-      const image = sheet.insertImage(printConfig.parishLogoUrl, 1, 1);
-
-      // Position and size the image to fit within the merged cell
-      image.setAnchorCell(sheet.getRange(1, 1));
-      image.setWidth(logoWidth - 5);  // Slight padding
-      image.setHeight(logoHeight);
+      // Insert logo into the merged cell
+      sheet.insertImage(printConfig.parishLogoUrl, 1, 1);
 
       // Parish Name in column B1, left justified
       sheet.getRange(1, 2).setValue(parishName);
