@@ -31,7 +31,8 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
   // 1. Clear out ANY old rows for this month (Assigned or Unassigned)
   Logger.log(`1. Clearing ALL old rows for ${monthString}...`);
-  SCHEDULE_clearOldAssignments(assignmentsSheet, month, scheduleYear);
+  // *** MODIFIED: Pass monthString to correctly clear spillover ***
+  SCHEDULE_clearOldAssignments(assignmentsSheet, monthString, scheduleYear, month); 
 
   // 2. Read all mass templates
   Logger.log("2. Reading mass templates...");
@@ -125,10 +126,11 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
  * Clears ALL rows for the given month/year, regardless of status.
  * This is now a destructive reset function.
  * @param {GoogleAppsScript.Spreadsheet.Sheet} sheet The 'Assignments' sheet.
- * @param {number} month The month (0-indexed).
- * @param {number} year The year.
+ * @param {string} monthString The month to clear (e.g., "2026-01").
+ * @param {number} year (DEPRECATED - kept for compatibility, but unused)
+ * @param {number} month (DEPRECATED - kept for compatibility, but unused)
  */
-function SCHEDULE_clearOldAssignments(sheet, month, year) {
+function SCHEDULE_clearOldAssignments(sheet, monthString, year, month) {
   const data = sheet.getDataRange().getValues();
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
   const header = data.shift(); // Remove header
@@ -139,14 +141,11 @@ function SCHEDULE_clearOldAssignments(sheet, month, year) {
     if (row[0] === "") continue; // Skip blank rows
     
     try {
-      const rowDate = new Date(row[assignCols.DATE - 1]);
-      if (isNaN(rowDate.getTime())) continue; // Skip rows with invalid dates
-
       // *** MODIFIED LOGIC ***
-      // Check if the row is for the month we are re-generating
-      const isThisMonth = rowDate.getMonth() === month && rowDate.getFullYear() === year;
+      // Check the MonthYear column (e.g., "2026-01")
+      const rowMonthYear = row[assignCols.MONTH_YEAR - 1];
       
-      if (isThisMonth) {
+      if (rowMonthYear === monthString) {
         // This row is for the month being cleared. DO NOT KEEP.
       } else {
         // This row is from a different month, so we keep it.
@@ -156,6 +155,7 @@ function SCHEDULE_clearOldAssignments(sheet, month, year) {
 
     } catch (e) {
       Logger.log(`Error processing row in SCHEDULE_clearOldAssignments: ${e} - Row: ${row}`);
+      rowsToKeep.push(row); // Keep rows that cause errors
     }
   }
   
@@ -440,6 +440,8 @@ function SCHEDULE_findMassesForMonth(month, year) {
   const calCols = CONSTANTS.COLS.CALENDAR;
   for (const row of calData) {
     const calDate = new Date(row[calCols.DATE - 1]);
+    if (isNaN(calDate.getTime())) continue;
+    
     if (calDate.getFullYear() === year) { 
       const celebrationName = row[calCols.LITURGICAL_CELEBRATION - 1];
       if (celebrationName && !liturgyDateMap.has(celebrationName)) {
@@ -537,4 +539,15 @@ function SCHEDULE_findMassesForMonth(month, year) {
   });
 
   return masses;
+}
+
+/**
+ * Helper function to set a date to noon (local time) to avoid timezone bugs.
+ */
+function setDateToNoon(date) {
+  if (!date || isNaN(new Date(date).getTime())) {
+    return null; // Handle invalid dates
+  }
+  const d = new Date(date);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
 }
