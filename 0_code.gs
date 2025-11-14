@@ -268,29 +268,68 @@ function reviewTimeoffs(monthString) {
       summary += `\n📋 ${outsideMonth.length} other pending timeoff${outsideMonth.length > 1 ? 's' : ''} outside this month\n`;
     }
 
-    summary += `\nOpening Timeoffs sheet for review...`;
+    // Count how many have warnings vs clean
+    const cleanRequests = pending.filter(req => !req.reviewNotes || !req.reviewNotes.includes("⚠️"));
+    const warningRequests = pending.length - cleanRequests.length;
 
-    // Open the Timeoffs sheet for manual review
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const timeoffsSheet = ss.getSheetByName(CONSTANTS.SHEETS.TIMEOFFS);
-    if (timeoffsSheet) {
-      ss.setActiveSheet(timeoffsSheet);
-
-      // Optional: Apply filter to show only pending requests
-      const lastRow = timeoffsSheet.getLastRow();
-      if (lastRow > 1) {
-        const dataRange = timeoffsSheet.getRange(1, 1, lastRow, timeoffsSheet.getLastColumn());
-        const filter = dataRange.getFilter() || dataRange.createFilter();
-
-        // Filter Status column to show only "Pending"
-        const statusCol = CONSTANTS.COLS.TIMEOFFS.STATUS;
-        filter.setColumnFilterCriteria(statusCol,
-          SpreadsheetApp.newFilterCriteria().whenTextEqualTo("Pending").build());
-      }
-    }
+    summary += `\n${cleanRequests.length} clean request${cleanRequests.length !== 1 ? 's' : ''}, ${warningRequests} with warning${warningRequests !== 1 ? 's' : ''}`;
 
     Logger.log(summary);
-    return summary;
+
+    // Ask user if they want to bulk approve clean timeoffs
+    const ui = SpreadsheetApp.getUi();
+    const promptMessage = summary + "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                          "Do you want to BULK APPROVE all clean timeoffs (without ⚠️ warnings)?\n\n" +
+                          "• YES = Auto-approve " + cleanRequests.length + " clean request" + (cleanRequests.length !== 1 ? 's' : '') + "\n" +
+                          "• NO = Open sheet for manual review";
+
+    const response = ui.alert('Review Timeoffs', promptMessage, ui.ButtonSet.YES_NO);
+
+    if (response === ui.Button.YES) {
+      // Bulk approve clean requests
+      const result = TIMEOFFS_bulkApprovePending();
+      Logger.log(result);
+
+      // Open the sheet to show what was approved (clear filters to see approved status)
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const timeoffsSheet = ss.getSheetByName(CONSTANTS.SHEETS.TIMEOFFS);
+      if (timeoffsSheet) {
+        ss.setActiveSheet(timeoffsSheet);
+
+        // Clear any existing filters so user can see approved requests
+        try {
+          const existingFilter = timeoffsSheet.getFilter();
+          if (existingFilter) {
+            existingFilter.remove();
+          }
+        } catch (e) {
+          Logger.log(`Note: Could not clear filter: ${e.message}`);
+        }
+      }
+
+      return result + "\n\nTimeoffs sheet opened. Check Status column for approved requests.";
+    } else {
+      // Manual review - open the sheet with filter showing only pending
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const timeoffsSheet = ss.getSheetByName(CONSTANTS.SHEETS.TIMEOFFS);
+      if (timeoffsSheet) {
+        ss.setActiveSheet(timeoffsSheet);
+
+        // Apply filter to show only pending requests
+        const lastRow = timeoffsSheet.getLastRow();
+        if (lastRow > 1) {
+          const dataRange = timeoffsSheet.getRange(1, 1, lastRow, timeoffsSheet.getLastColumn());
+          const filter = dataRange.getFilter() || dataRange.createFilter();
+
+          // Filter Status column to show only "Pending"
+          const statusCol = CONSTANTS.COLS.TIMEOFFS.STATUS;
+          filter.setColumnFilterCriteria(statusCol,
+            SpreadsheetApp.newFilterCriteria().whenTextEqualTo("Pending").build());
+        }
+      }
+
+      return "Opening Timeoffs sheet for manual review...\n\nFiltered to show only 'Pending' requests. Update Status column to 'Approved' or 'Rejected'.";
+    }
 
   } catch (e) {
     Logger.log(`Error in reviewTimeoffs: ${e}`);
