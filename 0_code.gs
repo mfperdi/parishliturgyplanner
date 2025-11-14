@@ -37,6 +37,8 @@ function onOpen(e) {
           .addItem('Standard Schedule', 'generateCurrentMonthSchedule')
           .addItem('Export PDF', 'exportCurrentMonthPDF'))
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Admin Tools')
+          .addItem('Validate Data', 'showDataValidation')
+          .addSeparator()
           .addItem('Review Timeoffs', 'showTimeoffReview')
           .addItem('Debug Functions', 'showDebugPanel')
           .addItem('Export Data', 'exportCurrentSchedule'))
@@ -772,6 +774,18 @@ function exportCurrentSchedule() {
     
   } catch (e) {
     SpreadsheetApp.getUi().alert('Export Error', `Could not export schedule: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Shows data validation results in a dialog.
+ */
+function showDataValidation() {
+  try {
+    const message = runDataValidation();
+    SpreadsheetApp.getUi().alert('Data Validation', message, SpreadsheetApp.getUi().ButtonSet.OK);
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('Validation Error', `Could not run validation: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
   }
 }
 
