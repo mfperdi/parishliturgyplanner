@@ -68,27 +68,30 @@ function CALENDAR_generateLiturgicalCalendar() {
       };
     } else {
       // 2. No override, so compare seasonal vs. saint
-      // Get the numerical precedence for both
-      const seasonalPrecedence = HELPER_getPrecedence(seasonal.rank);
-      const saintPrecedence = saint ? HELPER_getPrecedence(saint.rank) : 99; // 99 = no saint
-      
-      // 3. The core logic: lower number wins.
-      if (saint && saintPrecedence < seasonalPrecedence) {
-        // Saint wins
-        finalCelebration = {
-          celebration: saint.celebration,
-          rank: saint.rank, // Use saint's detailed rank
-          color: saint.color,
-          season: seasonal.season
-        };
-      } else if (saint && saint.rank === 'Optional Memorial' && seasonalPrecedence <= 13) {
-        // 4. SPECIAL CASE: Optional Memorial (Precedence 12)
-        // The seasonal day wins, but the saint is listed in the optional column.
+
+      // SPECIAL HANDLING: Optional Memorials ALWAYS go to separate column
+      if (saint && saint.rank === 'Optional Memorial') {
+        // Optional Memorial goes to separate column, seasonal celebration wins
         finalCelebration = seasonal;
         optionalMemorial = saint.celebration;
       } else {
-        // 5. Seasonal day wins
-        finalCelebration = seasonal;
+        // For all other saints/feasts, use precedence comparison
+        const seasonalPrecedence = HELPER_getPrecedence(seasonal.rank);
+        const saintPrecedence = saint ? HELPER_getPrecedence(saint.rank) : 99; // 99 = no saint
+
+        // The core logic: lower number wins.
+        if (saint && saintPrecedence < seasonalPrecedence) {
+          // Saint wins
+          finalCelebration = {
+            celebration: saint.celebration,
+            rank: saint.rank, // Use saint's detailed rank
+            color: saint.color,
+            season: seasonal.season
+          };
+        } else {
+          // Seasonal day wins
+          finalCelebration = seasonal;
+        }
       }
     }
     
