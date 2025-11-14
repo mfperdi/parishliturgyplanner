@@ -152,7 +152,7 @@ function HELPER_readConfigSafe() {
 function HELPER_readPrintScheduleConfig() {
   const defaults = {
     scheduleTitle: 'Ministry Schedule',
-    parishLogoBlob: null,
+    parishLogoUrl: null,
     parishLogoHeight: 60,
     ministryGroupColors: {}, // Will hold colors for each assigned group
     liturgicalColors: {} // Will hold any liturgical color overrides
@@ -173,31 +173,27 @@ function HELPER_readPrintScheduleConfig() {
       const images = configSheet.getImages();
 
       if (images.length > 0) {
-        // Images in Google Sheets are stored as URLs, not blobs
-        // Use getUrl() to get the image URL, then fetch it as a blob
+        // Get the URL from the image - insertImage() can use it directly
         if (images[0] && typeof images[0].getUrl === 'function') {
           const imageUrl = images[0].getUrl();
 
-          // Fetch the image from the URL and convert to blob
-          try {
-            const response = UrlFetchApp.fetch(imageUrl);
-            defaults.parishLogoBlob = response.getBlob();
-            Logger.log(`✓ Found parish logo image in Config sheet (fetched from URL)`);
-          } catch (fetchError) {
-            Logger.log(`✗ Could not fetch logo from URL: ${fetchError.message}`);
-            Logger.log(`  → Image URL: ${imageUrl}`);
+          if (imageUrl && imageUrl.trim() !== '') {
+            // Store the URL - insertImage() can use it directly
+            defaults.parishLogoUrl = imageUrl;
+            Logger.log(`✓ Found parish logo image in Config sheet`);
+          } else {
+            Logger.log('⚠ Image URL is empty - image may be from local file');
+            Logger.log('  → For best results, insert image from URL (e.g., Google Drive public link)');
           }
         } else {
           Logger.log(`✗ Image object doesn't have getUrl() method`);
-          Logger.log('  → The image type may not be compatible with Apps Script API');
         }
       } else {
         Logger.log('⚠ No images found in Config sheet.');
-        Logger.log('  → Insert logo: Insert > Image > Image over cells (NOT "Image in cell")');
+        Logger.log('  → Insert logo: Insert > Image > Image over cells');
       }
     } catch (e) {
       Logger.log(`✗ Could not read parish logo: ${e.message}`);
-      Logger.log('  → Try re-inserting the logo using Insert > Image > Image over cells');
     }
 
     // Read parish logo height
