@@ -139,8 +139,7 @@ function HELPER_readConfigSafe() {
  * Read print schedule configuration with sensible defaults
  * Configurable settings:
  * - Print Schedule Title: Custom title (e.g., "Lector Ministry Schedule")
- * - Parish Logo: Insert image in Config sheet using "Insert > Image > Image over cells"
- *   (Will use the first image found in Config sheet)
+ * - Parish Logo URL: Direct URL to parish logo (Google Drive sharing URLs auto-converted)
  * - Parish Logo Height: Row height for logo in pixels (default: 60, max: 300)
  *   Note: Logo scales to fit within the row height
  * - Assigned Group Color [GroupName]: Background color for specific assigned groups (hex code)
@@ -168,32 +167,26 @@ function HELPER_readPrintScheduleConfig() {
       defaults.scheduleTitle = config['Print Schedule Title'];
     }
 
-    // Read parish logo from Config sheet - use first image found
-    try {
-      const images = configSheet.getImages();
+    // Read parish logo URL from Config
+    if (config['Parish Logo URL']) {
+      let logoUrl = config['Parish Logo URL'];
 
-      if (images.length > 0) {
-        // Get the URL from the image - insertImage() can use it directly
-        if (images[0] && typeof images[0].getUrl === 'function') {
-          const imageUrl = images[0].getUrl();
-
-          if (imageUrl && imageUrl.trim() !== '') {
-            // Store the URL - insertImage() can use it directly
-            defaults.parishLogoUrl = imageUrl;
-            Logger.log(`✓ Found parish logo image in Config sheet`);
-          } else {
-            Logger.log('⚠ Image URL is empty - image may be from local file');
-            Logger.log('  → For best results, insert image from URL (e.g., Google Drive public link)');
-          }
-        } else {
-          Logger.log(`✗ Image object doesn't have getUrl() method`);
+      // Convert Google Drive sharing URLs to direct image URLs
+      // Format: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+      // Convert to: https://drive.google.com/uc?export=view&id=FILE_ID
+      if (logoUrl.includes('drive.google.com/file/d/')) {
+        const match = logoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) {
+          const fileId = match[1];
+          logoUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+          Logger.log(`✓ Converted Google Drive sharing URL to direct URL`);
         }
-      } else {
-        Logger.log('⚠ No images found in Config sheet.');
-        Logger.log('  → Insert logo: Insert > Image > Image over cells');
       }
-    } catch (e) {
-      Logger.log(`✗ Could not read parish logo: ${e.message}`);
+
+      defaults.parishLogoUrl = logoUrl;
+      Logger.log(`✓ Found parish logo URL in Config`);
+    } else {
+      Logger.log('⚠ No Parish Logo URL configured');
     }
 
     // Read parish logo height
