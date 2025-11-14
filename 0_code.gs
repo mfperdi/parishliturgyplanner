@@ -1,4 +1,4 @@
-/**
+    /**
  * ====================================================================
  * PARISH LITURGICAL SCHEDULER - ENHANCED WITH LITURGICAL PRINT
  * ====================================================================
@@ -14,7 +14,7 @@
  * - 4_timeoffslogic.gs - Timeoff request management
  * - 5_printschedule.gs - Enhanced liturgical print schedules
  * - debug.gs - Diagnostic and testing functions
- * - SidebarEnhanced.html - Enhanced user interface
+ * - sidebar.html - Enhanced user interface
  */
 
 /**
@@ -48,7 +48,7 @@ function onOpen(e) {
  * This function is called by the menu item.
  */
 function showSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('SidebarEnhanced')
+  const html = HtmlService.createHtmlOutputFromFile('sidebar')
       .setTitle('Parish Scheduler')
       .setWidth(360);
   SpreadsheetApp.getUi().showSidebar(html);
@@ -331,15 +331,6 @@ function generatePrintableSchedule(monthString) {
       return aFirstDate.getTime() - bFirstDate.getTime();
     });
     
-    // Define liturgical color mapping
-    const liturgicalColors = {
-      'White': '#edce47',
-      'Violet': '#805977', 
-      'Rose': '#cf7f93',
-      'Green': '#2c926c',
-      'Red': '#e06666'
-    };
-    
     // Generate the formatted schedule grouped by liturgical celebrations
     for (const celebration of sortedCelebrations) {
       const celebrationAssignments = assignmentsByLiturgy.get(celebration) || [];
@@ -348,10 +339,10 @@ function generatePrintableSchedule(monthString) {
       
       const liturgyInfo = liturgicalData.get(celebration);
       
-      // Get the background color for this liturgical color
-      const bgColor = liturgyInfo && liturgicalColors[liturgyInfo.color] 
-        ? liturgicalColors[liturgyInfo.color] 
-        : '#d9ead3'; // Default green if color not found
+      // Get the background color using the consolidated liturgical color system
+      const bgColor = liturgyInfo && liturgyInfo.color 
+        ? HELPER_getLiturgicalColorHex(liturgyInfo.color)
+        : HELPER_getLiturgicalColorHex('White'); // Default to white
       
       // Liturgical Celebration header
       monthlySheet.getRange(currentRow, 1).setValue(celebration);
