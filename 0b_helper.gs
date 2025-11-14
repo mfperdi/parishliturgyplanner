@@ -139,7 +139,7 @@ function HELPER_readConfigSafe() {
  * Read print schedule configuration with sensible defaults
  * Configurable settings:
  * - Print Schedule Title: Custom title (e.g., "Lector Ministry Schedule")
- * - Parish Logo URL: Public URL to parish logo image (e.g., "https://example.com/logo.png")
+ * - Parish Logo: Insert image directly into Config sheet, column B of "Parish Logo" row
  * - Parish Logo Height: Row height for logo in pixels (default: 60, max: 300)
  *   Note: Logo scales to fit within the row height
  * - Ministry Group Color [GroupName]: Background color for specific ministry groups (hex code)
@@ -151,13 +151,15 @@ function HELPER_readConfigSafe() {
 function HELPER_readPrintScheduleConfig() {
   const defaults = {
     scheduleTitle: 'Ministry Schedule',
-    parishLogoUrl: null,
+    parishLogoBlob: null,
     parishLogoHeight: 60,
     ministryGroupColors: {}, // Will hold colors for each ministry group
     liturgicalColors: {} // Will hold any liturgical color overrides
   };
 
   try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSheet = ss.getSheetByName(CONSTANTS.SHEETS.CONFIG);
     const config = HELPER_readConfig();
 
     // Read custom schedule title
@@ -165,15 +167,39 @@ function HELPER_readPrintScheduleConfig() {
       defaults.scheduleTitle = config['Print Schedule Title'];
     }
 
-    // Read parish logo URL
-    if (config['Parish Logo URL']) {
-      const logoUrl = config['Parish Logo URL'];
-      // Basic URL validation
-      if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
-        defaults.parishLogoUrl = logoUrl;
-      } else {
-        Logger.log(`Warning: Invalid Parish Logo URL format: ${logoUrl}. Must start with http:// or https://`);
+    // Read parish logo from Config sheet
+    // Look for an image inserted in the "Parish Logo" row
+    try {
+      const configData = configSheet.getDataRange().getValues();
+      let parishLogoRow = -1;
+
+      // Find the "Parish Logo" row
+      for (let i = 0; i < configData.length; i++) {
+        if (configData[i][0] === 'Parish Logo') {
+          parishLogoRow = i + 1; // Convert to 1-indexed row number
+          break;
+        }
       }
+
+      if (parishLogoRow > 0) {
+        // Get all images from the Config sheet
+        const images = configSheet.getImages();
+
+        // Find image that overlaps with the Parish Logo row, column B
+        for (const image of images) {
+          const anchorRow = image.getAnchorRow();
+          const anchorCol = image.getAnchorColumn();
+
+          // Check if image is in or near the Parish Logo row, column B (column 2)
+          if (anchorRow === parishLogoRow && anchorCol === 2) {
+            defaults.parishLogoBlob = image.getBlob();
+            Logger.log('Found parish logo image in Config sheet');
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      Logger.log(`Note: Could not read parish logo from Config sheet: ${e.message}`);
     }
 
     // Read parish logo height
@@ -213,7 +239,7 @@ function HELPER_readPrintScheduleConfig() {
       }
     }
 
-    Logger.log(`Print schedule config loaded: ${JSON.stringify(defaults)}`);
+    Logger.log(`Print schedule config loaded`);
     return defaults;
 
   } catch (e) {
