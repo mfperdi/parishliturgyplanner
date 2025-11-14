@@ -244,8 +244,9 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
       sheet.setRowHeight(currentRow, logoHeight + 10);
       sheet.setColumnWidth(1, logoWidth);
 
-      // Insert logo into cell A1 and get the image object
-      const image = sheet.getRange(currentRow, 1).insertImage(printConfig.parishLogoUrl);
+      // Insert logo into cell A1 - insertImage is a Sheet method, not Range method
+      // Parameters: insertImage(url, column, row)
+      const image = sheet.insertImage(printConfig.parishLogoUrl, 1, currentRow);
 
       // Position and size the image to fit within cell A1
       image.setAnchorCell(sheet.getRange(currentRow, 1));
