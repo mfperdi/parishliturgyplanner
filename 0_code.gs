@@ -190,40 +190,111 @@ function triggerScheduleGeneration(monthString) {
 }
 
 /**
- * (SIDEBAR) Opens timeoff review interface.
+ * (SIDEBAR) Analyzes pending timeoffs relevant to the selected month and opens the sheet.
  * @param {string} monthString The selected month (e.g., "2026-01").
- * @returns {string} A success message.
+ * @returns {string} A summary message.
  */
 function reviewTimeoffs(monthString) {
   try {
     const pending = TIMEOFFS_getPendingRequests();
-    
+
     if (pending.length === 0) {
+      // Still open the sheet so user can see all timeoffs
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const timeoffsSheet = ss.getSheetByName(CONSTANTS.SHEETS.TIMEOFFS);
+      if (timeoffsSheet) {
+        ss.setActiveSheet(timeoffsSheet);
+      }
       return "No pending timeoff requests to review.";
     }
-    
-    // For now, auto-approve non-problematic requests
-    let approved = 0;
-    let needsReview = 0;
-    
+
+    // Parse the month to get date range
+    const [year, month] = monthString.split('-').map(Number);
+    const monthStart = new Date(year, month - 1, 1, 0, 0, 0);
+    const monthEnd = new Date(year, month, 0, 23, 59, 59); // Last day of month
+
+    // Analyze which timeoffs affect this month
+    const affectingMonth = [];
+    const outsideMonth = [];
+
     for (const request of pending) {
-      // Auto-approve if no warning flags in review notes
-      if (!request.reviewNotes || !request.reviewNotes.includes("⚠️")) {
-        TIMEOFFS_approveRequest(request.rowNumber);
-        approved++;
+      const timeoffStart = new Date(request.startDate);
+      const timeoffEnd = new Date(request.endDate);
+
+      // Check if timeoff overlaps with the month
+      const overlaps = (timeoffStart <= monthEnd && timeoffEnd >= monthStart);
+
+      if (overlaps) {
+        // Calculate which dates in the month are affected
+        const effectiveStart = timeoffStart > monthStart ? timeoffStart : monthStart;
+        const effectiveEnd = timeoffEnd < monthEnd ? timeoffEnd : monthEnd;
+
+        affectingMonth.push({
+          name: request.name,
+          start: request.startDate,
+          end: request.endDate,
+          effectiveStart: effectiveStart,
+          effectiveEnd: effectiveEnd,
+          hasWarnings: request.reviewNotes && request.reviewNotes.includes("⚠️"),
+          warnings: request.reviewNotes || ""
+        });
       } else {
-        needsReview++;
+        outsideMonth.push({
+          name: request.name,
+          start: request.startDate,
+          end: request.endDate
+        });
       }
     }
-    
-    if (needsReview > 0) {
-      return `Processed ${approved} timeoff requests automatically. ${needsReview} requests need manual review in the Timeoffs sheet.`;
+
+    // Build summary message
+    const monthName = monthStart.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    let summary = `Timeoff Analysis for ${monthName}:\n\n`;
+
+    if (affectingMonth.length > 0) {
+      summary += `✓ ${affectingMonth.length} pending timeoff${affectingMonth.length > 1 ? 's' : ''} affect this month:\n`;
+
+      affectingMonth.forEach(timeoff => {
+        const startStr = HELPER_formatDate(timeoff.start, 'short');
+        const endStr = HELPER_formatDate(timeoff.end, 'short');
+        const warningFlag = timeoff.hasWarnings ? ' ⚠️' : '';
+        summary += `  • ${timeoff.name}: ${startStr} to ${endStr}${warningFlag}\n`;
+      });
     } else {
-      return `Successfully approved ${approved} timeoff requests.`;
+      summary += `✓ No pending timeoffs affect ${monthName}\n`;
     }
+
+    if (outsideMonth.length > 0) {
+      summary += `\n📋 ${outsideMonth.length} other pending timeoff${outsideMonth.length > 1 ? 's' : ''} outside this month\n`;
+    }
+
+    summary += `\nOpening Timeoffs sheet for review...`;
+
+    // Open the Timeoffs sheet for manual review
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const timeoffsSheet = ss.getSheetByName(CONSTANTS.SHEETS.TIMEOFFS);
+    if (timeoffsSheet) {
+      ss.setActiveSheet(timeoffsSheet);
+
+      // Optional: Apply filter to show only pending requests
+      const lastRow = timeoffsSheet.getLastRow();
+      if (lastRow > 1) {
+        const dataRange = timeoffsSheet.getRange(1, 1, lastRow, timeoffsSheet.getLastColumn());
+        const filter = dataRange.getFilter() || dataRange.createFilter();
+
+        // Filter Status column to show only "Pending"
+        const statusCol = CONSTANTS.COLS.TIMEOFFS.STATUS;
+        filter.setColumnFilterCriteria(statusCol,
+          SpreadsheetApp.newFilterCriteria().whenTextEqualTo("Pending").build());
+      }
+    }
+
+    Logger.log(summary);
+    return summary;
+
   } catch (e) {
     Logger.log(`Error in reviewTimeoffs: ${e}`);
-    throw new Error(`Could not process timeoffs: ${e.message}`);
+    throw new Error(`Could not analyze timeoffs: ${e.message}`);
   }
 }
 
