@@ -171,22 +171,24 @@ function HELPER_readPrintScheduleConfig() {
     // Read parish logo from Config sheet - use first image found
     try {
       const images = configSheet.getImages();
-      Logger.log(`DEBUG: Found ${images.length} images in Config sheet`);
 
       if (images.length > 0) {
-        // Debug: Log what type of object we're getting
-        Logger.log(`DEBUG: Type of images array: ${typeof images}`);
-        Logger.log(`DEBUG: Type of images[0]: ${typeof images[0]}`);
-        Logger.log(`DEBUG: images[0] is null? ${images[0] === null}`);
-        Logger.log(`DEBUG: images[0] is undefined? ${images[0] === undefined}`);
+        // Images in Google Sheets are stored as URLs, not blobs
+        // Use getUrl() to get the image URL, then fetch it as a blob
+        if (images[0] && typeof images[0].getUrl === 'function') {
+          const imageUrl = images[0].getUrl();
 
-        if (images[0] && typeof images[0].getBlob === 'function') {
-          defaults.parishLogoBlob = images[0].getBlob();
-          Logger.log(`✓ Found parish logo image in Config sheet (using first of ${images.length} image(s))`);
+          // Fetch the image from the URL and convert to blob
+          try {
+            const response = UrlFetchApp.fetch(imageUrl);
+            defaults.parishLogoBlob = response.getBlob();
+            Logger.log(`✓ Found parish logo image in Config sheet (fetched from URL)`);
+          } catch (fetchError) {
+            Logger.log(`✗ Could not fetch logo from URL: ${fetchError.message}`);
+            Logger.log(`  → Image URL: ${imageUrl}`);
+          }
         } else {
-          // Try alternative methods to get the image
-          Logger.log(`DEBUG: Available methods on images[0]: ${Object.getOwnPropertyNames(images[0]).join(', ')}`);
-          Logger.log(`✗ Image object doesn't have getBlob() method`);
+          Logger.log(`✗ Image object doesn't have getUrl() method`);
           Logger.log('  → The image type may not be compatible with Apps Script API');
         }
       } else {
@@ -195,9 +197,7 @@ function HELPER_readPrintScheduleConfig() {
       }
     } catch (e) {
       Logger.log(`✗ Could not read parish logo: ${e.message}`);
-      Logger.log(`DEBUG: Error stack: ${e.stack}`);
-      Logger.log('  → This usually means you used "Image in cell" instead of "Image over cells"');
-      Logger.log('  → Solution: Delete the image and re-insert using Insert > Image > Image over cells');
+      Logger.log('  → Try re-inserting the logo using Insert > Image > Image over cells');
     }
 
     // Read parish logo height
