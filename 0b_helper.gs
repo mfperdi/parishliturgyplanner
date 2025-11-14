@@ -139,7 +139,8 @@ function HELPER_readConfigSafe() {
  * Read print schedule configuration with sensible defaults
  * Configurable settings:
  * - Print Schedule Title: Custom title (e.g., "Lector Ministry Schedule")
- * - Parish Logo: Insert any image into Config sheet (will use first image found)
+ * - Parish Logo: Insert image at Config!B9 using "Insert > Image > Image over cells"
+ *   (Will fall back to first image in Config sheet if not at B9)
  * - Parish Logo Height: Row height for logo in pixels (default: 60, max: 300)
  *   Note: Logo scales to fit within the row height
  * - Assigned Group Color [GroupName]: Background color for specific assigned groups (hex code)
@@ -167,15 +168,35 @@ function HELPER_readPrintScheduleConfig() {
       defaults.scheduleTitle = config['Print Schedule Title'];
     }
 
-    // Read parish logo from Config sheet - use ANY image found
+    // Read parish logo from Config sheet - look for image at cell B9 (row 9, column 2)
     try {
       const images = configSheet.getImages();
+      let logoFound = false;
+
       if (images.length > 0) {
-        // Use the first image found in the Config sheet
-        defaults.parishLogoBlob = images[0].getBlob();
-        Logger.log(`Found parish logo image in Config sheet (${images.length} total images)`);
+        // First, try to find an image anchored at B9 (row 9, column 2)
+        for (const image of images) {
+          const anchorRow = image.getAnchorRow();
+          const anchorCol = image.getAnchorColumn();
+
+          // Check if image is anchored at cell B9 (row 9, column 2)
+          if (anchorRow === 9 && anchorCol === 2) {
+            defaults.parishLogoBlob = image.getBlob();
+            Logger.log('Found parish logo image at Config!B9');
+            logoFound = true;
+            break;
+          }
+        }
+
+        // Fallback: if not found at B9, use the first image found
+        if (!logoFound) {
+          defaults.parishLogoBlob = images[0].getBlob();
+          const firstImageAnchor = images[0].getAnchorRow();
+          const firstImageCol = images[0].getAnchorColumn();
+          Logger.log(`No logo at Config!B9, using first image found at row ${firstImageAnchor}, col ${firstImageCol}`);
+        }
       } else {
-        Logger.log('No images found in Config sheet');
+        Logger.log('No images found in Config sheet. Insert logo at Config!B9 using Insert > Image > Image over cells');
       }
     } catch (e) {
       Logger.log(`Note: Could not read parish logo from Config sheet: ${e.message}`);
