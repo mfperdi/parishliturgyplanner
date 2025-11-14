@@ -47,11 +47,11 @@ function generatePrintableSchedule(monthString, options = {}) {
     
     // Build the required data
     const scheduleData = buildScheduleData(monthString, config);
-    
+
     Logger.log(`Found ${scheduleData.liturgicalData.size} liturgical celebrations and ${scheduleData.assignments.length} assignments`);
-    
+
     // Generate the schedule using modular approach
-    let currentRow = createScheduleHeader(scheduleSheet, scheduleData.parishName, displayName, config);
+    let currentRow = createScheduleHeader(scheduleSheet, scheduleData.parishName, displayName, config, scheduleData.printConfig);
     currentRow = createScheduleContent(scheduleSheet, scheduleData, currentRow, config);
     
     if (config.includeSummary) {
@@ -85,21 +85,25 @@ function buildScheduleData(monthString, config) {
   } catch (e) {
     Logger.log(`Could not read parish name: ${e.message}`);
   }
-  
+
+  // Read print schedule configuration
+  const printConfig = HELPER_readPrintScheduleConfig();
+
   // Build liturgical data map (extracted from PRINT_generateLiturgicalSchedule)
   const liturgicalData = buildLiturgicalDataMap(monthString);
-  
+
   // Get assignment data
   const assignments = getAssignmentDataForMonth(monthString);
-  
+
   // Group assignments by liturgical celebration
   const assignmentsByLiturgy = groupAssignmentsByLiturgy(assignments);
-  
+
   return {
     parishName,
     liturgicalData,
     assignments,
-    assignmentsByLiturgy
+    assignmentsByLiturgy,
+    printConfig
   };
 }
 
@@ -179,6 +183,7 @@ function getAssignmentDataForMonth(monthString) {
           massName: HELPER_safeArrayAccess(row, assignCols.MASS_NAME - 1),
           liturgicalCelebration: HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1),
           ministryRole: HELPER_safeArrayAccess(row, assignCols.MINISTRY_ROLE - 1),
+          assignedGroup: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_GROUP - 1),
           assignedVolunteerName: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_VOLUNTEER_NAME - 1) || 'UNASSIGNED',
           status: HELPER_safeArrayAccess(row, assignCols.STATUS - 1, 'Pending'),
           notes: HELPER_safeArrayAccess(row, assignCols.NOTES - 1),
@@ -224,34 +229,51 @@ function groupAssignmentsByLiturgy(assignments) {
 }
 
 /**
- * Creates the schedule header section.
+ * Creates the schedule header section with optional logo.
  */
-function createScheduleHeader(sheet, parishName, displayName, config) {
+function createScheduleHeader(sheet, parishName, displayName, config, printConfig) {
   let currentRow = 1;
-  
+
+  // Insert parish logo if configured
+  if (printConfig && printConfig.parishLogoUrl) {
+    try {
+      const logoHeight = printConfig.parishLogoHeight || 60;
+      // Insert logo centered in first row
+      const image = sheet.insertImage(printConfig.parishLogoUrl, 3, currentRow);
+      image.setHeight(logoHeight);
+      // Set row height to accommodate logo
+      sheet.setRowHeight(currentRow, logoHeight + 10);
+      currentRow++;
+      currentRow++; // Extra space after logo
+    } catch (e) {
+      Logger.log(`Warning: Could not insert parish logo: ${e.message}`);
+    }
+  }
+
   // Parish header
   sheet.getRange(currentRow, 1).setValue(parishName);
   sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
   sheet.getRange(currentRow, 1, 1, 5).merge();
   currentRow++;
-  
-  // Schedule title
-  const title = config.layoutStyle === 'liturgical' 
-    ? `Ministry Schedule - ${displayName} (Liturgical Order)`
-    : `Ministry Schedule - ${displayName}`;
-    
+
+  // Schedule title - use configured title
+  const scheduleTitle = (printConfig && printConfig.scheduleTitle) || 'Ministry Schedule';
+  const title = config.layoutStyle === 'liturgical'
+    ? `${scheduleTitle} - ${displayName} (Liturgical Order)`
+    : `${scheduleTitle} - ${displayName}`;
+
   sheet.getRange(currentRow, 1).setValue(title);
   sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
   sheet.getRange(currentRow, 1, 1, 5).merge();
   currentRow++;
-  
+
   // Generation info
   const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
   sheet.getRange(currentRow, 1).setValue(generatedText);
   sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('center');
   sheet.getRange(currentRow, 1, 1, 5).merge();
   currentRow += 2; // Skip a row
-  
+
   return currentRow;
 }
 
@@ -275,36 +297,37 @@ function createScheduleContent(sheet, scheduleData, startRow, config) {
  */
 function createLiturgicalContent(sheet, scheduleData, startRow, config) {
   let currentRow = startRow;
-  const { liturgicalData, assignmentsByLiturgy } = scheduleData;
-  
+  const { liturgicalData, assignmentsByLiturgy, printConfig } = scheduleData;
+
   // Get celebrations in chronological order
   const sortedCelebrations = Array.from(liturgicalData.keys()).sort((a, b) => {
     const aFirstDate = liturgicalData.get(a).dates[0];
     const bFirstDate = liturgicalData.get(b).dates[0];
     return aFirstDate.getTime() - bFirstDate.getTime();
   });
-  
+
   for (const celebration of sortedCelebrations) {
     const liturgyInfo = liturgicalData.get(celebration);
     const celebrationAssignments = assignmentsByLiturgy.get(celebration) || [];
-    
+
     if (celebrationAssignments.length === 0) continue;
-    
-    currentRow = createCelebrationSection(sheet, celebration, liturgyInfo, celebrationAssignments, currentRow, config);
+
+    currentRow = createCelebrationSection(sheet, celebration, liturgyInfo, celebrationAssignments, currentRow, config, printConfig);
   }
-  
+
   return currentRow;
 }
 
 /**
  * Creates a section for a single liturgical celebration.
  */
-function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, startRow, config) {
+function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, startRow, config, printConfig) {
   let currentRow = startRow;
-  
-  // Celebration header with color coding
-  const bgColor = config.includeColors ? HELPER_getLiturgicalColorHex(liturgyInfo.color) : '#d9ead3';
-  
+
+  // Celebration header with color coding - use configured liturgical colors
+  const liturgicalColorOverrides = (printConfig && printConfig.liturgicalColors) || {};
+  const bgColor = config.includeColors ? HELPER_getLiturgicalColorHex(liturgyInfo.color, liturgicalColorOverrides) : '#d9ead3';
+
   sheet.getRange(currentRow, 1).setValue(celebration);
   sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold');
   if (config.includeColors) {
@@ -312,7 +335,7 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
   }
   sheet.getRange(currentRow, 1, 1, 5).merge();
   currentRow++;
-  
+
   // Rank/Season/Color info (if enabled)
   if (config.showRankInfo && liturgyInfo) {
     const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
@@ -324,13 +347,13 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
     sheet.getRange(currentRow, 1, 1, 5).merge();
     currentRow++;
   }
-  
+
   // Table headers
   currentRow = createTableHeaders(sheet, currentRow);
-  
-  // Assignment rows
-  currentRow = createAssignmentRows(sheet, assignments, currentRow, config);
-  
+
+  // Assignment rows - pass printConfig for ministry group colors
+  currentRow = createAssignmentRows(sheet, assignments, currentRow, config, printConfig);
+
   currentRow++; // Space between celebrations
   return currentRow;
 }
@@ -353,14 +376,14 @@ function createTableHeaders(sheet, startRow) {
 }
 
 /**
- * Creates assignment rows with optimized grouping.
+ * Creates assignment rows with optimized grouping and ministry group colors.
  */
-function createAssignmentRows(sheet, assignments, startRow, config) {
+function createAssignmentRows(sheet, assignments, startRow, config, printConfig) {
   let currentRow = startRow;
-  
+
   // Group assignments by mass for cleaner display
   const massByDateTime = new Map();
-  
+
   for (const assignment of assignments) {
     const massKey = `${assignment.date.toDateString()}_${assignment.time.toTimeString()}_${assignment.massName}`;
     if (!massByDateTime.has(massKey)) {
@@ -373,7 +396,7 @@ function createAssignmentRows(sheet, assignments, startRow, config) {
     }
     massByDateTime.get(massKey).assignments.push(assignment);
   }
-  
+
   // Sort masses chronologically
   const sortedMasses = Array.from(massByDateTime.values()).sort((a, b) => {
     if (a.date.getTime() !== b.date.getTime()) {
@@ -382,15 +405,15 @@ function createAssignmentRows(sheet, assignments, startRow, config) {
     // *** FIX 2: Compare time objects directly, not as strings ***
     return a.time.getTime() - b.time.getTime();
   });
-  
+
   // Create rows for each mass
   for (const mass of sortedMasses) {
     // Sort assignments within the mass by role
     mass.assignments.sort((a, b) => a.ministryRole.localeCompare(b.ministryRole));
-    
+
     for (let i = 0; i < mass.assignments.length; i++) {
       const assignment = mass.assignments[i];
-      
+
       // Only show date/time/mass name on first row of each mass
       if (i === 0) {
         // *** FIX 3: Bypass helper and use direct formatting for the date ***
@@ -398,23 +421,31 @@ function createAssignmentRows(sheet, assignments, startRow, config) {
         sheet.getRange(currentRow, 2).setValue(HELPER_formatTime(mass.time));
         sheet.getRange(currentRow, 3).setValue(mass.massName);
       }
-      
+
       sheet.getRange(currentRow, 4).setValue(assignment.ministryRole);
       sheet.getRange(currentRow, 5).setValue(assignment.assignedVolunteerName);
-      
+
       // Format the row
       const rowRange = sheet.getRange(currentRow, 1, 1, 5);
       rowRange.setBorder(true, true, true, true, false, false);
-      
-      // Highlight unassigned roles
+
+      // Apply background color based on assignment status and ministry group
       if (assignment.assignedVolunteerName === 'UNASSIGNED') {
+        // Highlight unassigned roles in red
         sheet.getRange(currentRow, 5).setBackground('#fce8e6');
+      } else if (assignment.assignedGroup && printConfig && printConfig.ministryGroupColors) {
+        // Check if there's a configured color for this ministry group
+        const groupColor = printConfig.ministryGroupColors[assignment.assignedGroup];
+        if (groupColor) {
+          // Apply ministry group color to the entire row
+          rowRange.setBackground(groupColor);
+        }
       }
-      
+
       currentRow++;
     }
   }
-  
+
   return currentRow;
 }
 
@@ -423,11 +454,12 @@ function createAssignmentRows(sheet, assignments, startRow, config) {
  */
 function createChronologicalContent(sheet, scheduleData, startRow, config) {
   let currentRow = startRow;
-  
+  const { printConfig } = scheduleData;
+
   // Create single table with all assignments in date order
   currentRow = createTableHeaders(sheet, currentRow);
-  currentRow = createAssignmentRows(sheet, scheduleData.assignments, currentRow, config);
-  
+  currentRow = createAssignmentRows(sheet, scheduleData.assignments, currentRow, config, printConfig);
+
   return currentRow;
 }
 

@@ -26,9 +26,15 @@ const LITURGICAL_COLORS = {
 /**
  * Get hex color code for liturgical color name
  * @param {string} colorName The liturgical color name
+ * @param {object} overrides Optional color overrides from configuration
  * @returns {string} Hex color code
  */
-function HELPER_getLiturgicalColorHex(colorName) {
+function HELPER_getLiturgicalColorHex(colorName, overrides = {}) {
+  // Check for configured override first
+  if (overrides && overrides[colorName]) {
+    return overrides[colorName];
+  }
+  // Fall back to default liturgical colors
   return LITURGICAL_COLORS[colorName] || '#f8f9fa'; // Default to white
 }
 

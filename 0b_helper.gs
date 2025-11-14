@@ -113,25 +113,111 @@ function HELPER_formatTime(time) {
 function HELPER_readConfigSafe() {
   try {
     const config = HELPER_readConfig();
-    
+
     // Validate critical settings
     const requiredSettings = ['Year to Schedule'];
     const missing = requiredSettings.filter(setting => !config[setting]);
-    
+
     if (missing.length > 0) {
       throw new Error(`Missing required config settings: ${missing.join(', ')}`);
     }
-    
+
     // Validate year
     const year = config["Year to Schedule"];
     if (year < 2020 || year > 2050) {
       throw new Error(`Invalid year: ${year}. Must be between 2020-2050`);
     }
-    
+
     return config;
   } catch (e) {
     Logger.log(`Config validation failed: ${e.message}`);
     throw e;
+  }
+}
+
+/**
+ * Read print schedule configuration with sensible defaults
+ * Configurable settings:
+ * - Print Schedule Title: Custom title (e.g., "Lector Ministry Schedule")
+ * - Parish Logo URL: Public URL to parish logo image (e.g., "https://example.com/logo.png")
+ * - Parish Logo Height: Optional logo height in pixels (default: 60)
+ * - Ministry Group Color [GroupName]: Background color for specific ministry groups (hex code)
+ *   Examples: "Ministry Group Color Spanish", "Ministry Group Color Knights of Columbus"
+ * - Liturgical Color [ColorName]: Override default liturgical colors (e.g., "Liturgical Color White")
+ *
+ * @returns {object} Print configuration object with defaults
+ */
+function HELPER_readPrintScheduleConfig() {
+  const defaults = {
+    scheduleTitle: 'Ministry Schedule',
+    parishLogoUrl: null,
+    parishLogoHeight: 60,
+    ministryGroupColors: {}, // Will hold colors for each ministry group
+    liturgicalColors: {} // Will hold any liturgical color overrides
+  };
+
+  try {
+    const config = HELPER_readConfig();
+
+    // Read custom schedule title
+    if (config['Print Schedule Title']) {
+      defaults.scheduleTitle = config['Print Schedule Title'];
+    }
+
+    // Read parish logo URL
+    if (config['Parish Logo URL']) {
+      const logoUrl = config['Parish Logo URL'];
+      // Basic URL validation
+      if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+        defaults.parishLogoUrl = logoUrl;
+      } else {
+        Logger.log(`Warning: Invalid Parish Logo URL format: ${logoUrl}. Must start with http:// or https://`);
+      }
+    }
+
+    // Read parish logo height
+    if (config['Parish Logo Height']) {
+      const height = parseInt(config['Parish Logo Height']);
+      if (!isNaN(height) && height > 0 && height <= 300) {
+        defaults.parishLogoHeight = height;
+      } else {
+        Logger.log(`Warning: Invalid Parish Logo Height: ${config['Parish Logo Height']}. Using default (60px)`);
+      }
+    }
+
+    // Read ministry group colors
+    // Format: "Ministry Group Color Spanish" = "#ffcccc"
+    const ministryGroupColorKeys = Object.keys(config).filter(key => key.startsWith('Ministry Group Color '));
+    for (const key of ministryGroupColorKeys) {
+      const groupName = key.replace('Ministry Group Color ', '');
+      const colorValue = config[key];
+      // Validate hex color format
+      if (/^#[0-9A-Fa-f]{6}$/.test(colorValue)) {
+        defaults.ministryGroupColors[groupName] = colorValue;
+      } else {
+        Logger.log(`Warning: Invalid color format for ${key}: ${colorValue}`);
+      }
+    }
+
+    // Read liturgical color overrides
+    // Format: "Liturgical Color White" = "#ffffff"
+    const liturgicalColorKeys = Object.keys(config).filter(key => key.startsWith('Liturgical Color '));
+    for (const key of liturgicalColorKeys) {
+      const colorName = key.replace('Liturgical Color ', '');
+      const colorValue = config[key];
+      if (/^#[0-9A-Fa-f]{6}$/.test(colorValue)) {
+        defaults.liturgicalColors[colorName] = colorValue;
+      } else {
+        Logger.log(`Warning: Invalid color format for ${key}: ${colorValue}`);
+      }
+    }
+
+    Logger.log(`Print schedule config loaded: ${JSON.stringify(defaults)}`);
+    return defaults;
+
+  } catch (e) {
+    Logger.log(`Warning: Could not read print schedule config: ${e.message}. Using defaults.`);
+    return defaults;
   }
 }
 
