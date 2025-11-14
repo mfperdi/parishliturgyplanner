@@ -215,11 +215,10 @@ function HELPER_safeArrayAccess(array, index, defaultValue = '') {
 
 /**
  * Liturgical color utilities - UPDATED TO USE CONSOLIDATED COLORS
+ * NOTE: HELPER_getLiturgicalColorHex() is now defined in 0_liturgicalcolors.gs
+ * The LITURGICAL_COLORS constant is also defined there.
+ * This note remains for reference only.
  */
-function HELPER_getLiturgicalColorHex(colorName) {
-  // Use the consolidated liturgical colors from liturgical_colors.gs
-  return LITURGICAL_COLORS[colorName] || '#f8f9fa'; // Default to white
-}
 
 /**
  * Performance monitoring wrapper

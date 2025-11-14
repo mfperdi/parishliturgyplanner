@@ -555,5 +555,5 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
   };
   
   const mergedOptions = { ...defaultOptions, ...customOptions };
-  return generatePrintableS(monthString, mergedOptions);
+  return generatePrintableSchedule(monthString, mergedOptions);
 }
