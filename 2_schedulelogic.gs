@@ -31,7 +31,6 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
   // 1. Clear out ANY old rows for this month (Assigned or Unassigned)
   Logger.log(`1. Clearing ALL old rows for ${monthString}...`);
-  // *** MODIFIED: Pass monthString to correctly clear spillover ***
   SCHEDULE_clearOldAssignments(assignmentsSheet, monthString, scheduleYear, month); 
 
   // 2. Read all mass templates
@@ -237,15 +236,15 @@ function SCHEDULE_buildLiturgicalMap(month, year) {
 function HELPER_isDateInRange(dateToCheck, startDate, endDate) {
   const checkTime = dateToCheck.getTime();
   
-  const startIsValid = startDate && !isNaN(startDate.getTime());
-  const endIsValid = endDate && !isNaN(endDate.getTime());
+  const startIsValid = startDate && !isNaN(new Date(startDate).getTime());
+  const endIsValid = endDate && !isNaN(new Date(endDate).getTime());
 
   if (!startIsValid && !endIsValid) {
     return true; // No dates set, so it's active all year
   }
   
   if (startIsValid) {
-    const startTime = new Date(startDate.getTime());
+    const startTime = new Date(startDate);
     startTime.setHours(0, 0, 0, 0); 
     if (checkTime < startTime.getTime()) {
       return false; // Date is before the start date
@@ -253,7 +252,7 @@ function HELPER_isDateInRange(dateToCheck, startDate, endDate) {
   }
   
   if (endIsValid) {
-    const endTime = new Date(endDate.getTime());
+    const endTime = new Date(endDate);
     endTime.setHours(23, 59, 59, 999);
     if (checkTime > endTime.getTime()) {
       return false; // Date is after the end date
@@ -330,8 +329,21 @@ function SCHEDULE_findMassesForMonth(month, year) {
     Logger.log(`Including spillover dates through ${endYear}-${(endMonth + 1).toString().padStart(2, '0')}-07`);
   }
   
-  // Process current month
-  for (let day = 1; day <= daysInMonth; day++) {
+  // *** NEW: Check if Day 1 belongs to the previous month's spillover ***
+  let startDay = 1;
+  const firstDayOfMonth = new Date(year, month, 1, 12, 0, 0);
+  if (firstDayOfMonth.getDay() === 0) { // If Day 1 is a Sunday
+    const yesterday = new Date(firstDayOfMonth.getTime());
+    yesterday.setDate(yesterday.getDate() - 1); // Get the last day of the previous month
+    if (yesterday.getDay() === 6) { // If yesterday was a Saturday
+      Logger.log(`Skipping Day 1 as it belongs to the previous month's spillover weekend.`);
+      startDay = 2; // Start processing on Day 2
+    }
+  }
+  // *** END NEW LOGIC ***
+
+  // Process current month, starting from the correct day
+  for (let day = startDay; day <= daysInMonth; day++) {
     const currentDate = new Date(year, month, day, 12, 0, 0); // Use noon
     const dayOfWeek = currentDate.toLocaleString('en-US', { weekday: 'long' });
     
@@ -395,40 +407,57 @@ function SCHEDULE_findMassesForMonth(month, year) {
 
     const weekOfMonth = row[monCols.WEEK_OF_MONTH - 1];
     const dayOfWeek = row[monCols.DAY_OF_WEEK - 1];
+    // Find the date for the *current* month
     const specialDate = HELPER_findDateForMonthlyRule(year, month, weekOfMonth, dayOfWeek);
     if (!specialDate) continue; 
 
-    const startDate = new Date(row[monCols.START_DATE - 1]);
-    const endDate = new Date(row[monCols.END_DATE - 1]);
-    if (!HELPER_isDateInRange(specialDate, startDate, endDate)) continue;
-
-    const dateKey = specialDate.toDateString();
-    const overrideType = (row[monCols.OVERRIDE_TYPE - 1] || '').toLowerCase();
-    
-    if (overrideType === 'overrideday') {
-      Logger.log(`Applying MONTHLY OVERRIDE for ${dateKey}`);
-      masses = masses.filter(m => m.date.toDateString() !== dateKey);
-    } else {
-      Logger.log(`Applying MONTHLY APPEND for ${dateKey}`);
-      const specialTime = new Date(row[monCols.TIME - 1]).toTimeString();
-      masses = masses.filter(m => {
-        const isMatch = m.date.toDateString() === dateKey && new Date(m.time).toTimeString() === specialTime;
-        if (isMatch) Logger.log(`> Replacing weekly mass at ${specialTime}`);
-        return !isMatch;
-      });
+    // Find if the date for the *next* month (for spillover) is also needed
+    let spilloverDate = null;
+    if (includeNextSunday && endMonth !== month) {
+      const spilloverRuleDate = HELPER_findDateForMonthlyRule(endYear, endMonth, weekOfMonth, dayOfWeek);
+      if (spilloverRuleDate && spilloverRuleDate.getDate() <= 7 && spilloverRuleDate.getDay() === 0) { // Only Sunday spillover
+         spilloverDate = spilloverRuleDate;
+      }
     }
+    
+    const datesToProcess = [specialDate];
+    if (spilloverDate) {
+      datesToProcess.push(spilloverDate);
+    }
+    
+    for (const dateToProcess of datesToProcess) {
+      const startDate = new Date(row[monCols.START_DATE - 1]);
+      const endDate = new Date(row[monCols.END_DATE - 1]);
+      if (!HELPER_isDateInRange(dateToProcess, startDate, endDate)) continue;
 
-    monthlyMassesToAdd.push({
-      date: specialDate,
-      time: row[monCols.TIME - 1],
-      description: row[monCols.DESCRIPTION - 1] || "",
-      templateName: row[monCols.TEMPLATE_NAME - 1],
-      eventId: row[monCols.EVENT_ID - 1],
-      isAnticipated: (row[monCols.IS_ANTICIPATED - 1] === true),
-      assignedGroup: row[monCols.ASSIGNED_GROUP - 1] || "",
-      notes: row[monCols.NOTES - 1] || ""
-    });
-    Logger.log(`DEBUG: Added monthly mass - ${row[monCols.EVENT_ID - 1]} on ${dateKey}`);
+      const dateKey = dateToProcess.toDateString();
+      const overrideType = (row[monCols.OVERRIDE_TYPE - 1] || '').toLowerCase();
+      
+      if (overrideType === 'overrideday') {
+        Logger.log(`Applying MONTHLY OVERRIDE for ${dateKey}`);
+        masses = masses.filter(m => m.date.toDateString() !== dateKey);
+      } else {
+        Logger.log(`Applying MONTHLY APPEND for ${dateKey}`);
+        const specialTime = new Date(row[monCols.TIME - 1]).toTimeString();
+        masses = masses.filter(m => {
+          const isMatch = m.date.toDateString() === dateKey && new Date(m.time).toTimeString() === specialTime;
+          if (isMatch) Logger.log(`> Replacing weekly mass at ${specialTime}`);
+          return !isMatch;
+        });
+      }
+
+      monthlyMassesToAdd.push({
+        date: dateToProcess,
+        time: row[monCols.TIME - 1],
+        description: row[monCols.DESCRIPTION - 1] || "",
+        templateName: row[monCols.TEMPLATE_NAME - 1],
+        eventId: row[monCols.EVENT_ID - 1],
+        isAnticipated: (row[monCols.IS_ANTICIPATED - 1] === true),
+        assignedGroup: row[monCols.ASSIGNED_GROUP - 1] || "",
+        notes: row[monCols.NOTES - 1] || ""
+      });
+      Logger.log(`DEBUG: Added monthly mass - ${row[monCols.EVENT_ID - 1]} on ${dateKey}`);
+    }
   }
   masses.push(...monthlyMassesToAdd);
 
@@ -442,7 +471,8 @@ function SCHEDULE_findMassesForMonth(month, year) {
     const calDate = new Date(row[calCols.DATE - 1]);
     if (isNaN(calDate.getTime())) continue;
     
-    if (calDate.getFullYear() === year) { 
+    // Map dates for the *current schedule year* AND the *next* year (for spillover)
+    if (calDate.getFullYear() === year || calDate.getFullYear() === year + 1) { 
       const celebrationName = row[calCols.LITURGICAL_CELEBRATION - 1];
       if (celebrationName && !liturgyDateMap.has(celebrationName)) {
         liturgyDateMap.set(celebrationName, setDateToNoon(calDate)); // Store at noon
