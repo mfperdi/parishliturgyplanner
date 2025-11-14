@@ -140,7 +140,8 @@ function HELPER_readConfigSafe() {
  * Configurable settings:
  * - Print Schedule Title: Custom title (e.g., "Lector Ministry Schedule")
  * - Parish Logo URL: Public URL to parish logo image (e.g., "https://example.com/logo.png")
- * - Parish Logo Height: Optional logo height in pixels (default: 60)
+ * - Parish Logo Height: Row height for logo in pixels (default: 60, max: 300)
+ *   Note: Logo scales to fit within the row height
  * - Ministry Group Color [GroupName]: Background color for specific ministry groups (hex code)
  *   Examples: "Ministry Group Color Spanish", "Ministry Group Color Knights of Columbus"
  * - Liturgical Color [ColorName]: Override default liturgical colors (e.g., "Liturgical Color White")
