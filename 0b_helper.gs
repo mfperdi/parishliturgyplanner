@@ -153,6 +153,7 @@ function HELPER_readPrintScheduleConfig() {
     scheduleTitle: 'Ministry Schedule',
     parishLogoUrl: null,
     parishLogoHeight: 60,
+    parishLogoWidth: 80,
     ministryGroupColors: {}, // Will hold colors for each assigned group
     liturgicalColors: {} // Will hold any liturgical color overrides
   };
@@ -196,6 +197,16 @@ function HELPER_readPrintScheduleConfig() {
         defaults.parishLogoHeight = height;
       } else {
         Logger.log(`Warning: Invalid Parish Logo Height: ${config['Parish Logo Height']}. Using default (60px)`);
+      }
+    }
+
+    // Read parish logo width
+    if (config['Parish Logo Width']) {
+      const width = parseInt(config['Parish Logo Width']);
+      if (!isNaN(width) && width > 0 && width <= 500) {
+        defaults.parishLogoWidth = width;
+      } else {
+        Logger.log(`Warning: Invalid Parish Logo Width: ${config['Parish Logo Width']}. Using default (80px)`);
       }
     }
 
