@@ -342,6 +342,15 @@ function triggerAssignment(monthString) {
   return ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString);
 }
 
+/**
+ * (SIDEBAR) Generates the printable schedule for a month.
+ * @param {string} monthString The selected month (e.g., "2026-01").
+ * @returns {string} A success message.
+ */
+function generatePrintableSchedule(monthString) {
+  return PRINT_generateLiturgicalSchedule(monthString);
+}
+
 
 /**
  * (SIDEBAR) Finds and helps assign substitutes for unassigned roles.
