@@ -83,12 +83,16 @@ The Parish Liturgical Scheduler has a **well-structured, modern interface** with
 
 ### ⚠️ Issues & Recommendations
 
-1. **Missing Undo/Restore Functionality in UI**
-   - **Issue**: System has backup/restore functions (`SCHEDULE_restoreBackup()`), but no UI access
-   - **Impact**: Users can't recover from accidental regeneration
-   - **Recommendation**: Add "Restore Backup" button in Admin Tools or as Step 4.5
+1. **Limited Access to Granular Restore Functionality**
+   - **Issue**: System has month-specific backup/restore functions (`SCHEDULE_restoreBackup()`), but no UI access
+   - **Impact**: Users must use Google Sheets version history (File > Version History) to restore entire spreadsheet, rather than just one month's assignments
+   - **Built-in Safety Net**: Google Sheets version history already provides rollback capability for accidental changes
+   - **Trade-offs**:
+     - Version History: Restores entire spreadsheet to a previous point in time (affects all sheets)
+     - Restore Backup UI: Would restore only specific month's assignments (more granular, less disruptive)
+   - **Recommendation**: Add "Restore Backup" button in Admin Tools for granular month-specific recovery
    - **Code Location**: Sidebar.html:419-442 (add after Generate Schedule)
-   - **Priority**: High
+   - **Priority**: Medium (nice to have, but version history provides adequate safety net)
 
 2. **No Visual Indication of Completion**
    - **Issue**: No checkmarks or visual feedback showing which steps are complete
@@ -471,42 +475,42 @@ Therefore, mobile responsive design and touch-friendly tap targets are **not rel
 
 ### High Priority (Implement First)
 
-1. **Add Restore Backup UI**
-   - Location: Admin Tools menu or as Step 4.5
-   - Impact: Prevents data loss from accidental regeneration
-   - Effort: 2 hours
-
-2. **Improve Error Messages**
+1. **Improve Error Messages**
    - Add contextual help text and troubleshooting steps
    - Impact: Reduces user confusion and support requests
    - Effort: 4 hours
 
-3. **Add Step Completion Indicators**
+2. **Add Step Completion Indicators**
    - Visual checkmarks on completed steps
    - Impact: Improves workflow clarity
    - Effort: 3 hours
 
 ### Medium Priority (Next Phase)
 
-4. **Add Progress Indicators for Long Operations**
+3. **Add Progress Indicators for Long Operations**
    - Show progress during auto-assignment
    - Impact: Reduces perceived wait time
    - Effort: 6 hours
 
-5. **Implement Month Selection Persistence**
+4. **Implement Month Selection Persistence**
    - Remember last selected month
    - Impact: Improves efficiency for repeat users
    - Effort: 2 hours
 
-6. **Combine Initial Load API Calls**
+5. **Combine Initial Load API Calls**
    - Reduce server round trips
    - Impact: Faster sidebar loading
    - Effort: 3 hours
 
-7. **Add Pre-Flight Validation**
+6. **Add Pre-Flight Validation**
    - Check data validity before generation
    - Impact: Prevents errors during operations
    - Effort: 4 hours
+
+7. **Add Granular Restore Backup UI**
+   - Location: Admin Tools menu
+   - Impact: Month-specific restore (nice to have; Google Sheets version history provides general rollback)
+   - Effort: 2 hours
 
 8. **Fix Completion Phase Progression**
    - Clearly enable completion phase when ready
@@ -585,9 +589,11 @@ Before implementing changes, test:
 The Parish Liturgical Scheduler has a **solid UX/UI foundation** with modern design, clear workflow, and good accessibility basics. The primary areas for improvement are:
 
 1. **User feedback** (error messages, progress indicators, completion status)
-2. **Data protection** (restore backup UI, validation warnings)
+2. **Workflow clarity** (completion indicators, validation warnings)
 3. **Efficiency** (persistent selections, combined API calls)
 
-Implementing the **High Priority recommendations** will significantly improve the user experience with relatively low effort (estimated 9-11 hours total). The interface is already functional and user-friendly—these improvements will make it **exceptional**.
+**Note on Data Protection**: Google Sheets built-in version history (File > Version History) already provides rollback capability for accidental changes, which is an important safety net for users.
 
-**Final Recommendation**: Focus on High Priority items first, especially error message improvements and restore backup functionality, as these directly impact user confidence and data safety.
+Implementing the **High Priority recommendations** will significantly improve the user experience with relatively low effort (estimated 7 hours total). The interface is already functional and user-friendly—these improvements will make it **exceptional**.
+
+**Final Recommendation**: Focus on High Priority items first, especially error message improvements and completion indicators, as these directly impact user confidence and workflow understanding.
