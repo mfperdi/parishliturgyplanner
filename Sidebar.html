@@ -462,20 +462,6 @@
         </div>
       </div>
       
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #dc2626;">7</div>
-        <div class="step-content">
-          <div class="step-title">
-            Assign Substitutes
-            <span id="substitute-badge" class="step-badge info hidden">0 needed</span>
-          </div>
-          <div class="step-description">Handle unassigned roles and last-minute changes</div>
-          <button id="btn-substitutes" class="btn btn-outline" disabled>
-            Assign Substitutes
-          </button>
-        </div>
-      </div>
-      
     </div>
   </div>
 
@@ -490,7 +476,6 @@
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
     const btnPrint = document.getElementById('btn-print');
-    const btnSubstitutes = document.getElementById('btn-substitutes');
     const statusMessage = document.getElementById('status-message');
     
     // Phase elements
@@ -505,12 +490,10 @@
     
     // Badge elements
     const timeoffBadge = document.getElementById('timeoff-badge');
-    const substituteBadge = document.getElementById('substitute-badge');
-    
+
     let allButtons;
     let currentPhase = 'setup';
     let pendingTimeoffs = 0;
-    let unassignedRoles = 0;
     
     // Update phase progress indicator
     function updatePhaseProgress(phase) {
@@ -571,11 +554,10 @@
       btnStep1.disabled = !hasCalendar || !hasMonthSelected;
       btnTimeoffs.disabled = !hasCalendar || !hasMonthSelected;
       btnStep2.disabled = !hasCalendar || !hasMonthSelected;
-      
+
       // Completion phase buttons (enable after assignment)
       btnPrint.disabled = !hasCalendar || !hasMonthSelected;
-      btnSubstitutes.disabled = !hasCalendar || !hasMonthSelected;
-      
+
       updatePhaseStates();
       updateBadges();
     }
@@ -588,14 +570,6 @@
         timeoffBadge.classList.remove('hidden');
       } else {
         timeoffBadge.classList.add('hidden');
-      }
-      
-      // Substitute badge
-      if (unassignedRoles > 0) {
-        substituteBadge.textContent = `${unassignedRoles} needed`;
-        substituteBadge.classList.remove('hidden');
-      } else {
-        substituteBadge.classList.add('hidden');
       }
     }
     
@@ -613,30 +587,12 @@
             updateBadges();
           })
           .getPendingTimeoffsCount();
-          
-        // Get unassigned roles count  
-        google.script.run
-          .withSuccessHandler((count) => {
-            unassignedRoles = count || 0;
-            updateBadges();
-            
-            // Enable completion phase if assignments are done
-            if (unassignedRoles === 0) {
-              phaseCompletionContent.classList.remove('disabled');
-              updatePhaseProgress('completion');
-            }
-          })
-          .withFailureHandler(() => {
-            unassignedRoles = 0;
-            updateBadges();
-          })
-          .getUnassignedRolesCount(monthSelect.value);
       }
     }
     
     // Initialization
     window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnStep1, btnTimeoffs, btnStep2, btnPrint, btnSubstitutes];
+      allButtons = [btnAdmin, btnStep1, btnTimeoffs, btnStep2, btnPrint];
       updatePhaseProgress('setup');
       
       google.script.run
@@ -770,24 +726,6 @@
         })
         .withFailureHandler(showError)
         .generatePrintableSchedule(selectedMonth);
-    });
-    
-    btnSubstitutes.addEventListener('click', () => {
-      const selectedMonth = monthSelect.value;
-      if (!selectedMonth) return;
-      
-      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const msg = `Finding substitute assignments for ${selectedText}...`;
-      showLoading(msg);
-      
-      google.script.run
-        .withSuccessHandler((message) => {
-          const friendlyMessage = message.replace(selectedMonth, selectedText);
-          showSuccess(friendlyMessage);
-          refreshWorkflowData();
-        })
-        .withFailureHandler(showError)
-        .findSubstituteAssignments(selectedMonth);
     });
 
     // Enhanced status functions
