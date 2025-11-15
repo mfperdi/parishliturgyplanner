@@ -33,13 +33,9 @@ function onOpen(e) {
       .addItem('Show Sidebar', 'showSidebar')
       .addSeparator()
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Print Schedules')
-          .addItem('Liturgical Schedule', 'showLiturgicalScheduleMenu')
-          .addItem('Standard Schedule', 'generateCurrentMonthSchedule')
-          .addItem('Export PDF', 'exportCurrentMonthPDF'))
+          .addItem('Liturgical Schedule', 'showLiturgicalScheduleMenu'))
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Admin Tools')
           .addItem('Validate Data', 'showDataValidation')
-          .addSeparator()
-          .addItem('Review Timeoffs', 'showTimeoffReview')
           .addItem('Debug Functions', 'showDebugPanel')
           .addItem('Export Data', 'exportCurrentSchedule'))
       .addToUi();
@@ -493,66 +489,6 @@ function showLiturgicalScheduleMenu() {
   }
 }
 
-/**
- * Generates schedule for current month.
- */
-function generateCurrentMonthSchedule() {
-  try {
-    const now = new Date();
-    const monthString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-    
-    const result = generatePrintableSchedule(monthString);
-    SpreadsheetApp.getUi().alert('Success', result, SpreadsheetApp.getUi().ButtonSet.OK);
-  } catch (e) {
-    SpreadsheetApp.getUi().alert('Error', `Could not generate schedule: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
-  }
-}
-
-/**
- * Exports PDF for current month.
- */
-function exportCurrentMonthPDF() {
-  try {
-    const now = new Date();
-    const monthString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-    
-    const result = PRINT_exportLiturgicalSchedulePDF(monthString);
-    SpreadsheetApp.getUi().alert('PDF Export', result, SpreadsheetApp.getUi().ButtonSet.OK);
-  } catch (e) {
-    SpreadsheetApp.getUi().alert('Error', `Could not export PDF: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
-  }
-}
-
-/**
- * Shows a timeoff review dialog.
- */
-function showTimeoffReview() {
-  const pending = TIMEOFFS_getPendingRequests();
-  
-  if (pending.length === 0) {
-    SpreadsheetApp.getUi().alert('No pending timeoff requests to review.');
-    return;
-  }
-  
-  let message = `Found ${pending.length} pending timeoff requests:\n\n`;
-  
-  for (let i = 0; i < Math.min(5, pending.length); i++) {
-    const req = pending[i];
-    message += `${i + 1}. ${req.name} (${req.startDate} - ${req.endDate})\n`;
-    if (req.reviewNotes) {
-      message += `   Notes: ${req.reviewNotes}\n`;
-    }
-    message += '\n';
-  }
-  
-  if (pending.length > 5) {
-    message += `... and ${pending.length - 5} more requests.\n\n`;
-  }
-  
-  message += 'Go to the Timeoffs sheet to review and approve/reject requests.';
-  
-  SpreadsheetApp.getUi().alert('Timeoff Review', message, SpreadsheetApp.getUi().ButtonSet.OK);
-}
 
 /**
  * Exports the current schedule to a new spreadsheet.
