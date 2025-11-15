@@ -29,28 +29,24 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
   Logger.log(`Starting schedule generation for: ${monthString} (Month: ${month}, Year: ${scheduleYear})`);
 
-  // 1. BACKUP existing assignments before clearing
-  Logger.log(`1. Backing up existing assignments for ${monthString}...`);
-  SCHEDULE_backupAssignments(ss, assignmentsSheet, monthString);
+  // 1. Clear out ANY old rows for this month (Assigned or Unassigned)
+  Logger.log(`1. Clearing ALL old rows for ${monthString}...`);
+  SCHEDULE_clearOldAssignments(assignmentsSheet, monthString);
 
-  // 2. Clear out ANY old rows for this month (Assigned or Unassigned)
-  Logger.log(`2. Clearing ALL old rows for ${monthString}...`);
-  SCHEDULE_clearOldAssignments(assignmentsSheet, monthString); 
-
-  // 3. Read all mass templates
-  Logger.log("3. Reading mass templates...");
+  // 2. Read all mass templates
+  Logger.log("2. Reading mass templates...");
   const templateMap = SCHEDULE_buildTemplateMap();
 
-  // 4. Find all masses that need to be scheduled this month (using 3-layer logic)
-  Logger.log("4. Finding all masses for the month...");
+  // 3. Find all masses that need to be scheduled this month (using 3-layer logic)
+  Logger.log("3. Finding all masses for the month...");
   const massesToSchedule = SCHEDULE_findMassesForMonth(month, scheduleYear);
 
-  // 5. Get liturgical celebrations for the month (for anticipated Mass handling)
-  Logger.log("5. Reading liturgical calendar for anticipated Mass logic...");
+  // 4. Get liturgical celebrations for the month (for anticipated Mass handling)
+  Logger.log("4. Reading liturgical calendar for anticipated Mass logic...");
   const liturgicalMap = SCHEDULE_buildLiturgicalMap(month, scheduleYear);
 
-  // 6. Create new rows
-  Logger.log(`6. Generating roles for ${massesToSchedule.length} masses...`);
+  // 5. Create new rows
+  Logger.log(`5. Generating roles for ${massesToSchedule.length} masses...`);
   const newAssignmentRows = [];
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
 
@@ -110,8 +106,8 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
     }
   }
 
-  // 7. Write new rows to the sheet
-  Logger.log(`7. Writing ${newAssignmentRows.length} new 'Unassigned' rows...`);
+  // 6. Write new rows to the sheet
+  Logger.log(`6. Writing ${newAssignmentRows.length} new 'Unassigned' rows...`);
   if (newAssignmentRows.length > 0) {
     assignmentsSheet.getRange(
       assignmentsSheet.getLastRow() + 1, // Start on the next available row
@@ -611,146 +607,4 @@ function setDateToNoon(date) {
   }
   const d = new Date(date);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
-}
-
-/**
- * Backs up assignments for a given month before deletion.
- * Stores backups in a hidden sheet with timestamps.
- * Keeps the last 5 backups to prevent data loss.
- *
- * @param {GoogleAppsScript.Spreadsheet.Spreadsheet} spreadsheet The active spreadsheet
- * @param {GoogleAppsScript.Spreadsheet.Sheet} assignmentsSheet The Assignments sheet
- * @param {string} monthString The month being backed up (e.g., "2026-01")
- */
-function SCHEDULE_backupAssignments(spreadsheet, assignmentsSheet, monthString) {
-  try {
-    // Get or create the backup sheet (hidden from users)
-    const backupSheetName = '_AssignmentBackups';
-    let backupSheet = spreadsheet.getSheetByName(backupSheetName);
-
-    if (!backupSheet) {
-      backupSheet = spreadsheet.insertSheet(backupSheetName);
-      backupSheet.hideSheet(); // Hide from normal view
-
-      // Add header to backup sheet
-      backupSheet.getRange(1, 1, 1, 5).setValues([[
-        'Backup Timestamp',
-        'Month',
-        'Row Count',
-        'Action',
-        'Data'
-      ]]);
-      backupSheet.getRange(1, 1, 1, 5).setFontWeight('bold').setBackground('#fff2cc');
-    }
-
-    // Get all data from assignments sheet for this month
-    const data = assignmentsSheet.getDataRange().getValues();
-    const header = data[0]; // Keep header
-    const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
-
-    // Filter for current month only
-    const monthData = [header]; // Include header
-    for (let i = 1; i < data.length; i++) {
-      const row = data[i];
-      const rowMonthYear = row[assignCols.MONTH_YEAR - 1];
-      if (rowMonthYear === monthString) {
-        monthData.push(row);
-      }
-    }
-
-    // Only backup if there's data to backup (more than just header)
-    if (monthData.length > 1) {
-      const timestamp = new Date();
-      const backupData = JSON.stringify(monthData);
-
-      // Add backup row to backup sheet
-      const nextRow = backupSheet.getLastRow() + 1;
-      backupSheet.getRange(nextRow, 1, 1, 5).setValues([[
-        timestamp,
-        monthString,
-        monthData.length - 1, // Exclude header from count
-        'Pre-Schedule-Generation',
-        backupData
-      ]]);
-
-      Logger.log(`✓ Backed up ${monthData.length - 1} assignments for ${monthString} at ${timestamp}`);
-
-      // Cleanup old backups (keep last 5 only)
-      const backupRows = backupSheet.getLastRow();
-      if (backupRows > 6) { // Header + 5 backups
-        const rowsToDelete = backupRows - 6;
-        backupSheet.deleteRows(2, rowsToDelete); // Start from row 2 (after header)
-        Logger.log(`Deleted ${rowsToDelete} old backup(s)`);
-      }
-    } else {
-      Logger.log(`No assignments found for ${monthString} to backup`);
-    }
-
-  } catch (e) {
-    Logger.log(`WARNING: Could not create backup: ${e.message}`);
-    // Don't throw error - backup failure shouldn't stop schedule generation
-    // But log it prominently so user knows backup failed
-    Logger.log(`⚠️ BACKUP FAILED - Proceeding without backup`);
-  }
-}
-
-/**
- * Restores assignments from the most recent backup for a given month.
- * This function can be called manually if needed to recover deleted data.
- *
- * @param {string} monthString The month to restore (e.g., "2026-01")
- * @returns {string} Success or error message
- */
-function SCHEDULE_restoreBackup(monthString) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const backupSheet = ss.getSheetByName('_AssignmentBackups');
-
-    if (!backupSheet) {
-      return 'No backups found. The backup sheet does not exist.';
-    }
-
-    // Find the most recent backup for this month
-    const backupData = backupSheet.getDataRange().getValues();
-    backupData.shift(); // Remove header
-
-    let latestBackup = null;
-    let latestTimestamp = new Date(0);
-
-    for (const row of backupData) {
-      const timestamp = new Date(row[0]);
-      const month = row[1];
-
-      if (month === monthString && timestamp > latestTimestamp) {
-        latestTimestamp = timestamp;
-        latestBackup = row[4]; // Data column
-      }
-    }
-
-    if (!latestBackup) {
-      return `No backup found for ${monthString}`;
-    }
-
-    // Parse and restore the data
-    const restoredData = JSON.parse(latestBackup);
-    const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
-
-    // First, clear existing data for this month
-    SCHEDULE_clearOldAssignments(assignmentsSheet, monthString);
-
-    // Then append restored data (skip header)
-    if (restoredData.length > 1) {
-      const dataToRestore = restoredData.slice(1); // Remove header
-      const nextRow = assignmentsSheet.getLastRow() + 1;
-      assignmentsSheet.getRange(nextRow, 1, dataToRestore.length, dataToRestore[0].length)
-        .setValues(dataToRestore);
-    }
-
-    Logger.log(`✓ Restored ${restoredData.length - 1} assignments for ${monthString} from ${latestTimestamp}`);
-    return `Successfully restored ${restoredData.length - 1} assignments for ${monthString} from backup dated ${latestTimestamp.toLocaleString()}`;
-
-  } catch (e) {
-    Logger.log(`ERROR restoring backup: ${e.message}`);
-    return `Failed to restore backup: ${e.message}`;
-  }
 }
