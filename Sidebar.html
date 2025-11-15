@@ -369,7 +369,7 @@
       <span>Initial Setup</span>
     </div>
     <div class="phase-content" id="phase-setup-content">
-      
+
       <div class="step-item">
         <div class="step-icon" style="background-color: #f9ab00;">1</div>
         <div class="step-content">
@@ -380,7 +380,18 @@
           </button>
         </div>
       </div>
-      
+
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1a73e8;">2</div>
+        <div class="step-content">
+          <div class="step-title">Validate Data</div>
+          <div class="step-description">Check configuration, volunteers, and mass templates for errors</div>
+          <button id="btn-validate" class="btn btn-primary" aria-label="Validate all data before scheduling">
+            Validate Data
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -390,9 +401,9 @@
       <span>Monthly Scheduling</span>
     </div>
     <div class="phase-content disabled" id="phase-scheduling-content">
-      
+
       <div class="step-item">
-        <div class="step-icon" style="background-color: #1a73e8;">2</div>
+        <div class="step-icon" style="background-color: #1a73e8;">3</div>
         <div class="step-content">
           <div class="step-title">Select Month</div>
           <div class="step-description">Choose which month to schedule</div>
@@ -404,9 +415,9 @@
           </div>
         </div>
       </div>
-      
+
       <div class="step-item">
-        <div class="step-icon" style="background-color: #1a73e8;">3</div>
+        <div class="step-icon" style="background-color: #1a73e8;">4</div>
         <div class="step-content">
           <div class="step-title">Generate Schedule</div>
           <div class="step-description">Create unassigned ministry roles for all masses</div>
@@ -415,9 +426,9 @@
           </button>
         </div>
       </div>
-      
+
       <div class="step-item">
-        <div class="step-icon" style="background-color: #ff6d01;">4</div>
+        <div class="step-icon" style="background-color: #ff6d01;">5</div>
         <div class="step-content">
           <div class="step-title">
             Review Timeoffs
@@ -429,9 +440,9 @@
           </button>
         </div>
       </div>
-      
+
       <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">5</div>
+        <div class="step-icon" style="background-color: #1e8e3e;">6</div>
         <div class="step-content">
           <div class="step-title">Auto-Assign Volunteers</div>
           <div class="step-description">Automatically assign qualified volunteers to ministry roles</div>
@@ -440,7 +451,7 @@
           </button>
         </div>
       </div>
-      
+
     </div>
   </div>
 
@@ -450,9 +461,9 @@
       <span>Finalize & Export</span>
     </div>
     <div class="phase-content disabled" id="phase-completion-content">
-      
+
       <div class="step-item">
-        <div class="step-icon" style="background-color: #9334e6;">6</div>
+        <div class="step-icon" style="background-color: #9334e6;">7</div>
         <div class="step-content">
           <div class="step-title">Print Schedule</div>
           <div class="step-description">Export completed assignments for distribution</div>
@@ -461,9 +472,9 @@
           </button>
         </div>
       </div>
-      
+
       <div class="step-item">
-        <div class="step-icon" style="background-color: #dc2626;">7</div>
+        <div class="step-icon" style="background-color: #dc2626;">8</div>
         <div class="step-content">
           <div class="step-title">
             Assign Substitutes
@@ -475,7 +486,7 @@
           </button>
         </div>
       </div>
-      
+
     </div>
   </div>
 
@@ -486,6 +497,7 @@
     
     const monthSelect = document.getElementById('month-select');
     const btnAdmin = document.getElementById('btn-admin');
+    const btnValidate = document.getElementById('btn-validate');
     const btnStep1 = document.getElementById('btn-step1');
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
@@ -636,7 +648,7 @@
     
     // Initialization
     window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnStep1, btnTimeoffs, btnStep2, btnPrint, btnSubstitutes];
+      allButtons = [btnAdmin, btnValidate, btnStep1, btnTimeoffs, btnStep2, btnPrint, btnSubstitutes];
       updatePhaseProgress('setup');
       
       google.script.run
@@ -675,10 +687,10 @@
       if (!confirm('This will regenerate the entire liturgical calendar. Any manual adjustments will be lost. Continue?')) {
         return;
       }
-      
+
       const msg = "Generating liturgical calendar...";
       showLoading(msg);
-      
+
       google.script.run
         .withSuccessHandler((message) => {
           showSuccess(message);
@@ -687,7 +699,19 @@
         .withFailureHandler(showError)
         .triggerCalendarGeneration();
     });
-    
+
+    btnValidate.addEventListener('click', () => {
+      const msg = "Validating data...";
+      showLoading(msg);
+
+      google.script.run
+        .withSuccessHandler((message) => {
+          showSuccess(message);
+        })
+        .withFailureHandler(showError)
+        .showDataValidation();
+    });
+
     // *** MODIFIED btnStep1 listener ***
     btnStep1.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
