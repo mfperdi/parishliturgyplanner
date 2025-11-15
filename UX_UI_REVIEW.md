@@ -83,16 +83,17 @@ The Parish Liturgical Scheduler has a **well-structured, modern interface** with
 
 ### ⚠️ Issues & Recommendations
 
-1. **Limited Access to Granular Restore Functionality**
-   - **Issue**: System has month-specific backup/restore functions (`SCHEDULE_restoreBackup()`), but no UI access
-   - **Impact**: Users must use Google Sheets version history (File > Version History) to restore entire spreadsheet, rather than just one month's assignments
-   - **Built-in Safety Net**: Google Sheets version history already provides rollback capability for accidental changes
-   - **Trade-offs**:
-     - Version History: Restores entire spreadsheet to a previous point in time (affects all sheets)
-     - Restore Backup UI: Would restore only specific month's assignments (more granular, less disruptive)
-   - **Recommendation**: Add "Restore Backup" button in Admin Tools for granular month-specific recovery
-   - **Code Location**: Sidebar.html:419-442 (add after Generate Schedule)
-   - **Priority**: Medium (nice to have, but version history provides adequate safety net)
+1. **Redundant Backup System**
+   - **Issue**: Code includes custom backup/restore functions (`SCHEDULE_restoreBackup()`) and `_AssignmentBackups` sheet, but no UI access to use them
+   - **Impact**: Adds code complexity without user benefit
+   - **Built-in Solution**: Google Sheets version history (File > Version History) already provides rollback capability for accidental changes
+   - **Recommendation**: Since you're relying solely on Google Sheets version history, consider **removing** the custom backup system to simplify the codebase
+   - **Code to Remove**:
+     - `SCHEDULE_backupAssignments()` function in 2_schedulelogic.gs
+     - `SCHEDULE_restoreBackup()` function in 2_schedulelogic.gs
+     - `_AssignmentBackups` sheet creation/management logic
+   - **Benefit**: Reduces code complexity, eliminates unused functionality
+   - **Priority**: Low (cleanup/maintenance task, not user-facing)
 
 2. **No Visual Indication of Completion**
    - **Issue**: No checkmarks or visual feedback showing which steps are complete
@@ -507,31 +508,33 @@ Therefore, mobile responsive design and touch-friendly tap targets are **not rel
    - Impact: Prevents errors during operations
    - Effort: 4 hours
 
-7. **Add Granular Restore Backup UI**
-   - Location: Admin Tools menu
-   - Impact: Month-specific restore (nice to have; Google Sheets version history provides general rollback)
-   - Effort: 2 hours
-
-8. **Fix Completion Phase Progression**
+7. **Fix Completion Phase Progression**
    - Clearly enable completion phase when ready
    - Impact: Better workflow guidance
    - Effort: 2 hours
 
 ### Low Priority (Nice to Have)
 
-9. **Add Help Tooltips**
+8. **Add Help Tooltips**
    - Explain technical terms
    - Impact: Easier onboarding for new users
    - Effort: 3 hours
 
-10. **Add Time Estimates**
+9. **Add Time Estimates**
     - Show expected duration for operations
     - Impact: Sets user expectations
     - Effort: 1 hour
 
-11. **Improve Button Label Clarity**
+10. **Improve Button Label Clarity**
     - More action-oriented button text
     - Impact: Clearer calls to action
+    - Effort: 1 hour
+
+### Code Cleanup (Optional)
+
+11. **Remove Redundant Backup System**
+    - Remove `SCHEDULE_backupAssignments()`, `SCHEDULE_restoreBackup()`, and `_AssignmentBackups` sheet logic
+    - Impact: Simplifies codebase (relies solely on Google Sheets version history)
     - Effort: 1 hour
 
 ---
