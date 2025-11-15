@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-The Parish Liturgical Scheduler has a **well-structured, modern interface** with strong visual hierarchy and clear workflow progression. The three-phase design (Setup → Scheduling → Completion) effectively guides users through complex scheduling tasks. However, there are opportunities to improve **user feedback, error prevention, visual consistency, and mobile responsiveness**.
+The Parish Liturgical Scheduler has a **well-structured, modern interface** with strong visual hierarchy and clear workflow progression. The three-phase design (Setup → Scheduling → Completion) effectively guides users through complex scheduling tasks. However, there are opportunities to improve **user feedback, error prevention, and visual consistency**.
 
 **Overall Grade**: B+ (Good, with room for improvement)
 
@@ -353,36 +353,13 @@ The Parish Liturgical Scheduler has a **well-structured, modern interface** with
 
 ## 6. Mobile & Responsive Design
 
-### ⚠️ Issues & Recommendations
+### ℹ️ Not Applicable
 
-1. **Not Optimized for Mobile**
-   - **Issue**: Sidebar width fixed at 360px (line 51), no responsive breakpoints
-   - **Impact**: May be cramped on small screens
-   - **Recommendation**: Add responsive layout
-   - **Code Addition**:
-     ```css
-     @media (max-width: 400px) {
-       body {
-         padding: 12px;
-       }
+**Google Sheets Apps Script add-ons do not run on mobile devices.** The sidebar interface only works in:
+- Google Sheets desktop web application (Chrome, Firefox, Safari, Edge)
+- Google Sheets does NOT support Apps Script sidebars on iOS or Android apps
 
-       .btn {
-         font-size: 12px;
-         padding: 8px 12px;
-       }
-
-       .phase-header {
-         font-size: 13px;
-         padding: 10px 12px;
-       }
-     }
-     ```
-   - **Priority**: Low (Google Sheets add-ons primarily used on desktop)
-
-2. **No Touch-Friendly Tap Targets**
-   - **Issue**: Buttons are 38px height (less than recommended 44px for touch)
-   - **Recommendation**: Increase button padding for better touch targets
-   - **Priority**: Low
+Therefore, mobile responsive design and touch-friendly tap targets are **not relevant** for this project. The fixed 360px width is appropriate for desktop sidebar usage.
 
 ---
 
@@ -552,11 +529,6 @@ The Parish Liturgical Scheduler has a **well-structured, modern interface** with
     - More action-oriented button text
     - Impact: Clearer calls to action
     - Effort: 1 hour
-
-12. **Add Mobile Responsiveness**
-    - Optimize for smaller screens
-    - Impact: Better experience on tablets
-    - Effort: 4 hours
 
 ---
 
