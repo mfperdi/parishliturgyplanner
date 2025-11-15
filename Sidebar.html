@@ -188,7 +188,17 @@
     .step-badge.info {
       background: #1a73e8;
     }
-    
+
+    .completion-badge {
+      background: #137333;
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 500;
+      margin-left: 8px;
+    }
+
     /* Buttons */
     .btn {
       width: 100%;
@@ -373,7 +383,10 @@
       <div class="step-item">
         <div class="step-icon" style="background-color: #f9ab00;">1</div>
         <div class="step-content">
-          <div class="step-title">Generate Liturgical Calendar</div>
+          <div class="step-title">
+            Generate Liturgical Calendar
+            <span id="completion-calendar" class="completion-badge hidden">✓ Complete</span>
+          </div>
           <div class="step-description">Run once per year to create the complete liturgical calendar</div>
           <button id="btn-admin" class="btn btn-warning" aria-label="Generate liturgical calendar for the entire year">
             Generate Calendar
@@ -384,7 +397,10 @@
       <div class="step-item">
         <div class="step-icon" style="background-color: #f9ab00;">2</div>
         <div class="step-content">
-          <div class="step-title">Validate Data</div>
+          <div class="step-title">
+            Validate Data
+            <span id="completion-validation" class="completion-badge hidden">✓ Complete</span>
+          </div>
           <div class="step-description">Check configuration, volunteers, and mass templates for errors</div>
           <button id="btn-validate" class="btn btn-warning" aria-label="Validate all data before scheduling">
             Validate Data
@@ -419,7 +435,10 @@
       <div class="step-item">
         <div class="step-icon" style="background-color: #1a73e8;">4</div>
         <div class="step-content">
-          <div class="step-title">Generate Schedule</div>
+          <div class="step-title">
+            Generate Schedule
+            <span id="completion-schedule" class="completion-badge hidden">✓ Complete</span>
+          </div>
           <div class="step-description">Create unassigned ministry roles for all masses</div>
           <button id="btn-step1" class="btn btn-primary" disabled>
             Generate Schedule
@@ -433,6 +452,7 @@
           <div class="step-title">
             Review Timeoffs
             <span id="timeoff-badge" class="step-badge hidden">0 pending</span>
+            <span id="completion-timeoffs" class="completion-badge hidden">✓ Complete</span>
           </div>
           <div class="step-description">Approve or reject volunteer timeoff requests</div>
           <button id="btn-timeoffs" class="btn btn-primary" disabled>
@@ -444,7 +464,10 @@
       <div class="step-item">
         <div class="step-icon" style="background-color: #1a73e8;">6</div>
         <div class="step-content">
-          <div class="step-title">Auto-Assign Volunteers</div>
+          <div class="step-title">
+            Auto-Assign Volunteers
+            <span id="completion-assignment" class="completion-badge hidden">✓ Complete</span>
+          </div>
           <div class="step-description">Automatically assign qualified volunteers to ministry roles</div>
           <button id="btn-step2" class="btn btn-primary" disabled>
             Auto-Assign Volunteers
@@ -465,7 +488,10 @@
       <div class="step-item">
         <div class="step-icon" style="background-color: #1e8e3e;">7</div>
         <div class="step-content">
-          <div class="step-title">Print Schedule</div>
+          <div class="step-title">
+            Print Schedule
+            <span id="completion-print" class="completion-badge hidden">✓ Complete</span>
+          </div>
           <div class="step-description">Export completed assignments for distribution</div>
           <button id="btn-print" class="btn btn-outline" disabled>
             Print Schedule
@@ -503,10 +529,26 @@
     // Badge elements
     const timeoffBadge = document.getElementById('timeoff-badge');
 
+    // Completion badge elements
+    const completionCalendar = document.getElementById('completion-calendar');
+    const completionValidation = document.getElementById('completion-validation');
+    const completionSchedule = document.getElementById('completion-schedule');
+    const completionTimeoffs = document.getElementById('completion-timeoffs');
+    const completionAssignment = document.getElementById('completion-assignment');
+    const completionPrint = document.getElementById('completion-print');
+
     let allButtons;
     let currentPhase = 'setup';
     let pendingTimeoffs = 0;
-    
+
+    // Function to mark a step as complete
+    function markStepComplete(stepId) {
+      const badge = document.getElementById('completion-' + stepId);
+      if (badge) {
+        badge.classList.remove('hidden');
+      }
+    }
+
     // Update phase progress indicator
     function updatePhaseProgress(phase) {
       // Reset all phases
@@ -609,7 +651,7 @@
       
       google.script.run
         .withSuccessHandler(onMonthsLoaded)
-        .withFailureHandler(showError)
+        .withFailureHandler((error) => showError(error, 'calendar'))
         .getMonthsForSidebar();
     });
     
@@ -622,7 +664,7 @@
     function onMonthsLoaded(months) {
       if (months.length === 0) {
         monthSelect.innerHTML = '<option value="">No calendar data found</option>';
-        showError("Please run 'Generate Liturgical Calendar' first.");
+        showError({message: "Please run 'Generate Liturgical Calendar' first."}, 'calendar');
         updatePhaseProgress('setup');
         return;
       }
@@ -650,9 +692,10 @@
       google.script.run
         .withSuccessHandler((message) => {
           showSuccess(message);
+          markStepComplete('calendar');
           updatePhaseProgress('scheduling');
         })
-        .withFailureHandler(showError)
+        .withFailureHandler((error) => showError(error, 'calendar'))
         .triggerCalendarGeneration();
     });
 
@@ -663,8 +706,9 @@
       google.script.run
         .withSuccessHandler((message) => {
           showSuccess(message);
+          markStepComplete('validation');
         })
-        .withFailureHandler(showError)
+        .withFailureHandler((error) => showError(error, 'validation'))
         .showDataValidation();
     });
 
@@ -689,9 +733,10 @@
           .withSuccessHandler((message) => {
             const friendlyMessage = message.replace(selectedMonth, selectedText);
             showSuccess(friendlyMessage);
+            markStepComplete('schedule');
             refreshWorkflowData();
           })
-          .withFailureHandler(showError)
+          .withFailureHandler((error) => showError(error, 'schedule'))
           .triggerScheduleGeneration(selectedMonth);
           
       } else {
@@ -711,9 +756,10 @@
       google.script.run
         .withSuccessHandler((message) => {
           showSuccess(message);
+          markStepComplete('timeoffs');
           refreshWorkflowData();
         })
-        .withFailureHandler(showError)
+        .withFailureHandler((error) => showError(error, 'timeoffs'))
         .reviewTimeoffs(selectedMonth);
     });
     
@@ -729,9 +775,10 @@
         .withSuccessHandler((message) => {
           const friendlyMessage = message.replace(selectedMonth, selectedText);
           showSuccess(friendlyMessage);
+          markStepComplete('assignment');
           refreshWorkflowData();
         })
-        .withFailureHandler(showError)
+        .withFailureHandler((error) => showError(error, 'assignment'))
         .triggerAssignment(selectedMonth);
     });
     
@@ -747,8 +794,9 @@
         .withSuccessHandler((message) => {
           const friendlyMessage = message.replace(selectedMonth, selectedText);
           showSuccess(friendlyMessage);
+          markStepComplete('print');
         })
-        .withFailureHandler(showError)
+        .withFailureHandler((error) => showError(error, 'print'))
         .generatePrintableSchedule(selectedMonth);
     });
 
@@ -779,14 +827,51 @@
         monthSelect.innerHTML = '<option value="">Reloading months...</option>';
         google.script.run
           .withSuccessHandler(onMonthsLoaded)
-          .withFailureHandler(showError)
+          .withFailureHandler((error) => showError(error, 'calendar'))
           .getMonthsForSidebar();
       }
     }
     
-    function showError(error) {
+    function showError(error, context) {
+      let errorMsg = error.message || error;
+      let helpText = '';
+
+      // Add contextual troubleshooting based on operation
+      switch(context) {
+        case 'calendar':
+          helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
+                     '• Check Config sheet has "Year to Schedule" set<br>' +
+                     '• Verify SaintsCalendar sheet exists<br>' +
+                     '• Check CalendarOverrides for conflicts';
+          break;
+        case 'validation':
+          helpText = '<br><br><strong>Tip:</strong> Check the error details above to identify which sheet needs fixing';
+          break;
+        case 'schedule':
+          helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
+                     '• Verify MassTemplates sheet has templates<br>' +
+                     '• Check WeeklyMasses/MonthlyMasses/YearlyMasses sheets<br>' +
+                     '• Ensure selected month is in configured year';
+          break;
+        case 'timeoffs':
+          helpText = '<br><br><strong>Tip:</strong> Verify Timeoffs sheet exists and has the correct columns';
+          break;
+        case 'assignment':
+          helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
+                     '• Ensure Volunteers sheet has active volunteers<br>' +
+                     '• Check volunteers have ministry roles assigned<br>' +
+                     '• Verify schedule was generated first';
+          break;
+        case 'print':
+          helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
+                     '• Verify schedule was generated for this month<br>' +
+                     '• Check LiturgicalCalendar sheet exists<br>' +
+                     '• Ensure assignments were created';
+          break;
+      }
+
       statusMessage.className = 'status-message status-error';
-      statusMessage.innerHTML = '<span>⚠</span><span>Error: ' + (error.message || error) + '</span>';
+      statusMessage.innerHTML = '<span>⚠</span><span>Error: ' + errorMsg + helpText + '</span>';
       statusMessage.setAttribute('aria-busy', 'false');
       updateButtonStates();
     }

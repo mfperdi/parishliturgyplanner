@@ -334,26 +334,28 @@ SAT-1700  | Saturday    | 5:00 PM |           |          | TRUE      | TRUE     
 
 ### Problem: Accidentally deleted assignments
 **Solution:**
-- The system auto-backs up before deletion
-- Backups stored in hidden sheet `_AssignmentBackups`
-- Can restore from Apps Script: Run `SCHEDULE_restoreBackup("2025-01")`
+- Use Google Sheets version history: `File` > `Version History` > `See version history`
+- Browse to time before deletion
+- Click "Restore this version" to recover
 
 ---
 
-## Data Backup Strategy
+## Data Protection Strategy
 
-**Automatic Backups:**
-- System backs up assignments before regenerating schedule
-- Keeps last 5 backups per month
-- Stored in hidden `_AssignmentBackups` sheet
+**Google Sheets Version History:**
+- Automatic saves every few minutes
+- Can restore entire spreadsheet to any previous state
+- Access via: `File` > `Version History` > `See version history`
+- No manual backup configuration needed
 
-**Manual Backups:**
-- Use `Admin Tools` > `Export Data` to create full copy
-- Recommend weekly exports during active scheduling
+**Manual Exports:**
+- Use `Admin Tools` > `Export Data` to create standalone copy
+- Recommend exports before major changes
 
 **Best Practice:**
-- Make a copy of the entire spreadsheet before major changes
-- `File` > `Make a copy` in Google Sheets
+- Rely on Google Sheets version history for recovery
+- Make exports for archival purposes
+- Be careful with confirmation dialogs on destructive operations
 
 ---
 

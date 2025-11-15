@@ -199,23 +199,24 @@ Use this checklist to test the Parish Liturgical Scheduler with your own parish 
 
 ## Test 7: Data Protection ✓
 
-**Goal**: Verify backup and recovery works
+**Goal**: Verify version history provides data recovery
 
-**Test Backup**:
-1. [ ] Generate schedule for a test month (creates backup)
-2. [ ] Check for hidden sheet `_AssignmentBackups`
-   - Right-click sheet tabs > "Show hidden sheets" if needed
-3. [ ] Open `_AssignmentBackups` sheet
-4. [ ] Verify backup row exists with timestamp and data
+**Test Version History Access**:
+1. [ ] Click `File` > `Version History` > `See version history`
+2. [ ] Verify you can see past versions with timestamps
+3. [ ] Browse through recent changes
+4. [ ] Verify you can see who made changes (if shared spreadsheet)
 
-**Test Recovery (Advanced - Optional)**:
-1. [ ] Note current assignments count for test month
-2. [ ] Delete some assignments manually
-3. [ ] Open Apps Script editor
-4. [ ] Run function: `SCHEDULE_restoreBackup("2025-01")` (use your month)
-5. [ ] Check if assignments restored
+**Test Recovery (Optional)**:
+1. [ ] Make a small test change (e.g., edit a volunteer name)
+2. [ ] Open version history
+3. [ ] Find version before the change
+4. [ ] Click "Restore this version"
+5. [ ] Verify change was reverted
 
-**Expected Result**: Backups created automatically, can be restored
+**Expected Result**: Version history accessible and can restore previous versions
+
+**Note**: This is Google Sheets' built-in feature, not custom code
 
 ---
 
