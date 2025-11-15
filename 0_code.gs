@@ -33,8 +33,7 @@ function onOpen(e) {
       .addItem('Show Sidebar', 'showSidebar')
       .addSeparator()
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Print Schedules')
-          .addItem('Liturgical Schedule', 'showLiturgicalScheduleMenu')
-          .addItem('Export PDF', 'exportCurrentMonthPDF'))
+          .addItem('Liturgical Schedule', 'showLiturgicalScheduleMenu'))
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Admin Tools')
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Debug Functions', 'showDebugPanel')
@@ -487,22 +486,6 @@ function showLiturgicalScheduleMenu() {
     
   } catch (e) {
     ui.alert('Error', `Could not load months: ${e.message}`, ui.ButtonSet.OK);
-  }
-}
-
-
-/**
- * Exports PDF for current month.
- */
-function exportCurrentMonthPDF() {
-  try {
-    const now = new Date();
-    const monthString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-    
-    const result = PRINT_exportLiturgicalSchedulePDF(monthString);
-    SpreadsheetApp.getUi().alert('PDF Export', result, SpreadsheetApp.getUi().ButtonSet.OK);
-  } catch (e) {
-    SpreadsheetApp.getUi().alert('Error', `Could not export PDF: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
   }
 }
 
