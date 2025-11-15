@@ -32,8 +32,6 @@ function onOpen(e) {
       .createMenu('Parish Scheduler')
       .addItem('Show Sidebar', 'showSidebar')
       .addSeparator()
-      .addSubMenu(SpreadsheetApp.getUi().createMenu('Print Schedules')
-          .addItem('Liturgical Schedule', 'showLiturgicalScheduleMenu'))
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Admin Tools')
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Debug Functions', 'showDebugPanel')
@@ -454,50 +452,6 @@ function findSubstituteAssignments(monthString) {
 // ---================================---
 //      MENU HELPER FUNCTIONS
 // ---================================---
-
-/**
- * Shows the liturgical schedule generation menu.
- */
-function showLiturgicalScheduleMenu() {
-  const ui = SpreadsheetApp.getUi();
-  
-  // Get available months
-  try {
-    const months = getMonthsForSidebar();
-    if (months.length === 0) {
-      ui.alert('No calendar data found. Please generate the liturgical calendar first.');
-      return;
-    }
-    
-    // Simple dialog for month selection
-    const response = ui.prompt(
-      'Generate Liturgical Schedule',
-      `Enter month (YYYY-MM format, e.g., ${months[0].value}):`,
-      ui.ButtonSet.OK_CANCEL
-    );
-    
-    if (response.getSelectedButton() === ui.Button.OK) {
-      const monthString = response.getResponseText().trim();
-      
-      // Validate format
-      if (!/^\d{4}-\d{2}$/.test(monthString)) {
-        ui.alert('Invalid format. Please use YYYY-MM (e.g., 2026-01).');
-        return;
-      }
-      
-      try {
-        const result = PRINT_generateLiturgicalSchedule(monthString);
-        ui.alert('Success', result, ui.ButtonSet.OK);
-      } catch (e) {
-        ui.alert('Error', `Could not generate liturgical schedule: ${e.message}`, ui.ButtonSet.OK);
-      }
-    }
-    
-  } catch (e) {
-    ui.alert('Error', `Could not load months: ${e.message}`, ui.ButtonSet.OK);
-  }
-}
-
 
 /**
  * Exports the current schedule to a new spreadsheet.
