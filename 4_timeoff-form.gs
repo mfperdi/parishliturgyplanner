@@ -74,16 +74,84 @@ function onFormSubmit(e) {
   } catch (error) {
     Logger.log(`Error checking volunteer database: ${error}`);
   }
-  
+
+  // Validation 6: Type-specific validation
+  const notes = sheet.getRange(row, cols.NOTES).getValue();
+
+  switch(type) {
+    case CONSTANTS.TIMEOFF_TYPES.ONLY_AVAILABLE:
+    case CONSTANTS.TIMEOFF_TYPES.SPECIAL_AVAILABILITY:
+      // Whitelist/Special Availability requires Notes with Event IDs and/or dates
+      if (!notes || notes.trim() === '') {
+        warnings.push("⚠️ Notes required: specify Event IDs and/or dates (e.g., SUN-1000, 12/25/2025)");
+      } else {
+        try {
+          const parsed = HELPER_parseWhitelistNotes(notes);
+          if (parsed.invalid.length > 0) {
+            warnings.push(`⚠️ Could not parse: ${parsed.invalid.join(', ')}`);
+          }
+          if (parsed.eventIds.length > 0) {
+            const validation = HELPER_validateEventIds(parsed.eventIds);
+            if (validation.invalid.length > 0) {
+              warnings.push(`⚠️ Invalid Event IDs: ${validation.invalid.join(', ')}`);
+            }
+          }
+          if (parsed.eventIds.length === 0 && parsed.dates.length === 0 && parsed.invalid.length === 0) {
+            warnings.push("⚠️ Notes must contain Event IDs or dates");
+          }
+        } catch (e) {
+          warnings.push(`⚠️ Error parsing Notes: ${e.message}`);
+        }
+      }
+      break;
+
+    case CONSTANTS.TIMEOFF_TYPES.PREFERENCE_UPDATE:
+      // Preference Update requires Notes with Event IDs
+      if (!notes || notes.trim() === '') {
+        warnings.push("⚠️ Notes required: specify new preferred Event IDs (e.g., SUN-1000, SAT-1700)");
+      } else {
+        const eventIds = notes.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        if (eventIds.length === 0) {
+          warnings.push("⚠️ Notes must contain at least one Event ID");
+        } else {
+          const validation = HELPER_validateEventIds(eventIds);
+          if (validation.invalid.length > 0) {
+            warnings.push(`⚠️ Invalid Event IDs: ${validation.invalid.join(', ')}`);
+          }
+        }
+      }
+      break;
+
+    case CONSTANTS.TIMEOFF_TYPES.STATUS_CHANGE:
+      // Status Change should have Notes describing the change
+      if (!notes || notes.trim() === '') {
+        warnings.push("⚠️ Notes required: describe status change request (e.g., Mark as Inactive, Substitute Only)");
+      }
+      break;
+
+    case CONSTANTS.TIMEOFF_TYPES.UNAVAILABLE:
+      // Unavailable is the default - no special validation needed
+      break;
+
+    default:
+      // Unknown or blank TYPE
+      if (!type || type === '') {
+        warnings.push("⚠️ TYPE field is blank - will be treated as 'Unavailable'");
+      } else {
+        warnings.push(`⚠️ Unknown TYPE: ${type}`);
+      }
+      break;
+  }
+
   // Write warnings to Review Notes
   if (warnings.length > 0) {
     sheet.getRange(row, cols.REVIEW_NOTES).setValue(warnings.join("\n"));
   }
-  
+
   // Set status to Pending
   sheet.getRange(row, cols.STATUS).setValue("Pending");
-  
-  Logger.log(`Form submission processed for ${name}. Warnings: ${warnings.length}`);
+
+  Logger.log(`Form submission processed for ${name}. Type: ${type}, Warnings: ${warnings.length}`);
 }
 
 /**
@@ -243,11 +311,11 @@ function TIMEOFFS_rejectRequest(rowNumber, reason) {
  */
 function TIMEOFFS_bulkApprovePending() {
   const pending = TIMEOFFS_getPendingRequests();
-  
+
   if (pending.length === 0) {
     return "No pending requests to approve.";
   }
-  
+
   let approved = 0;
   for (const request of pending) {
     // Only approve if there are no critical warnings
@@ -256,7 +324,42 @@ function TIMEOFFS_bulkApprovePending() {
       approved++;
     }
   }
-  
+
   Logger.log(`Bulk approved ${approved} of ${pending.length} pending requests.`);
   return `Bulk approved ${approved} requests. ${pending.length - approved} requests need manual review.`;
+}
+
+/**
+ * Setup dropdown validation for TYPE column in Timeoffs sheet
+ * Run this once to add data validation to the TYPE column
+ * @returns {string} Success message
+ */
+function TIMEOFFS_setupValidation() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONSTANTS.SHEETS.TIMEOFFS);
+
+    if (!sheet) {
+      throw new Error(`Timeoffs sheet '${CONSTANTS.SHEETS.TIMEOFFS}' not found`);
+    }
+
+    // Add dropdown validation to TYPE column (entire column, starting from row 2)
+    const typeColumn = sheet.getRange(2, CONSTANTS.COLS.TIMEOFFS.TYPE, sheet.getMaxRows() - 1, 1);
+
+    const types = Object.values(CONSTANTS.TIMEOFF_TYPES);
+    const rule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(types, true)  // true = show dropdown
+      .setAllowInvalid(false)           // Reject invalid entries
+      .setHelpText('Select the type of timeoff request')
+      .build();
+
+    typeColumn.setDataValidation(rule);
+
+    Logger.log(`Set TYPE validation with values: ${types.join(', ')}`);
+    return `✓ Timeoff TYPE column dropdown validation added successfully\n\nAvailable types:\n- ${types.join('\n- ')}`;
+
+  } catch (e) {
+    Logger.log(`ERROR in TIMEOFFS_setupValidation: ${e.message}`);
+    throw new Error(`Failed to setup validation: ${e.message}`);
+  }
 }
