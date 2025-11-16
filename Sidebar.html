@@ -579,15 +579,19 @@
     function updatePhaseStates() {
       const hasCalendar = monthSelect.options.length > 1;
       const hasMonthSelected = monthSelect.value !== '';
-      
+
       // Enable/disable phase content based on dependencies
       if (hasCalendar) {
         phaseSchedulingContent.classList.remove('disabled');
-        updatePhaseProgress('scheduling');
-        
+
         if (hasMonthSelected) {
-          // Keep scheduling enabled, enable completion when assignments are done
-          // This will be updated by individual button states
+          // Enable completion phase when month is selected
+          phaseCompletionContent.classList.remove('disabled');
+          updatePhaseProgress('scheduling');
+        } else {
+          // Disable completion if no month selected
+          phaseCompletionContent.classList.add('disabled');
+          updatePhaseProgress('scheduling');
         }
       } else {
         phaseSchedulingContent.classList.add('disabled');
