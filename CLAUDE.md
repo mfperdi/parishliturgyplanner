@@ -109,9 +109,19 @@ The system uses multiple interconnected sheets within a single spreadsheet:
 - Preferred Mass Time: Event IDs (e.g., "SUN-1000, SAT-1700")
 - Ministry Role Preference: Specific roles (e.g., "1st reading, psalm")
 
-**Timeoffs** - Timeoff request tracking
+**Timeoffs** - Enhanced timeoff request tracking with multiple request types
 - Columns: Timestamp, Volunteer Name, Email, Type, Start Date, End Date, Notes, Status, Reviewed Date, Review Notes
-- Status: Pending, Approved, Rejected
+- **Status**: Pending, Approved, Rejected
+- **Type** (dropdown):
+  - **Unavailable** (blacklist): Volunteer cannot serve on specified dates
+  - **Only Available For** (whitelist): Volunteer can ONLY serve on specified Event IDs/dates (Notes field)
+  - **Special Availability**: Override unavailability for specific Event IDs/dates (Active volunteers only)
+  - **Preference Update**: Request to update preferred mass times (auto-updates Volunteers sheet on approval)
+  - **Status Change**: Request to change volunteer status (manual update in Volunteers sheet)
+- **Notes field format**:
+  - For whitelist/special availability: Comma-separated Event IDs and/or dates (e.g., "SUN-1000, SAT-1700, 12/25/2025")
+  - For preference updates: Comma-separated Event IDs (e.g., "SUN-1000, SAT-1700")
+  - For status changes: Description of requested change (e.g., "Mark as Inactive starting 3/1/2026")
 
 #### Output Sheets
 
@@ -206,11 +216,20 @@ Layer 3 (Yearly):
 
 **Process** (`ASSIGNMENT_autoAssignRolesForMonthOptimized()`):
 1. Read active volunteers with ministry qualifications
-2. Build timeoff map (approved timeoffs only)
+2. **Build timeoff maps** (approved timeoffs only):
+   - **Blacklist** map: Unavailable dates
+   - **Whitelist** map: Only Available For dates/Event IDs
+   - **Special Availability** map: Override dates/Event IDs
 3. Process group assignments first (family teams)
 4. Group individual assignments by Mass
 5. For each Mass, for each role:
-   - Find eligible volunteers (qualified, available, not already assigned)
+   - **Find eligible volunteers** using enhanced logic:
+     1. Must have required ministry skill
+     2. Must be Active status
+     3. Check **Special Availability** (overrides blacklist/whitelist if present)
+     4. Check **Whitelist** (if exists, must match Event ID or date)
+     5. Check **Blacklist** (exclude if date matches)
+     6. Must not be already assigned that day or to this Mass
    - Score volunteers based on:
      - Assignment frequency (fewer = higher score)
      - Mass preference match (+20 points)
@@ -220,6 +239,12 @@ Layer 3 (Yearly):
    - Assign highest-scoring volunteer
    - Update assignment counts
 6. Mark assignments with status "Assigned"
+
+**Enhanced Timeoff Logic**:
+- **Special Availability** provides partial override: Active volunteers can override blacklist/whitelist restrictions for specific dates/Event IDs
+- **Whitelist** (Only Available For) creates strict eligibility: volunteer can ONLY be assigned to specified dates/Event IDs
+- **Blacklist** (Unavailable) excludes volunteer from specified dates
+- Preference Update requests auto-update Volunteers sheet on approval
 
 **Volunteer Scoring Algorithm** (in `HELPER_calculateVolunteerScore()`):
 ```javascript
@@ -284,6 +309,97 @@ Base score: 100
 - Grouped by category for easy review
 
 **Best Practice**: Run validation before generating calendars or schedules to catch data issues early.
+
+### Workflow 5a: Enhanced Timeoff Management
+
+**Initial Setup**: Run once to add dropdown validation
+- Menu: Admin Tools → Setup Timeoff Validation
+- Adds dropdown to TYPE column in Timeoffs sheet
+
+**Workflow Overview**:
+The enhanced timeoff system supports five request types, each with specific behavior:
+
+#### 1. Unavailable (Blacklist)
+**Use case**: Volunteer cannot serve on specified dates
+
+**Process**:
+1. Enter timeoff with TYPE = "Unavailable"
+2. Set Start Date and End Date
+3. Submit (Status = "Pending")
+4. Admin approves request
+5. **Result**: Volunteer excluded from auto-assignment for those dates
+
+**Example**: "I'm on vacation 7/1-7/15"
+
+#### 2. Only Available For (Whitelist)
+**Use case**: Volunteer can ONLY serve specific masses or dates
+
+**Process**:
+1. Enter timeoff with TYPE = "Only Available For"
+2. Set Start Date and End Date (typically covers the whole period this applies)
+3. **Notes field**: Enter Event IDs and/or specific dates (e.g., "SUN-1000, SAT-1700" or "12/25/2025, 1/1/2026")
+4. Submit and get approved
+5. **Result**: Volunteer can ONLY be assigned to masses matching the specified Event IDs or dates
+
+**Example**: "I can only serve Saturday 5pm vigil masses this summer"
+- Notes: `SAT-1700`
+
+**Example**: "I'm only available these three Sundays"
+- Notes: `1/5/2026, 1/19/2026, 2/2/2026`
+
+#### 3. Special Availability
+**Use case**: Active volunteer wants to serve a special event despite other restrictions
+
+**Process**:
+1. Enter timeoff with TYPE = "Special Availability"
+2. Set dates (or use full range if Event ID-based)
+3. **Notes field**: Enter Event IDs and/or specific dates for the special event
+4. Submit and get approved
+5. **Result**: Overrides Unavailable blacklists and Only Available For whitelists for Active volunteers
+
+**Example**: "I'm unavailable all December (vacation) but I'll come back for Christmas"
+- First request: TYPE = "Unavailable", Dates = 12/1-12/31
+- Second request: TYPE = "Special Availability", Notes = "12/25/2025"
+
+**Note**: Special Availability only works for Active volunteers. Inactive volunteers must be manually assigned.
+
+#### 4. Preference Update
+**Use case**: Volunteer wants to change their preferred mass times
+
+**Process**:
+1. Enter timeoff with TYPE = "Preference Update"
+2. Dates can be approximate (not critical)
+3. **Notes field**: Enter new Event IDs (e.g., "SUN-1000, SAT-1700")
+4. Submit and get approved
+5. **Result**: System automatically updates PREFERRED_MASS_TIME in Volunteers sheet
+6. Change logged in Review Notes
+
+**Example**: "I can no longer serve Saturday vigil, please change me to Sunday 10am only"
+- Notes: `SUN-1000`
+
+**Validation**: System validates Event IDs exist before approving
+
+#### 5. Status Change
+**Use case**: Volunteer wants to change status (Inactive, Substitute Only, etc.)
+
+**Process**:
+1. Enter timeoff with TYPE = "Status Change"
+2. Set effective date (Start Date)
+3. **Notes field**: Describe the requested change (e.g., "Mark as Inactive", "Change to Substitute Only starting 3/1/2026")
+4. Submit and get approved
+5. **Manual step**: Admin manually updates STATUS in Volunteers sheet when ready
+
+**Example**: "I need to go inactive starting next month due to family obligations"
+- Notes: `Mark as Inactive starting 3/1/2026`
+
+**Note**: Status changes are NOT automatically applied on approval. Admin has full control.
+
+**Best Practices**:
+1. Run Admin Tools → Setup Timeoff Validation once to add TYPE dropdown
+2. Validate requests before approving (system adds warnings to Review Notes)
+3. For complex scenarios, use multiple requests (e.g., Unavailable + Special Availability)
+4. Special Availability only works for Active volunteers
+5. Preference Update and Status Change requests don't affect current assignments, only future ones
 
 ### Workflow 6: Data Protection
 
@@ -873,6 +989,12 @@ The system includes comprehensive documentation to support deployment and testin
 **Codebase Version**: Production-ready with data protection and validation systems
 
 **Recent Changes**:
+- **Enhanced Timeoff Management System** (0b_helper.gs, 3_assignmentlogic.gs, 4_timeoff-form.gs):
+  - Added support for 5 timeoff request types: Unavailable, Only Available For, Special Availability, Preference Update, Status Change
+  - Implemented whitelist/blacklist logic with partial override for Special Availability
+  - Added auto-processing for Preference Update requests
+  - Enhanced validation with Event ID verification and type-specific rules
+  - Added Setup Timeoff Validation menu item for dropdown configuration
 - Added comprehensive data validation system (0c_validation.gs)
 - Implemented automatic backup/restore mechanism for data protection
 - Fixed critical bugs in schedule generation and print functions

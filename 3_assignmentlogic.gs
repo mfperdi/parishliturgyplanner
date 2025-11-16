@@ -53,20 +53,20 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
   
   // Build optimized data structures
   const volunteers = buildVolunteerMapOptimized(volunteerData);
-  const timeoffMap = buildTimeoffMapOptimized(timeoffData, month, scheduleYear);
-  
+  const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, scheduleYear);
+
   if (volunteers.size === 0) {
     Logger.log("WARNING: No active volunteers found");
     return "No active volunteers found. Check Volunteers sheet Status column.";
   }
-  
+
   // Get assignment data more efficiently
   const assignmentContext = buildAssignmentContext(assignmentsSheet, monthString, scheduleYear);
-  
+
   Logger.log(`Found ${assignmentContext.unassignedRoles.length} unassigned roles and ${assignmentContext.groupAssignments.length} group assignments`);
-  
+
   // Process assignments
-  const results = processAssignments(assignmentContext, volunteers, timeoffMap, assignmentsSheet);
+  const results = processAssignments(assignmentContext, volunteers, timeoffMaps, assignmentsSheet);
   
   return formatAssignmentResults(results, monthString);
 }
@@ -147,49 +147,143 @@ function parseListField(fieldValue, toLowerCase = true) {
 }
 
 /**
- * Optimized timeoff map building
+ * Optimized timeoff map building - ENHANCED FOR MULTIPLE REQUEST TYPES
+ * Returns object with three maps: blacklist, whitelist, specialAvailability
  */
 function buildTimeoffMapOptimized(timeoffData, month, year) {
-  const timeoffMap = new Map();
+  const result = {
+    blacklist: new Map(),        // Unavailable: volunteer => Set<dateStrings>
+    whitelist: new Map(),        // Only Available For: volunteer => { eventIds: [], dates: Set<dateStrings> }
+    specialAvailability: new Map() // Special Availability: volunteer => { eventIds: [], dates: Set<dateStrings> }
+  };
+
   const cols = CONSTANTS.COLS.TIMEOFFS;
-  
+
   // Pre-calculate month boundaries for faster comparison
   const monthStart = new Date(year, month, 1);
   const monthEnd = new Date(year, month + 1, 0); // Last day of month
-  
+
   for (const row of timeoffData) {
     const name = HELPER_safeArrayAccess(row, cols.VOLUNTEER_NAME - 1);
     const status = HELPER_safeArrayAccess(row, cols.STATUS - 1, 'Pending');
-    
+    const type = HELPER_safeArrayAccess(row, cols.TYPE - 1);
+
     // Only process approved timeoffs
     if (!name || status !== 'Approved') continue;
-    
+
     const startDate = new Date(HELPER_safeArrayAccess(row, cols.START_DATE - 1));
     const endDate = new Date(HELPER_safeArrayAccess(row, cols.END_DATE - 1));
-    
+
     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
       Logger.log(`WARNING: Invalid dates for ${name}, skipping timeoff`);
       continue;
     }
-    
-    // Skip if timeoff doesn't overlap with our month
-    if (endDate < monthStart || startDate > monthEnd) continue;
-    
-    if (!timeoffMap.has(name)) {
-      timeoffMap.set(name, new Set()); // Use Set for faster lookups
-    }
-    
-    // Add dates efficiently
-    const clampedStart = new Date(Math.max(startDate.getTime(), monthStart.getTime()));
-    const clampedEnd = new Date(Math.min(endDate.getTime(), monthEnd.getTime()));
-    
-    for (let d = new Date(clampedStart); d <= clampedEnd; d.setDate(d.getDate() + 1)) {
-      timeoffMap.get(name).add(d.toDateString()); // Use string for faster comparison
+
+    // Skip if timeoff doesn't overlap with our month (for date-based types)
+    const overlapsMonth = !(endDate < monthStart || startDate > monthEnd);
+
+    // Process based on TYPE
+    switch (type) {
+      case CONSTANTS.TIMEOFF_TYPES.UNAVAILABLE:
+        // Blacklist: Add blocked dates
+        if (!overlapsMonth) continue;
+
+        if (!result.blacklist.has(name)) {
+          result.blacklist.set(name, new Set());
+        }
+
+        const clampedStart = new Date(Math.max(startDate.getTime(), monthStart.getTime()));
+        const clampedEnd = new Date(Math.min(endDate.getTime(), monthEnd.getTime()));
+
+        for (let d = new Date(clampedStart); d <= clampedEnd; d.setDate(d.getDate() + 1)) {
+          result.blacklist.get(name).add(d.toDateString());
+        }
+        break;
+
+      case CONSTANTS.TIMEOFF_TYPES.ONLY_AVAILABLE:
+        // Whitelist: Parse Notes for Event IDs and/or dates
+        const whitelistNotes = HELPER_safeArrayAccess(row, cols.NOTES - 1);
+        const whitelistParsed = HELPER_parseWhitelistNotes(whitelistNotes);
+
+        if (whitelistParsed.eventIds.length > 0 || whitelistParsed.dates.length > 0) {
+          if (!result.whitelist.has(name)) {
+            result.whitelist.set(name, { eventIds: [], dates: new Set() });
+          }
+
+          const whitelist = result.whitelist.get(name);
+
+          // Add Event IDs
+          for (const eventId of whitelistParsed.eventIds) {
+            if (!whitelist.eventIds.includes(eventId)) {
+              whitelist.eventIds.push(eventId);
+            }
+          }
+
+          // Add dates (only if in current month)
+          for (const date of whitelistParsed.dates) {
+            if (date >= monthStart && date <= monthEnd) {
+              whitelist.dates.add(date.toDateString());
+            }
+          }
+        }
+        break;
+
+      case CONSTANTS.TIMEOFF_TYPES.SPECIAL_AVAILABILITY:
+        // Special Availability: Parse Notes for Event IDs and/or dates
+        const specialNotes = HELPER_safeArrayAccess(row, cols.NOTES - 1);
+        const specialParsed = HELPER_parseWhitelistNotes(specialNotes);
+
+        if (specialParsed.eventIds.length > 0 || specialParsed.dates.length > 0) {
+          if (!result.specialAvailability.has(name)) {
+            result.specialAvailability.set(name, { eventIds: [], dates: new Set() });
+          }
+
+          const special = result.specialAvailability.get(name);
+
+          // Add Event IDs
+          for (const eventId of specialParsed.eventIds) {
+            if (!special.eventIds.includes(eventId)) {
+              special.eventIds.push(eventId);
+            }
+          }
+
+          // Add dates (only if in current month)
+          for (const date of specialParsed.dates) {
+            if (date >= monthStart && date <= monthEnd) {
+              special.dates.add(date.toDateString());
+            }
+          }
+        }
+        break;
+
+      case CONSTANTS.TIMEOFF_TYPES.STATUS_CHANGE:
+      case CONSTANTS.TIMEOFF_TYPES.PREFERENCE_UPDATE:
+        // These types don't affect assignment eligibility
+        continue;
+
+      default:
+        // Unknown type or legacy blank TYPE - treat as Unavailable for backward compatibility
+        if (!type || type === '') {
+          // Legacy behavior: treat as blacklist
+          if (!overlapsMonth) continue;
+
+          if (!result.blacklist.has(name)) {
+            result.blacklist.set(name, new Set());
+          }
+
+          const legacyStart = new Date(Math.max(startDate.getTime(), monthStart.getTime()));
+          const legacyEnd = new Date(Math.min(endDate.getTime(), monthEnd.getTime()));
+
+          for (let d = new Date(legacyStart); d <= legacyEnd; d.setDate(d.getDate() + 1)) {
+            result.blacklist.get(name).add(d.toDateString());
+          }
+        }
+        break;
     }
   }
-  
-  Logger.log(`Built optimized timeoff map for ${timeoffMap.size} volunteers`);
-  return timeoffMap;
+
+  Logger.log(`Built timeoff maps: ${result.blacklist.size} blacklists, ${result.whitelist.size} whitelists, ${result.specialAvailability.size} special availability`);
+  return result;
 }
 
 /**
@@ -255,33 +349,33 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
 /**
  * Process assignments with improved algorithm
  */
-function processAssignments(context, volunteers, timeoffMap, assignmentsSheet) {
+function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet) {
   const results = {
     groupAssignments: 0,
     individualAssignments: 0,
     skipped: 0
   };
-  
+
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
-  
+
   // Process group assignments first
   for (const assignment of context.groupAssignments) {
     const success = processGroupAssignment(assignment, volunteers, assignmentsSheet, assignCols);
     if (success) results.groupAssignments++;
   }
-  
+
   // Group individual assignments by mass for family team processing
   const massesByDateTime = groupAssignmentsByMass(context.unassignedRoles);
-  
+
   // Process each mass
   for (const [massKey, massInfo] of massesByDateTime) {
     const massAssignments = new Map(); // Track assignments for this specific mass
-    
+
     for (const roleInfo of massInfo.roles) {
       const volunteer = findOptimalVolunteer(
         roleInfo,
         volunteers,
-        timeoffMap,
+        timeoffMaps,
         context.assignmentCounts,
         massAssignments
       );
@@ -311,18 +405,18 @@ function processAssignments(context, volunteers, timeoffMap, assignmentsSheet) {
 /**
  * Simplified volunteer finding with extracted scoring logic and detailed logging
  */
-function findOptimalVolunteer(roleInfo, volunteers, timeoffMap, assignmentCounts, massAssignments) {
+function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments) {
   Logger.log(`\n🎯 Looking for volunteer for ${roleInfo.role} on ${roleInfo.date.toDateString()} (${roleInfo.eventId})`);
-  
-  const candidates = filterCandidates(roleInfo, volunteers, timeoffMap, assignmentCounts, massAssignments);
-  
+
+  const candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments);
+
   Logger.log(`📋 Found ${candidates.length} eligible candidates`);
-  
+
   if (candidates.length === 0) {
     Logger.log(`❌ No eligible volunteers found for ${roleInfo.role}`);
     return null;
   }
-  
+
   // Score and sort candidates
   for (const candidate of candidates) {
     candidate.score = HELPER_calculateVolunteerScore(
@@ -334,47 +428,116 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMap, assignmentCounts
       volunteers
     );
   }
-  
+
   candidates.sort((a, b) => b.score - a.score);
-  
+
   Logger.log(`🏆 Selected ${candidates[0].volunteer.name} (score: ${candidates[0].score}) for ${roleInfo.role}`);
-  
+
   // Show top 3 candidates for debugging
   const topCandidates = candidates.slice(0, 3);
   topCandidates.forEach((candidate, index) => {
     Logger.log(`  ${index + 1}. ${candidate.volunteer.name}: ${candidate.score} points`);
   });
-  
+
   return candidates[0].volunteer;
 }
 
 /**
- * Extracted candidate filtering for better testability
+ * Extracted candidate filtering - ENHANCED FOR TIMEOFF TYPES
+ * Implements partial override logic for Special Availability
  */
-function filterCandidates(roleInfo, volunteers, timeoffMap, assignmentCounts, massAssignments) {
+function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments) {
   const candidates = [];
   const roleLower = roleInfo.role.toLowerCase();
   const massDateString = roleInfo.date.toDateString();
-  
+  const eventId = roleInfo.eventId;
+
   for (const volunteer of volunteers.values()) {
-    // Check if volunteer can do this role
-    if (!volunteer.ministries.includes(roleLower)) continue;
-    
-    // Check timeoff
-    const timeoffs = timeoffMap.get(volunteer.name);
-    if (timeoffs && timeoffs.has(massDateString)) continue;
-    
-    // Check if already assigned today
+    // 1. Check if volunteer can do this role
+    if (!volunteer.ministries.includes(roleLower)) {
+      continue;
+    }
+
+    // 2. Must be Active status
+    if (volunteer.status && volunteer.status.toLowerCase() !== 'active') {
+      continue;
+    }
+
+    // 3. Check Special Availability (overrides blacklist/whitelist)
+    const hasSpecial = hasSpecialAvailability(volunteer.name, massDateString, eventId, timeoffMaps.specialAvailability);
+    if (hasSpecial) {
+      // Special Availability overrides all timeoff restrictions
+      Logger.log(`  ✨ ${volunteer.name} has Special Availability for this mass`);
+
+      // Still check assignment restrictions
+      const counts = assignmentCounts.get(volunteer.id);
+      if (counts && counts.recent.toDateString() === massDateString) {
+        continue; // Already assigned today
+      }
+      if (massAssignments.has(volunteer.id)) {
+        continue; // Already assigned to this mass
+      }
+
+      candidates.push({ volunteer });
+      continue;
+    }
+
+    // 4. Check Whitelist (if exists, must match)
+    if (timeoffMaps.whitelist.has(volunteer.name)) {
+      const whitelist = timeoffMaps.whitelist.get(volunteer.name);
+      const matchesWhitelist = whitelist.eventIds.includes(eventId) || whitelist.dates.has(massDateString);
+
+      if (!matchesWhitelist) {
+        // Not on whitelist - exclude
+        continue;
+      }
+    }
+
+    // 5. Check Blacklist
+    const blacklist = timeoffMaps.blacklist.get(volunteer.name);
+    if (blacklist && blacklist.has(massDateString)) {
+      continue; // Blacklisted for this date
+    }
+
+    // 6. Check if already assigned today
     const counts = assignmentCounts.get(volunteer.id);
-    if (counts && counts.recent.toDateString() === massDateString) continue;
-    
-    // Check if already assigned to this mass
-    if (massAssignments.has(volunteer.id)) continue;
-    
+    if (counts && counts.recent.toDateString() === massDateString) {
+      continue;
+    }
+
+    // 7. Check if already assigned to this mass
+    if (massAssignments.has(volunteer.id)) {
+      continue;
+    }
+
+    // Passed all checks - eligible
     candidates.push({ volunteer });
   }
-  
+
   return candidates;
+}
+
+/**
+ * Helper: Check if volunteer has Special Availability for this date/event
+ */
+function hasSpecialAvailability(volunteerName, dateString, eventId, specialAvailabilityMap) {
+  if (!specialAvailabilityMap.has(volunteerName)) {
+    return false;
+  }
+
+  const special = specialAvailabilityMap.get(volunteerName);
+
+  // Check if Event ID matches
+  if (eventId && special.eventIds.includes(eventId)) {
+    return true;
+  }
+
+  // Check if date matches
+  if (special.dates.has(dateString)) {
+    return true;
+  }
+
+  return false;
 }
 
 /**

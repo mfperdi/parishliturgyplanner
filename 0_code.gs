@@ -34,6 +34,7 @@ function onOpen(e) {
       .addSeparator()
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Admin Tools')
           .addItem('Validate Data', 'showDataValidation')
+          .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
           .addItem('Debug Functions', 'showDebugPanel')
           .addItem('Export Data', 'exportCurrentSchedule'))
       .addToUi();
