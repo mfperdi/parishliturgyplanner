@@ -628,7 +628,7 @@ function HELPER_getCacheStats() {
     size: SHEET_CACHE.size,
     entries: []
   };
-  
+
   for (const [key, value] of SHEET_CACHE.entries()) {
     stats.entries.push({
       sheet: key,
@@ -636,6 +636,171 @@ function HELPER_getCacheStats() {
       rows: value.data.length
     });
   }
-  
+
   return stats;
+}
+
+/**
+ * ====================================================================
+ * TIMEOFF HELPER FUNCTIONS
+ * ====================================================================
+ * Functions to support enhanced timeoff request processing
+ */
+
+/**
+ * Parse whitelist notes to extract Event IDs and dates
+ * Supports hybrid format: "SUN-1000, SAT-1700, 12/25/2025, 1/1/2026"
+ *
+ * @param {string} notesField - Comma-separated Event IDs and/or dates
+ * @returns {object} { eventIds: [], dates: [], invalid: [] }
+ */
+function HELPER_parseWhitelistNotes(notesField) {
+  const result = {
+    eventIds: [],
+    dates: [],
+    invalid: []
+  };
+
+  if (!notesField || notesField.trim() === '') {
+    return result;
+  }
+
+  // Split by comma and process each item
+  const items = notesField.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+  for (const item of items) {
+    // Pattern 1: Event ID (e.g., SUN-1000, SAT-1700, FRI-0700)
+    // Format: 3+ letters, hyphen, 4 digits
+    const eventIdPattern = /^[A-Z]{3,}-\d{4}$/i;
+
+    if (eventIdPattern.test(item)) {
+      result.eventIds.push(item.toUpperCase());
+      continue;
+    }
+
+    // Pattern 2: Date (try to parse as date)
+    const parsedDate = new Date(item);
+
+    if (!isNaN(parsedDate.getTime())) {
+      // Valid date - set to noon to avoid timezone issues
+      const safeDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 12, 0, 0);
+      result.dates.push(safeDate);
+      continue;
+    }
+
+    // If neither pattern matches, mark as invalid
+    result.invalid.push(item);
+  }
+
+  Logger.log(`Parsed whitelist notes: ${result.eventIds.length} Event IDs, ${result.dates.length} dates, ${result.invalid.length} invalid`);
+
+  return result;
+}
+
+/**
+ * Validate that Event IDs exist in mass configuration sheets
+ * Checks WeeklyMasses, MonthlyMasses, and YearlyMasses
+ *
+ * @param {Array<string>} eventIdArray - Array of Event IDs to validate
+ * @returns {object} { valid: [], invalid: [] }
+ */
+function HELPER_validateEventIds(eventIdArray) {
+  const result = {
+    valid: [],
+    invalid: []
+  };
+
+  if (!eventIdArray || eventIdArray.length === 0) {
+    return result;
+  }
+
+  try {
+    // Build set of all valid Event IDs from all three mass configuration sheets
+    const validEventIds = new Set();
+
+    // Weekly Masses
+    const weeklyData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.WEEKLY_MASSES);
+    const weeklyCols = CONSTANTS.COLS.WEEKLY_MASSES;
+    for (const row of weeklyData) {
+      const eventId = HELPER_safeArrayAccess(row, weeklyCols.EVENT_ID - 1);
+      if (eventId) validEventIds.add(eventId.toUpperCase());
+    }
+
+    // Monthly Masses
+    const monthlyData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MONTHLY_MASSES);
+    const monthlyCols = CONSTANTS.COLS.MONTHLY_MASSES;
+    for (const row of monthlyData) {
+      const eventId = HELPER_safeArrayAccess(row, monthlyCols.EVENT_ID - 1);
+      if (eventId) validEventIds.add(eventId.toUpperCase());
+    }
+
+    // Yearly Masses
+    const yearlyData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.YEARLY_MASSES);
+    const yearlyCols = CONSTANTS.COLS.YEARLY_MASSES;
+    for (const row of yearlyData) {
+      const eventId = HELPER_safeArrayAccess(row, yearlyCols.EVENT_ID - 1);
+      if (eventId) validEventIds.add(eventId.toUpperCase());
+    }
+
+    Logger.log(`Found ${validEventIds.size} valid Event IDs in mass configuration`);
+
+    // Validate each Event ID
+    for (const eventId of eventIdArray) {
+      const upperEventId = eventId.toUpperCase();
+      if (validEventIds.has(upperEventId)) {
+        result.valid.push(upperEventId);
+      } else {
+        result.invalid.push(eventId);
+      }
+    }
+
+  } catch (e) {
+    Logger.log(`ERROR validating Event IDs: ${e.message}`);
+    // If we can't read mass config, mark all as invalid
+    result.invalid = eventIdArray;
+  }
+
+  Logger.log(`Event ID validation: ${result.valid.length} valid, ${result.invalid.length} invalid`);
+
+  return result;
+}
+
+/**
+ * Find the row number for a volunteer by name in the Volunteers sheet
+ *
+ * @param {string} volunteerName - Full name of volunteer
+ * @returns {number} Row number (1-indexed) in Volunteers sheet
+ * @throws {Error} If volunteer not found
+ */
+function HELPER_findVolunteerRow(volunteerName) {
+  if (!volunteerName || volunteerName.trim() === '') {
+    throw new Error('Volunteer name is required');
+  }
+
+  try {
+    const volunteersSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSTANTS.SHEETS.VOLUNTEERS);
+    if (!volunteersSheet) {
+      throw new Error(`Volunteers sheet '${CONSTANTS.SHEETS.VOLUNTEERS}' not found`);
+    }
+
+    const data = volunteersSheet.getDataRange().getValues();
+    const cols = CONSTANTS.COLS.VOLUNTEERS;
+
+    // Search for matching name (skip header row)
+    for (let i = 1; i < data.length; i++) {
+      const fullName = data[i][cols.FULL_NAME - 1];
+      if (fullName && fullName.trim().toLowerCase() === volunteerName.trim().toLowerCase()) {
+        const rowNumber = i + 1; // Convert to 1-indexed
+        Logger.log(`Found volunteer '${volunteerName}' at row ${rowNumber}`);
+        return rowNumber;
+      }
+    }
+
+    // Not found
+    throw new Error(`Volunteer '${volunteerName}' not found in Volunteers sheet`);
+
+  } catch (e) {
+    Logger.log(`ERROR finding volunteer row: ${e.message}`);
+    throw e;
+  }
 }
