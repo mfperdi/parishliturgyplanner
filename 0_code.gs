@@ -32,6 +32,9 @@ function onOpen(e) {
       .createMenu('Parish Scheduler')
       .addItem('Show Sidebar', 'showSidebar')
       .addSeparator()
+      .addSubMenu(SpreadsheetApp.getUi().createMenu('Timeoffs')
+          .addItem('Approve Selected Row(s)', 'approveSelectedTimeoffs')
+          .addItem('Reject Selected Row(s)', 'rejectSelectedTimeoffs'))
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Admin Tools')
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
@@ -539,4 +542,186 @@ function showDebugPanel() {
   }
   
   SpreadsheetApp.getUi().alert('Debug Information', message, SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+/**
+ * Approves selected timeoff request rows.
+ * User selects row(s) in Timeoffs sheet and runs this from menu.
+ */
+function approveSelectedTimeoffs() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activeSheet = ss.getActiveSheet();
+
+    // Verify we're on the Timeoffs sheet
+    if (activeSheet.getName() !== CONSTANTS.SHEETS.TIMEOFFS) {
+      SpreadsheetApp.getUi().alert(
+        'Wrong Sheet',
+        `Please select row(s) in the "${CONSTANTS.SHEETS.TIMEOFFS}" sheet first.`,
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+      return;
+    }
+
+    // Get selected range
+    const selection = activeSheet.getSelection();
+    const activeRange = selection.getActiveRange();
+
+    if (!activeRange) {
+      SpreadsheetApp.getUi().alert(
+        'No Selection',
+        'Please select one or more rows to approve.',
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+      return;
+    }
+
+    // Get row numbers
+    const firstRow = activeRange.getRow();
+    const numRows = activeRange.getNumRows();
+
+    // Skip header row (row 1)
+    if (firstRow === 1) {
+      SpreadsheetApp.getUi().alert(
+        'Invalid Selection',
+        'Please select data rows, not the header row.',
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+      return;
+    }
+
+    // Confirm action
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert(
+      'Confirm Approval',
+      `Approve ${numRows} timeoff request${numRows > 1 ? 's' : ''}?`,
+      ui.ButtonSet.YES_NO
+    );
+
+    if (response !== ui.Button.YES) {
+      return; // User cancelled
+    }
+
+    // Approve each row
+    const results = [];
+    for (let i = 0; i < numRows; i++) {
+      const rowNumber = firstRow + i;
+      try {
+        const result = TIMEOFFS_approveRequest(rowNumber);
+        results.push(`Row ${rowNumber}: ${result}`);
+      } catch (e) {
+        results.push(`Row ${rowNumber}: ERROR - ${e.message}`);
+      }
+    }
+
+    // Show results
+    const message = results.join('\n');
+    SpreadsheetApp.getUi().alert(
+      'Approval Complete',
+      message,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    Logger.log(`Approved ${numRows} timeoff request(s)`);
+
+  } catch (e) {
+    Logger.log(`Error in approveSelectedTimeoffs: ${e.message}`);
+    SpreadsheetApp.getUi().alert(
+      'Error',
+      `Could not approve timeoffs: ${e.message}`,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  }
+}
+
+/**
+ * Rejects selected timeoff request rows.
+ * User selects row(s) in Timeoffs sheet and runs this from menu.
+ */
+function rejectSelectedTimeoffs() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const activeSheet = ss.getActiveSheet();
+
+    // Verify we're on the Timeoffs sheet
+    if (activeSheet.getName() !== CONSTANTS.SHEETS.TIMEOFFS) {
+      SpreadsheetApp.getUi().alert(
+        'Wrong Sheet',
+        `Please select row(s) in the "${CONSTANTS.SHEETS.TIMEOFFS}" sheet first.`,
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+      return;
+    }
+
+    // Get selected range
+    const selection = activeSheet.getSelection();
+    const activeRange = selection.getActiveRange();
+
+    if (!activeRange) {
+      SpreadsheetApp.getUi().alert(
+        'No Selection',
+        'Please select one or more rows to reject.',
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+      return;
+    }
+
+    // Get row numbers
+    const firstRow = activeRange.getRow();
+    const numRows = activeRange.getNumRows();
+
+    // Skip header row (row 1)
+    if (firstRow === 1) {
+      SpreadsheetApp.getUi().alert(
+        'Invalid Selection',
+        'Please select data rows, not the header row.',
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+      return;
+    }
+
+    // Ask for rejection reason
+    const ui = SpreadsheetApp.getUi();
+    const reasonResponse = ui.prompt(
+      'Rejection Reason',
+      `Enter reason for rejecting ${numRows} request${numRows > 1 ? 's' : ''} (optional):`,
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (reasonResponse.getSelectedButton() !== ui.Button.OK) {
+      return; // User cancelled
+    }
+
+    const reason = reasonResponse.getResponseText();
+
+    // Reject each row
+    const results = [];
+    for (let i = 0; i < numRows; i++) {
+      const rowNumber = firstRow + i;
+      try {
+        const result = TIMEOFFS_rejectRequest(rowNumber, reason);
+        results.push(`Row ${rowNumber}: ${result}`);
+      } catch (e) {
+        results.push(`Row ${rowNumber}: ERROR - ${e.message}`);
+      }
+    }
+
+    // Show results
+    const message = results.join('\n');
+    SpreadsheetApp.getUi().alert(
+      'Rejection Complete',
+      message,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    Logger.log(`Rejected ${numRows} timeoff request(s)`);
+
+  } catch (e) {
+    Logger.log(`Error in rejectSelectedTimeoffs: ${e.message}`);
+    SpreadsheetApp.getUi().alert(
+      'Error',
+      `Could not reject timeoffs: ${e.message}`,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+  }
 }
