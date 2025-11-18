@@ -9,7 +9,56 @@
  * - Timeoff conflicts (blacklist/whitelist)
  *
  * Warnings allow overrides with confirmation and documentation.
+ *
+ * NOTE: Compatible with Google Sheets typed columns.
  */
+
+/**
+ * Safely writes a value to a cell, handling typed columns
+ * @param {Range} range - The range to write to
+ * @param {*} value - The value to write
+ * @returns {boolean} True if successful, false otherwise
+ */
+function ONEDIT_safeSetValue(range, value) {
+  try {
+    // Convert to string for text-typed columns
+    const stringValue = value !== null && value !== undefined ? String(value) : "";
+    range.setValue(stringValue);
+    return true;
+  } catch (e) {
+    Logger.log(`Warning: Could not write to cell (typed column?): ${e.message}`);
+    try {
+      // Fallback: try with setValues() and 2D array
+      range.setValues([[String(value || "")]]);
+      return true;
+    } catch (e2) {
+      Logger.log(`Error: Both setValue and setValues failed: ${e2.message}`);
+      return false;
+    }
+  }
+}
+
+/**
+ * Safely clears a cell, handling typed columns
+ * @param {Range} range - The range to clear
+ * @returns {boolean} True if successful, false otherwise
+ */
+function ONEDIT_safeClearContent(range) {
+  try {
+    range.clearContent();
+    return true;
+  } catch (e) {
+    Logger.log(`Warning: Could not clear cell (typed column?): ${e.message}`);
+    try {
+      // Fallback: set to empty string
+      range.setValue("");
+      return true;
+    } catch (e2) {
+      Logger.log(`Error: Both clearContent and setValue failed: ${e2.message}`);
+      return false;
+    }
+  }
+}
 
 /**
  * Main onEdit trigger function
@@ -97,9 +146,9 @@ function ONEDIT_validateAssignment(sheet, row) {
         ui.ButtonSet.OK
       );
 
-      // Clear the invalid assignment
-      sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID).clearContent();
-      sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME).clearContent();
+      // Clear the invalid assignment (safe for typed columns)
+      ONEDIT_safeClearContent(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID));
+      ONEDIT_safeClearContent(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME));
       return;
     }
 
@@ -126,7 +175,7 @@ function ONEDIT_validateAssignment(sheet, row) {
       // Clear any previous override notes
       const cleanedNotes = currentNotes.replace(/\[Override:.*?\]\s*/g, '').trim();
       if (cleanedNotes !== currentNotes) {
-        sheet.getRange(row, cols.NOTES).setValue(cleanedNotes);
+        ONEDIT_safeSetValue(sheet.getRange(row, cols.NOTES), cleanedNotes);
       }
       return;
     }
@@ -135,18 +184,18 @@ function ONEDIT_validateAssignment(sheet, row) {
     const shouldOverride = ONEDIT_showValidationDialog(volunteer.fullName, warnings);
 
     if (!shouldOverride) {
-      // User cancelled - clear the assignment
-      sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID).clearContent();
-      sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME).clearContent();
+      // User cancelled - clear the assignment (safe for typed columns)
+      ONEDIT_safeClearContent(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID));
+      ONEDIT_safeClearContent(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME));
       return;
     }
 
     // User confirmed override - document it in Notes
     ONEDIT_addWarningNote(sheet, row, warnings, currentNotes);
 
-    // Fill in both ID and Name for consistency
-    sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID).setValue(volunteer.volunteerId);
-    sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME).setValue(volunteer.fullName);
+    // Fill in both ID and Name for consistency (safe for typed columns)
+    ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID), volunteer.volunteerId);
+    ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME), volunteer.fullName);
 
   } catch (error) {
     Logger.log(`Error validating assignment: ${error.message}`);
@@ -413,7 +462,8 @@ function ONEDIT_addWarningNote(sheet, row, warnings, currentNotes) {
   const overrideNote = `[Override: ${warningTypes.join(', ')}]`;
   const newNotes = overrideNote + (cleanedNotes ? ' ' + cleanedNotes : '');
 
-  sheet.getRange(row, cols.NOTES).setValue(newNotes);
+  // Use safe write for typed columns
+  ONEDIT_safeSetValue(sheet.getRange(row, cols.NOTES), newNotes);
 }
 
 /**
