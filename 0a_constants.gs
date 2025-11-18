@@ -16,6 +16,7 @@ const CONSTANTS = {
     YEARLY_MASSES: "YearlyMasses",       
     SAINTS_CALENDAR: "SaintsCalendar",
     OVERRIDES: "CalendarOverrides",
+    LITURGICAL_NOTES: "LiturgicalNotes",
     CALENDAR: "LiturgicalCalendar",
     ASSIGNMENTS: "Assignments"
   },
@@ -59,7 +60,13 @@ const CONSTANTS = {
       CALENDAR: 6,
       NOTES: 7
     },
-    
+
+    // 'LiturgicalNotes' sheet (2 columns)
+    LITURGICAL_NOTES: {
+      CELEBRATION: 1,
+      NOTES: 2
+    },
+
     // 'WeeklyMasses' sheet (11 columns)
     WEEKLY_MASSES: {
       EVENT_ID: 1,
