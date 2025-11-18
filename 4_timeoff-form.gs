@@ -80,8 +80,7 @@ function onFormSubmit(e) {
 
   switch(type) {
     case CONSTANTS.TIMEOFF_TYPES.ONLY_AVAILABLE:
-    case CONSTANTS.TIMEOFF_TYPES.SPECIAL_AVAILABILITY:
-      // Whitelist/Special Availability requires Notes with Event IDs and/or dates
+      // Whitelist requires Notes with Event IDs and/or dates
       if (!notes || notes.trim() === '') {
         warnings.push("⚠️ Notes required: specify Event IDs and/or dates (e.g., SUN-1000, 12/25/2025)");
       } else {
@@ -105,32 +104,8 @@ function onFormSubmit(e) {
       }
       break;
 
-    case CONSTANTS.TIMEOFF_TYPES.PREFERENCE_UPDATE:
-      // Preference Update requires Notes with Event IDs
-      if (!notes || notes.trim() === '') {
-        warnings.push("⚠️ Notes required: specify new preferred Event IDs (e.g., SUN-1000, SAT-1700)");
-      } else {
-        const eventIds = notes.split(',').map(s => s.trim()).filter(s => s.length > 0);
-        if (eventIds.length === 0) {
-          warnings.push("⚠️ Notes must contain at least one Event ID");
-        } else {
-          const validation = HELPER_validateEventIds(eventIds);
-          if (validation.invalid.length > 0) {
-            warnings.push(`⚠️ Invalid Event IDs: ${validation.invalid.join(', ')}`);
-          }
-        }
-      }
-      break;
-
-    case CONSTANTS.TIMEOFF_TYPES.STATUS_CHANGE:
-      // Status Change should have Notes describing the change
-      if (!notes || notes.trim() === '') {
-        warnings.push("⚠️ Notes required: describe status change request (e.g., Mark as Inactive, Substitute Only)");
-      }
-      break;
-
     case CONSTANTS.TIMEOFF_TYPES.UNAVAILABLE:
-      // Unavailable is the default - no special validation needed
+      // Unavailable - no special validation needed (dates are sufficient)
       break;
 
     default:
@@ -190,7 +165,7 @@ function TIMEOFFS_getPendingRequests() {
 }
 
 /**
- * Approves a timeoff request - ENHANCED with auto-processing
+ * Approves a timeoff request
  * @param {number} rowNumber The sheet row number (1-based).
  * @returns {string} Success message.
  */
@@ -199,9 +174,8 @@ function TIMEOFFS_approveRequest(rowNumber) {
   const sheet = ss.getSheetByName(CONSTANTS.SHEETS.TIMEOFFS);
   const cols = CONSTANTS.COLS.TIMEOFFS;
 
-  // Get volunteer name and type
+  // Get volunteer name
   const name = sheet.getRange(rowNumber, cols.VOLUNTEER_NAME).getValue();
-  const type = sheet.getRange(rowNumber, cols.TYPE).getValue();
 
   // Update sheet
   sheet.getRange(rowNumber, cols.STATUS).setValue("Approved");
@@ -213,67 +187,7 @@ function TIMEOFFS_approveRequest(rowNumber) {
   sheet.getRange(rowNumber, cols.REVIEW_NOTES).setValue(newNotes);
 
   Logger.log(`Approved timeoff request for ${name} (Row ${rowNumber})`);
-
-  // Auto-process based on type
-  try {
-    if (type === CONSTANTS.TIMEOFF_TYPES.PREFERENCE_UPDATE) {
-      processPreferenceUpdate(rowNumber);
-      return `Approved and updated preferences for ${name}`;
-    }
-  } catch (e) {
-    Logger.log(`ERROR processing ${type} for ${name}: ${e.message}`);
-    // Add error to review notes
-    const errorNote = `\n⚠️ Auto-processing failed: ${e.message}`;
-    sheet.getRange(rowNumber, cols.REVIEW_NOTES).setValue(newNotes + errorNote);
-    return `Approved request for ${name}, but auto-processing failed: ${e.message}`;
-  }
-
   return `Approved request for ${name}`;
-}
-
-/**
- * Process Preference Update request - auto-updates Volunteers sheet
- * Called automatically when approving a Preference Update request
- * @param {number} rowNumber The row number in Timeoffs sheet
- */
-function processPreferenceUpdate(rowNumber) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const timeoffsSheet = ss.getSheetByName(CONSTANTS.SHEETS.TIMEOFFS);
-  const volunteersSheet = ss.getSheetByName(CONSTANTS.SHEETS.VOLUNTEERS);
-  const cols = CONSTANTS.COLS.TIMEOFFS;
-
-  // Get volunteer name and new preferences from Notes
-  const volunteerName = timeoffsSheet.getRange(rowNumber, cols.VOLUNTEER_NAME).getValue();
-  const newPreferences = timeoffsSheet.getRange(rowNumber, cols.NOTES).getValue();
-
-  if (!newPreferences || newPreferences.trim() === '') {
-    throw new Error('Notes field is empty - cannot update preferences');
-  }
-
-  // Validate Event IDs
-  const eventIds = newPreferences.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  const validation = HELPER_validateEventIds(eventIds);
-
-  if (validation.invalid.length > 0) {
-    throw new Error(`Invalid Event IDs: ${validation.invalid.join(', ')}`);
-  }
-
-  // Find volunteer in Volunteers sheet
-  const volunteerRow = HELPER_findVolunteerRow(volunteerName);
-
-  // Get old preferences for logging
-  const oldPreferences = volunteersSheet.getRange(volunteerRow, CONSTANTS.COLS.VOLUNTEERS.PREFERRED_MASS_TIME).getValue();
-
-  // Update PREFERRED_MASS_TIME column
-  volunteersSheet.getRange(volunteerRow, CONSTANTS.COLS.VOLUNTEERS.PREFERRED_MASS_TIME)
-    .setValue(newPreferences);
-
-  // Log the change in Timeoffs Review Notes
-  const currentReviewNotes = timeoffsSheet.getRange(rowNumber, cols.REVIEW_NOTES).getValue();
-  const updateNote = `\n✓ Updated preferences: "${oldPreferences}" → "${newPreferences}"`;
-  timeoffsSheet.getRange(rowNumber, cols.REVIEW_NOTES).setValue(currentReviewNotes + updateNote);
-
-  Logger.log(`Updated preferences for ${volunteerName}: "${oldPreferences}" → "${newPreferences}"`);
 }
 
 /**

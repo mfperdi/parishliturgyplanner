@@ -147,14 +147,13 @@ function parseListField(fieldValue, toLowerCase = true) {
 }
 
 /**
- * Optimized timeoff map building - ENHANCED FOR MULTIPLE REQUEST TYPES
- * Returns object with three maps: blacklist, whitelist, specialAvailability
+ * Optimized timeoff map building
+ * Returns object with two maps: blacklist, whitelist
  */
 function buildTimeoffMapOptimized(timeoffData, month, year) {
   const result = {
     blacklist: new Map(),        // Unavailable: volunteer => Set<dateStrings>
-    whitelist: new Map(),        // Only Available For: volunteer => { eventIds: [], dates: Set<dateStrings> }
-    specialAvailability: new Map() // Special Availability: volunteer => { eventIds: [], dates: Set<dateStrings> }
+    whitelist: new Map()         // Only Available For: volunteer => { eventIds: [], dates: Set<dateStrings> }
   };
 
   const cols = CONSTANTS.COLS.TIMEOFFS;
@@ -228,39 +227,6 @@ function buildTimeoffMapOptimized(timeoffData, month, year) {
         }
         break;
 
-      case CONSTANTS.TIMEOFF_TYPES.SPECIAL_AVAILABILITY:
-        // Special Availability: Parse Notes for Event IDs and/or dates
-        const specialNotes = HELPER_safeArrayAccess(row, cols.NOTES - 1);
-        const specialParsed = HELPER_parseWhitelistNotes(specialNotes);
-
-        if (specialParsed.eventIds.length > 0 || specialParsed.dates.length > 0) {
-          if (!result.specialAvailability.has(name)) {
-            result.specialAvailability.set(name, { eventIds: [], dates: new Set() });
-          }
-
-          const special = result.specialAvailability.get(name);
-
-          // Add Event IDs
-          for (const eventId of specialParsed.eventIds) {
-            if (!special.eventIds.includes(eventId)) {
-              special.eventIds.push(eventId);
-            }
-          }
-
-          // Add dates (only if in current month)
-          for (const date of specialParsed.dates) {
-            if (date >= monthStart && date <= monthEnd) {
-              special.dates.add(date.toDateString());
-            }
-          }
-        }
-        break;
-
-      case CONSTANTS.TIMEOFF_TYPES.STATUS_CHANGE:
-      case CONSTANTS.TIMEOFF_TYPES.PREFERENCE_UPDATE:
-        // These types don't affect assignment eligibility
-        continue;
-
       default:
         // Unknown type or legacy blank TYPE - treat as Unavailable for backward compatibility
         if (!type || type === '') {
@@ -282,7 +248,7 @@ function buildTimeoffMapOptimized(timeoffData, month, year) {
     }
   }
 
-  Logger.log(`Built timeoff maps: ${result.blacklist.size} blacklists, ${result.whitelist.size} whitelists, ${result.specialAvailability.size} special availability`);
+  Logger.log(`Built timeoff maps: ${result.blacklist.size} blacklists, ${result.whitelist.size} whitelists`);
   return result;
 }
 
@@ -443,8 +409,8 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
 }
 
 /**
- * Extracted candidate filtering - ENHANCED FOR TIMEOFF TYPES
- * Implements partial override logic for Special Availability
+ * Extracted candidate filtering
+ * Filters volunteers based on timeoff blacklist/whitelist
  */
 function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments) {
   const candidates = [];
@@ -463,26 +429,7 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       continue;
     }
 
-    // 3. Check Special Availability (overrides blacklist/whitelist)
-    const hasSpecial = hasSpecialAvailability(volunteer.name, massDateString, eventId, timeoffMaps.specialAvailability);
-    if (hasSpecial) {
-      // Special Availability overrides all timeoff restrictions
-      Logger.log(`  ✨ ${volunteer.name} has Special Availability for this mass`);
-
-      // Still check assignment restrictions
-      const counts = assignmentCounts.get(volunteer.id);
-      if (counts && counts.recent.toDateString() === massDateString) {
-        continue; // Already assigned today
-      }
-      if (massAssignments.has(volunteer.id)) {
-        continue; // Already assigned to this mass
-      }
-
-      candidates.push({ volunteer });
-      continue;
-    }
-
-    // 4. Check Whitelist (if exists, must match)
+    // 3. Check Whitelist (if exists, must match)
     if (timeoffMaps.whitelist.has(volunteer.name)) {
       const whitelist = timeoffMaps.whitelist.get(volunteer.name);
       const matchesWhitelist = whitelist.eventIds.includes(eventId) || whitelist.dates.has(massDateString);
@@ -493,19 +440,19 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       }
     }
 
-    // 5. Check Blacklist
+    // 4. Check Blacklist
     const blacklist = timeoffMaps.blacklist.get(volunteer.name);
     if (blacklist && blacklist.has(massDateString)) {
       continue; // Blacklisted for this date
     }
 
-    // 6. Check if already assigned today
+    // 5. Check if already assigned today
     const counts = assignmentCounts.get(volunteer.id);
     if (counts && counts.recent.toDateString() === massDateString) {
       continue;
     }
 
-    // 7. Check if already assigned to this mass
+    // 6. Check if already assigned to this mass
     if (massAssignments.has(volunteer.id)) {
       continue;
     }
@@ -515,29 +462,6 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
   }
 
   return candidates;
-}
-
-/**
- * Helper: Check if volunteer has Special Availability for this date/event
- */
-function hasSpecialAvailability(volunteerName, dateString, eventId, specialAvailabilityMap) {
-  if (!specialAvailabilityMap.has(volunteerName)) {
-    return false;
-  }
-
-  const special = specialAvailabilityMap.get(volunteerName);
-
-  // Check if Event ID matches
-  if (eventId && special.eventIds.includes(eventId)) {
-    return true;
-  }
-
-  // Check if date matches
-  if (special.dates.has(dateString)) {
-    return true;
-  }
-
-  return false;
 }
 
 /**

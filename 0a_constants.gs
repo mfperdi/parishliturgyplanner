@@ -174,10 +174,7 @@ const CONSTANTS = {
   // 4. Timeoff Request Types
   TIMEOFF_TYPES: {
     UNAVAILABLE: 'Unavailable',                    // Blacklist - don't schedule for these dates
-    ONLY_AVAILABLE: 'Only Available For',          // Whitelist - only schedule for these dates/masses
-    STATUS_CHANGE: 'Status Change',                // Update volunteer status (Inactive, Substitute Only)
-    PREFERENCE_UPDATE: 'Preference Update',        // Update preferred mass times
-    SPECIAL_AVAILABILITY: 'Special Availability'   // Available for specific event (e.g., Holy Day)
+    ONLY_AVAILABLE: 'Only Available For'           // Whitelist - only schedule for these dates/masses (Notes field: Event IDs and/or dates)
   },
 
   // 5. Validation Rules
