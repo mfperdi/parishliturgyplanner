@@ -226,7 +226,7 @@ function getAssignmentDataForMonth(monthString) {
         assignments.push({
           date: new Date(row[assignCols.DATE - 1]),
           time: new Date(row[assignCols.TIME - 1]), // Ensure this is a Date object for sorting
-          massName: HELPER_safeArrayAccess(row, assignCols.MASS_NAME - 1),
+          massName: HELPER_safeArrayAccess(row, assignCols.DESCRIPTION - 1),
           liturgicalCelebration: HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1),
           ministryRole: HELPER_safeArrayAccess(row, assignCols.MINISTRY_ROLE - 1),
           assignedGroup: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_GROUP - 1),
@@ -389,12 +389,12 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
  * Creates table headers for assignment data.
  */
 function createTableHeaders(sheet, startRow) {
-  const headers = ['Date', 'Time', 'Mass Name', 'Ministry Role', 'Assigned Volunteer'];
-  
+  const headers = ['Date', 'Time', 'Description', 'Ministry Role', 'Assigned Volunteer'];
+
   for (let i = 0; i < headers.length; i++) {
     sheet.getRange(startRow, i + 1).setValue(headers[i]);
   }
-  
+
   const headerRange = sheet.getRange(startRow, 1, 1, headers.length);
   headerRange.setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   headerRange.setBorder(true, true, true, true, true, true);
@@ -552,8 +552,8 @@ function applyScheduleFormatting(sheet, config) {
   // Set optimal column widths
   if (config.columnWidths === 'auto' || !config.columnWidths) {
     sheet.setColumnWidth(1, 80);  // Date
-    sheet.setColumnWidth(2, 70);  // Time  
-    sheet.setColumnWidth(3, 140); // Mass Name
+    sheet.setColumnWidth(2, 70);  // Time
+    sheet.setColumnWidth(3, 140); // Description
     sheet.setColumnWidth(4, 130); // Ministry Role
     sheet.setColumnWidth(5, 140); // Assigned Volunteer
   } else if (typeof config.columnWidths === 'object') {

@@ -121,11 +121,11 @@ const CONSTANTS = {
       ROLE_NAME: 3         // Specific role/skill within ministry
     },
     
-    // 'Assignments' sheet (12 columns)
+    // 'Assignments' sheet (13 columns)
     ASSIGNMENTS: {
       DATE: 1,
       TIME: 2,
-      MASS_NAME: 3,
+      DESCRIPTION: 3,           // Mass description
       LITURGICAL_CELEBRATION: 4,
       MINISTRY_ROLE: 5,
       EVENT_ID: 6,
@@ -135,7 +135,7 @@ const CONSTANTS = {
       ASSIGNED_VOLUNTEER_NAME: 10,
       STATUS: 11,
       NOTES: 12,
-      FAMILY_GROUP: 13 
+      FAMILY_GROUP: 13
     },
     
     // 'Volunteers' sheet (14 columns)
