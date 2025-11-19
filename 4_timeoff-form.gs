@@ -104,14 +104,14 @@ function onFormSubmit(e) {
       }
       break;
 
-    case CONSTANTS.TIMEOFF_TYPES.UNAVAILABLE:
-      // Unavailable - no special validation needed (dates are sufficient)
+    case CONSTANTS.TIMEOFF_TYPES.NOT_AVAILABLE:
+      // Not Available - no special validation needed (dates are sufficient)
       break;
 
     default:
       // Unknown or blank TYPE
       if (!type || type === '') {
-        warnings.push("⚠️ TYPE field is blank - will be treated as 'Unavailable'");
+        warnings.push("⚠️ TYPE field is blank - will be treated as 'Not Available'");
       } else {
         warnings.push(`⚠️ Unknown TYPE: ${type}`);
       }

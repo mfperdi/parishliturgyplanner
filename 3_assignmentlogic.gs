@@ -152,8 +152,8 @@ function parseListField(fieldValue, toLowerCase = true) {
  */
 function buildTimeoffMapOptimized(timeoffData, month, year) {
   const result = {
-    blacklist: new Map(),        // Unavailable: volunteer => Set<dateStrings>
-    whitelist: new Map()         // Only Available For: volunteer => { eventIds: [], dates: Set<dateStrings> }
+    blacklist: new Map(),        // Not Available: volunteer => Set<dateStrings>
+    whitelist: new Map()         // Only Available: volunteer => { eventIds: [], dates: Set<dateStrings> }
   };
 
   const cols = CONSTANTS.COLS.TIMEOFFS;
@@ -183,7 +183,7 @@ function buildTimeoffMapOptimized(timeoffData, month, year) {
 
     // Process based on TYPE
     switch (type) {
-      case CONSTANTS.TIMEOFF_TYPES.UNAVAILABLE:
+      case CONSTANTS.TIMEOFF_TYPES.NOT_AVAILABLE:
         // Blacklist: Add blocked dates
         if (!overlapsMonth) continue;
 

@@ -43,6 +43,11 @@ function VALIDATE_all() {
     results.errors.push(...consistencyResults.errors);
     results.warnings.push(...consistencyResults.warnings);
 
+    // 6. Liturgical notes validation
+    const notesResults = VALIDATE_liturgicalNotes();
+    results.errors.push(...notesResults.errors);
+    results.warnings.push(...notesResults.warnings);
+
     // Determine overall validity
     results.isValid = results.errors.length === 0;
 
@@ -551,6 +556,79 @@ function VALIDATE_consistency() {
 
   } catch (e) {
     results.errors.push(`Consistency validation error: ${e.message}`);
+  }
+
+  return results;
+}
+
+/**
+ * Validates LiturgicalNotes sheet
+ * @returns {object} Validation results
+ */
+function VALIDATE_liturgicalNotes() {
+  const results = { errors: [], warnings: [] };
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const notesSheet = ss.getSheetByName(CONSTANTS.SHEETS.LITURGICAL_NOTES);
+
+    // If sheet doesn't exist, that's okay - it's optional
+    if (!notesSheet) {
+      Logger.log('LiturgicalNotes sheet does not exist - skipping validation');
+      return results;
+    }
+
+    // Check if there's data
+    if (notesSheet.getLastRow() <= 1) {
+      results.warnings.push('LiturgicalNotes: Sheet exists but has no data (this is optional)');
+      return results;
+    }
+
+    // Get all liturgical celebrations from the calendar
+    const calendarSheet = ss.getSheetByName(CONSTANTS.SHEETS.CALENDAR);
+    const validCelebrations = new Set();
+
+    if (calendarSheet && calendarSheet.getLastRow() > 1) {
+      const calendarData = HELPER_readSheetData(CONSTANTS.SHEETS.CALENDAR);
+      const calCols = CONSTANTS.COLS.CALENDAR;
+
+      for (const row of calendarData) {
+        const celebration = HELPER_safeArrayAccess(row, calCols.LITURGICAL_CELEBRATION - 1);
+        if (celebration) validCelebrations.add(celebration);
+      }
+    }
+
+    // Validate liturgical notes entries
+    const notesData = notesSheet.getDataRange().getValues();
+    const notesCols = CONSTANTS.COLS.LITURGICAL_NOTES;
+
+    // Skip header row
+    for (let i = 1; i < notesData.length; i++) {
+      const row = notesData[i];
+      const rowNum = i + 1; // +1 for 1-based indexing
+
+      const celebration = HELPER_safeArrayAccess(row, notesCols.CELEBRATION - 1);
+      const notes = HELPER_safeArrayAccess(row, notesCols.NOTES - 1);
+
+      // Celebration name required
+      if (!celebration || celebration.trim() === "") {
+        results.errors.push(`LiturgicalNotes row ${rowNum}: Liturgical Celebration is required`);
+        continue;
+      }
+
+      // Notes required (otherwise why have the entry?)
+      if (!notes || notes.trim() === "") {
+        results.warnings.push(`LiturgicalNotes row ${rowNum}: Notes are empty for '${celebration}'`);
+      }
+
+      // Check if celebration exists in calendar (if calendar has been generated)
+      if (validCelebrations.size > 0 && !validCelebrations.has(celebration)) {
+        results.warnings.push(`LiturgicalNotes row ${rowNum}: Celebration '${celebration}' not found in current liturgical calendar. Notes will not display unless calendar is regenerated or name matches exactly.`);
+      }
+    }
+
+  } catch (e) {
+    results.errors.push(`LiturgicalNotes validation error: ${e.message}`);
   }
 
   return results;

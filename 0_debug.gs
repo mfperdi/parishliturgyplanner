@@ -311,7 +311,7 @@ function DEBUG_testTimeoffsIntegration() {
         const sampleVolunteer = Array.from(timeoffMap.keys())[0];
         const sampleDates = timeoffMap.get(sampleVolunteer);
         Logger.log(`Sample volunteer: ${sampleVolunteer}`);
-        Logger.log(`  - Has ${sampleDates.length} unavailable date(s) in this month`);
+        Logger.log(`  - Has ${sampleDates.length} not available date(s) in this month`);
         if (sampleDates.length > 0) {
           Logger.log(`  - First date: ${sampleDates[0]}`);
         }

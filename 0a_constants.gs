@@ -16,6 +16,7 @@ const CONSTANTS = {
     YEARLY_MASSES: "YearlyMasses",       
     SAINTS_CALENDAR: "SaintsCalendar",
     OVERRIDES: "CalendarOverrides",
+    LITURGICAL_NOTES: "LiturgicalNotes",
     CALENDAR: "LiturgicalCalendar",
     ASSIGNMENTS: "Assignments"
   },
@@ -59,7 +60,13 @@ const CONSTANTS = {
       CALENDAR: 6,
       NOTES: 7
     },
-    
+
+    // 'LiturgicalNotes' sheet (2 columns)
+    LITURGICAL_NOTES: {
+      CELEBRATION: 1,
+      NOTES: 2
+    },
+
     // 'WeeklyMasses' sheet (11 columns)
     WEEKLY_MASSES: {
       EVENT_ID: 1,
@@ -173,8 +180,8 @@ const CONSTANTS = {
 
   // 4. Timeoff Request Types
   TIMEOFF_TYPES: {
-    UNAVAILABLE: 'Not Available',                  // Blacklist - don't schedule for these dates
-    ONLY_AVAILABLE: 'Only Available'               // Whitelist - only schedule for these dates/masses (Notes field: Event IDs and/or dates)
+    NOT_AVAILABLE: 'Not Available',             // Blacklist - don't schedule for these dates
+    ONLY_AVAILABLE: 'Only Available'           // Whitelist - only schedule for these dates/masses (Notes field: Event IDs and/or dates)
   },
 
   // 5. Validation Rules
