@@ -117,8 +117,8 @@ const CONSTANTS = {
     // 'MassTemplates' sheet (3 columns)
     TEMPLATES: {
       TEMPLATE_NAME: 1,
-      MINISTRY_ROLE: 2,
-      MINISTRY_SKILL: 3
+      MINISTRY_ROLE: 2,    // "MinistryName" - general ministry category
+      MINISTRY_SKILL: 3    // "RoleName" - specific role/skill within ministry
     },
     
     // 'Assignments' sheet (12 columns)
@@ -149,9 +149,9 @@ const CONSTANTS = {
       PARENT_GUARDIAN_NAME: 7,
       FAMILY_TEAM: 8,
       STATUS: 9,
-      MINISTRY_ROLE: 10,
-      PREFERRED_MASS_TIME: 11,
-      MINISTRY_ROLE_PREFERENCE: 12,
+      MINISTRY_ROLE: 10,              // "Ministries" - general categories (dropdown from MassTemplates MinistryName)
+      MINISTRY_ROLE_PREFERENCE: 11,   // "Roles" - specific role preferences
+      PREFERRED_MASS_TIME: 12,        // Event IDs for preferred masses
       DATE_CLEARED: 13,
       DATE_TRAINED: 14
     },
