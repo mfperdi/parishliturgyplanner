@@ -389,7 +389,7 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
  * Creates table headers for assignment data.
  */
 function createTableHeaders(sheet, startRow) {
-  const headers = ['Date', 'Time', 'Description', 'Ministry Role', 'Assigned Volunteer'];
+  const headers = ['Date', 'Time', 'Description', 'Ministry/Role', 'Assigned Volunteer'];
 
   for (let i = 0; i < headers.length; i++) {
     sheet.getRange(startRow, i + 1).setValue(headers[i]);
@@ -554,7 +554,7 @@ function applyScheduleFormatting(sheet, config) {
     sheet.setColumnWidth(1, 80);  // Date
     sheet.setColumnWidth(2, 70);  // Time
     sheet.setColumnWidth(3, 140); // Description
-    sheet.setColumnWidth(4, 130); // Ministry Role
+    sheet.setColumnWidth(4, 130); // Ministry/Role
     sheet.setColumnWidth(5, 140); // Assigned Volunteer
   } else if (typeof config.columnWidths === 'object') {
     // Custom column widths

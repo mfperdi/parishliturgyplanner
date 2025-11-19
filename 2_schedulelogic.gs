@@ -93,7 +93,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       newRow[assignCols.TIME - 1] = mass.time;
       newRow[assignCols.DESCRIPTION - 1] = mass.description;
       newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration;
-      newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName;
+      newRow[assignCols.MINISTRY_ROLE - 1] = role.skill;  // Use specific role name (e.g., "1st Reader") instead of ministry category
       newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
       newRow[assignCols.MONTH_YEAR - 1] = monthString;
       newRow[assignCols.ASSIGNED_GROUP - 1] = mass.assignedGroup || "";
