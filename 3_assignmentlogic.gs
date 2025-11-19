@@ -92,21 +92,21 @@ function buildVolunteerMapOptimized(volunteerData) {
     }
     
     // Parse ministries and preferences more safely
-    const ministryRole = HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE - 1, '');
-    const ministries = parseListField(ministryRole);
-    
+    const ministriesRaw = HELPER_safeArrayAccess(row, cols.MINISTRIES - 1, '');
+    const ministries = parseListField(ministriesRaw);
+
     if (ministries.length === 0) {
       Logger.log(`WARNING: Volunteer ${name} has no ministry roles, skipping`);
       continue;
     }
-    
+
     // CORRECTED: Read preferences from the right columns
-    // PREFERRED_MASS_TIME (column 11) = Mass time preferences like "SUN-1000, SAT-1700"
+    // PREFERRED_MASS_TIME (column 12) = Mass time preferences like "SUN-1000, SAT-1700"
     const massPrefsRaw = HELPER_safeArrayAccess(row, cols.PREFERRED_MASS_TIME - 1, '');
     const massPrefs = parseListField(massPrefsRaw, false); // Don't lowercase EventIDs
-    
-    // MINISTRY_ROLE_PREFERENCE (column 12) = Role preferences like "1st reading, psalm"
-    const rolePrefsRaw = HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE_PREFERENCE - 1, '');
+
+    // ROLES (column 11) = Role preferences like "1st reading, psalm"
+    const rolePrefsRaw = HELPER_safeArrayAccess(row, cols.ROLES - 1, '');
     const rolePrefs = parseListField(rolePrefsRaw); // Lowercase for role matching
     
     const familyTeam = HELPER_safeArrayAccess(row, cols.FAMILY_TEAM - 1) || null;

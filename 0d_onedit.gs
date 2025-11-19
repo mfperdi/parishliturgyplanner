@@ -226,9 +226,9 @@ function ONEDIT_findVolunteer(volunteerId, volunteerName) {
           volunteerId: rowId,
           fullName: rowName,
           status: HELPER_safeArrayAccess(row, cols.STATUS - 1, ''),
-          ministryRoles: HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE - 1, ''),
+          ministryRoles: HELPER_safeArrayAccess(row, cols.MINISTRIES - 1, ''),
           preferredMasses: HELPER_safeArrayAccess(row, cols.PREFERRED_MASS_TIME - 1, ''),
-          rolePreferences: HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE_PREFERENCE - 1, '')
+          rolePreferences: HELPER_safeArrayAccess(row, cols.ROLES - 1, '')
         };
       }
     }
@@ -251,9 +251,9 @@ function ONEDIT_getRequiredSkill(ministryRole) {
     const cols = CONSTANTS.COLS.TEMPLATES;
 
     for (const row of templateData) {
-      const rowRole = HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE - 1, '');
+      const rowRole = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1, '');
       if (rowRole.toLowerCase() === ministryRole.toLowerCase()) {
-        return HELPER_safeArrayAccess(row, cols.MINISTRY_SKILL - 1, '');
+        return HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1, '');
       }
     }
 
