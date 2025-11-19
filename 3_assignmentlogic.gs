@@ -297,7 +297,7 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
         date: new Date(date),
         role: HELPER_safeArrayAccess(row, assignCols.MINISTRY_ROLE - 1),
         eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1),
-        massName: HELPER_safeArrayAccess(row, assignCols.MASS_NAME - 1),
+        massName: HELPER_safeArrayAccess(row, assignCols.DESCRIPTION - 1),
         time: HELPER_safeArrayAccess(row, assignCols.TIME - 1)
       };
       

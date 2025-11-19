@@ -421,7 +421,7 @@ function findSubstituteAssignments(monthString) {
         substituteData.push([
           row[assignCols.DATE - 1],
           row[assignCols.TIME - 1],
-          row[assignCols.MASS_NAME - 1],
+          row[assignCols.DESCRIPTION - 1],
           roleNeeded,
           suggestions.slice(0, 3).join(', ') || 'No qualified volunteers found',
           'Manual assignment needed'

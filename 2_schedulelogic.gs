@@ -91,7 +91,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
       newRow[assignCols.DATE - 1] = mass.date;
       newRow[assignCols.TIME - 1] = mass.time;
-      newRow[assignCols.MASS_NAME - 1] = mass.description;
+      newRow[assignCols.DESCRIPTION - 1] = mass.description;
       newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration;
       newRow[assignCols.MINISTRY_ROLE - 1] = role.roleName;
       newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
