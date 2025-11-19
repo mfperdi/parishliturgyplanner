@@ -72,22 +72,22 @@ The system checks **both**:
 
 The system checks **both** timeoff types:
 
-##### Unavailable (Blacklist)
+##### Not Available (Blacklist)
 Volunteer cannot serve on specified dates
 
 **Warning Example**:
 ```
 ❌ Volunteer is unavailable on 12/25/2025
-   (Timeoff: Unavailable from 12/20/2025 to 12/30/2025)
+   (Timeoff: Not Available from 12/20/2025 to 12/30/2025)
 ```
 
-##### Only Available For (Whitelist)
+##### Only Available (Whitelist)
 Volunteer can ONLY serve specified masses/dates during the period
 
 **Warning Example**:
 ```
 ❌ Volunteer is only available for specific masses during this period
-   (Only Available For from 6/1/2026 to 8/31/2026)
+   (Only Available from 6/1/2026 to 8/31/2026)
    (Allowed: SUN-1000, SAT-1700)
    (This assignment: SUN-0800)
 ```
