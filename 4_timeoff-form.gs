@@ -246,6 +246,7 @@ function TIMEOFFS_bulkApprovePending() {
 /**
  * Setup dropdown validation for TYPE column in Timeoffs sheet
  * Run this once to add data validation to the TYPE column
+ * NOTE: Works with both typed and untyped columns
  * @returns {string} Success message
  */
 function TIMEOFFS_setupValidation() {
@@ -257,23 +258,60 @@ function TIMEOFFS_setupValidation() {
       throw new Error(`Timeoffs sheet '${CONSTANTS.SHEETS.TIMEOFFS}' not found`);
     }
 
-    // Add dropdown validation to TYPE column (entire column, starting from row 2)
+    const types = Object.values(CONSTANTS.TIMEOFF_TYPES);
+
+    // Try to add dropdown validation to TYPE column (entire column, starting from row 2)
     const typeColumn = sheet.getRange(2, CONSTANTS.COLS.TIMEOFFS.TYPE, sheet.getMaxRows() - 1, 1);
 
-    const types = Object.values(CONSTANTS.TIMEOFF_TYPES);
-    const rule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(types, true)  // true = show dropdown
-      .setAllowInvalid(false)           // Reject invalid entries
-      .setHelpText('Select the type of timeoff request')
-      .build();
+    try {
+      const rule = SpreadsheetApp.newDataValidation()
+        .requireValueInList(types, true)  // true = show dropdown
+        .setAllowInvalid(false)           // Reject invalid entries
+        .setHelpText('Select the type of timeoff request')
+        .build();
 
-    typeColumn.setDataValidation(rule);
+      typeColumn.setDataValidation(rule);
 
-    Logger.log(`Set TYPE validation with values: ${types.join(', ')}`);
-    return `✓ Timeoff TYPE column dropdown validation added successfully\n\nAvailable types:\n- ${types.join('\n- ')}`;
+      Logger.log(`Set TYPE validation with values: ${types.join(', ')}`);
+      return `✓ Timeoff TYPE column dropdown validation added successfully\n\nAvailable types:\n- ${types.join('\n- ')}`;
+
+    } catch (validationError) {
+      // Column is likely typed - validation is already enforced by column type
+      if (validationError.message.includes('typed column')) {
+        Logger.log(`TYPE column is already typed - validation not needed`);
+
+        return `✓ TYPE column validation setup complete\n\n` +
+               `Note: Your TYPE column is using Google Sheets column types, ` +
+               `which already provides dropdown validation.\n\n` +
+               `Available types:\n- ${types.join('\n- ')}\n\n` +
+               `To ensure the column type includes all values:\n` +
+               `1. Click the TYPE column header (column D)\n` +
+               `2. Verify the column type dropdown includes:\n` +
+               `   - ${types.join('\n   - ')}\n` +
+               `3. If types are missing, add them to the column type settings`;
+      }
+
+      // Some other error - rethrow
+      throw validationError;
+    }
 
   } catch (e) {
     Logger.log(`ERROR in TIMEOFFS_setupValidation: ${e.message}`);
-    throw new Error(`Failed to setup validation: ${e.message}`);
+
+    // Provide helpful error message
+    let errorMsg = `Could not setup TYPE validation: ${e.message}\n\n`;
+
+    if (e.message.includes('typed column')) {
+      errorMsg += `Your TYPE column uses Google Sheets column types.\n\n` +
+                  `Manual setup:\n` +
+                  `1. Click the TYPE column header (column D)\n` +
+                  `2. Look for the column type dropdown arrow\n` +
+                  `3. Ensure it includes these values:\n` +
+                  `   - ${Object.values(CONSTANTS.TIMEOFF_TYPES).join('\n   - ')}`;
+    } else {
+      errorMsg += `Please check the Timeoffs sheet structure and try again.`;
+    }
+
+    throw new Error(errorMsg);
   }
 }
