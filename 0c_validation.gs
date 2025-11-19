@@ -156,9 +156,9 @@ function VALIDATE_volunteers() {
         results.errors.push(`Volunteers row ${rowNum}: Invalid status '${status}'. Must be: ${validStatuses.join(', ')}`);
       }
 
-      // Ministry Role: Required for active volunteers
-      const ministryRole = HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE - 1);
-      if (status === 'Active' && (!ministryRole || ministryRole.trim() === "")) {
+      // Ministries: Required for active volunteers
+      const ministries = HELPER_safeArrayAccess(row, cols.MINISTRIES - 1);
+      if (status === 'Active' && (!ministries || ministries.trim() === "")) {
         results.warnings.push(`Volunteers row ${rowNum}: Active volunteer '${fullName}' has no ministry roles`);
       }
 
@@ -228,7 +228,7 @@ function VALIDATE_templates() {
       const rowNum = i + 2;
 
       const templateName = HELPER_safeArrayAccess(row, cols.TEMPLATE_NAME - 1);
-      const ministryRole = HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE - 1);
+      const ministryName = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1);
 
       // Template Name: Required
       if (!templateName || templateName.trim() === "") {
@@ -236,17 +236,17 @@ function VALIDATE_templates() {
         continue;
       }
 
-      // Ministry Role: Required
-      if (!ministryRole || ministryRole.trim() === "") {
-        results.errors.push(`Templates row ${rowNum}: Ministry Role is required for template '${templateName}'`);
+      // Ministry Name: Required
+      if (!ministryName || ministryName.trim() === "") {
+        results.errors.push(`Templates row ${rowNum}: Ministry Name is required for template '${templateName}'`);
         continue;
       }
 
-      // Track templates and their roles
+      // Track templates and their ministries
       if (!templates.has(templateName)) {
         templates.set(templateName, []);
       }
-      templates.get(templateName).push(ministryRole);
+      templates.get(templateName).push(ministryName);
     }
 
     // Check for templates with no roles

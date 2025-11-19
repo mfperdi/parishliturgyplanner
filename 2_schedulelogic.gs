@@ -185,8 +185,8 @@ function SCHEDULE_buildTemplateMap() {
     }
 
     templateMap.get(templateName).push({
-      roleName: row[templateCols.MINISTRY_ROLE - 1],
-      skill: row[templateCols.MINISTRY_SKILL - 1]
+      roleName: row[templateCols.MINISTRY_NAME - 1],
+      skill: row[templateCols.ROLE_NAME - 1]
     });
   }
   Logger.log(`> Built template map with ${templateMap.size} templates.`);
