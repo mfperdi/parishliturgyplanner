@@ -95,6 +95,9 @@ function buildScheduleData(monthString, config) {
   // Build liturgical data map (extracted from PRINT_generateLiturgicalSchedule)
   const liturgicalData = buildLiturgicalDataMap(monthString);
 
+  // Load liturgical notes
+  const liturgicalNotes = loadLiturgicalNotes();
+
   // Get assignment data
   const assignments = getAssignmentDataForMonth(monthString);
 
@@ -104,6 +107,7 @@ function buildScheduleData(monthString, config) {
   return {
     parishName,
     liturgicalData,
+    liturgicalNotes,
     assignments,
     assignmentsByLiturgy,
     printConfig
@@ -161,6 +165,45 @@ function buildLiturgicalDataMap(monthString) {
   }
   
   return liturgicalMap;
+}
+
+/**
+ * Loads liturgical notes from the LiturgicalNotes sheet.
+ * @returns {Map} Map of celebration name to notes.
+ */
+function loadLiturgicalNotes() {
+  const notesMap = new Map();
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const notesSheet = ss.getSheetByName(CONSTANTS.SHEETS.LITURGICAL_NOTES);
+
+    if (!notesSheet) {
+      Logger.log('LiturgicalNotes sheet not found - skipping notes');
+      return notesMap;
+    }
+
+    const data = notesSheet.getDataRange().getValues();
+    const notesCols = CONSTANTS.COLS.LITURGICAL_NOTES;
+
+    // Skip header row
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      const celebration = HELPER_safeArrayAccess(row, notesCols.CELEBRATION - 1);
+      const notes = HELPER_safeArrayAccess(row, notesCols.NOTES - 1);
+
+      if (celebration && notes) {
+        notesMap.set(celebration, notes);
+      }
+    }
+
+    Logger.log(`Loaded ${notesMap.size} liturgical notes`);
+
+  } catch (error) {
+    Logger.log(`Warning: Could not read liturgical notes: ${error}`);
+  }
+
+  return notesMap;
 }
 
 /**
@@ -273,7 +316,7 @@ function createScheduleContent(sheet, scheduleData, startRow, config) {
  */
 function createLiturgicalContent(sheet, scheduleData, startRow, config) {
   let currentRow = startRow;
-  const { liturgicalData, assignmentsByLiturgy, printConfig } = scheduleData;
+  const { liturgicalData, liturgicalNotes, assignmentsByLiturgy, printConfig } = scheduleData;
 
   // Get celebrations in chronological order
   const sortedCelebrations = Array.from(liturgicalData.keys()).sort((a, b) => {
@@ -288,7 +331,7 @@ function createLiturgicalContent(sheet, scheduleData, startRow, config) {
 
     if (celebrationAssignments.length === 0) continue;
 
-    currentRow = createCelebrationSection(sheet, celebration, liturgyInfo, celebrationAssignments, currentRow, config, printConfig);
+    currentRow = createCelebrationSection(sheet, celebration, liturgyInfo, celebrationAssignments, currentRow, config, printConfig, liturgicalNotes);
   }
 
   return currentRow;
@@ -297,7 +340,7 @@ function createLiturgicalContent(sheet, scheduleData, startRow, config) {
 /**
  * Creates a section for a single liturgical celebration.
  */
-function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, startRow, config, printConfig) {
+function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, startRow, config, printConfig, liturgicalNotes) {
   let currentRow = startRow;
 
   // Celebration header with color coding - use configured liturgical colors
@@ -314,7 +357,15 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
 
   // Rank/Season/Color info (if enabled)
   if (config.showRankInfo && liturgyInfo) {
-    const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
+    // Build rank info line
+    let rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
+
+    // Append liturgical notes if they exist for this celebration
+    if (liturgicalNotes && liturgicalNotes.has(celebration)) {
+      const notes = liturgicalNotes.get(celebration);
+      rankInfo += ` | ${notes}`;
+    }
+
     sheet.getRange(currentRow, 1).setValue(rankInfo);
     sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic');
     if (config.includeColors) {
