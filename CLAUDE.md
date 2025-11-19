@@ -44,6 +44,7 @@ Sidebar.html  - User interface
 | `0a_constants.gs` | Global constants, sheet names, column mappings | `CONSTANTS` object |
 | `0b_helper.gs` | Reusable utility functions, liturgical helpers | `HELPER_*()`, `PRECEDENCE` |
 | `0c_validation.gs` | Comprehensive data validation system | `VALIDATE_all()`, `VALIDATE_*()`, `runDataValidation()` |
+| `0d_onedit.gs` | Real-time assignment validation with onEdit trigger | `onEdit()`, `ONEDIT_*()` functions |
 | `0_debug.gs` | Debugging and diagnostic tools | Debug functions |
 | `1_calendarlogic.gs` | Liturgical calendar generation orchestration | `CALENDAR_generateLiturgicalCalendar()` |
 | `1a_calendardates.gs` | Moveable feast date calculations | `CALENDAR_calculateLiturgicalDates()` |
@@ -362,6 +363,54 @@ The timeoff system supports two request types for managing volunteer availabilit
 3. For preference changes (e.g., changing preferred mass times), edit the Volunteers sheet directly
 4. For status changes (e.g., marking volunteer as Inactive), edit the Volunteers sheet directly
 5. For special event assignments (e.g., manually assigning someone despite unavailability), use the Assignments sheet directly
+
+### Workflow 5b: Real-Time Assignment Validation
+
+**Trigger**: Automatic - fires when manually editing Volunteer ID or Name in Assignments sheet
+
+**Process** (`onEdit()` in 0d_onedit.gs):
+1. User types volunteer name or ID in Assignments sheet (columns I or J)
+2. System validates assignment in real-time:
+   - **Status check**: Volunteer must be Active
+   - **Ministry match**: Volunteer must have required role AND skill
+   - **Timeoff check**: No blacklist conflicts, whitelist compliance
+3. If warnings found:
+   - Show dialog with detailed warning messages
+   - User chooses: Cancel assignment OR Override with confirmation
+4. If override confirmed:
+   - Assignment stays in place
+   - Notes column updated with override documentation
+   - Row highlighted via conditional formatting
+5. If no warnings:
+   - Assignment accepted silently
+   - Both ID and Name auto-filled
+
+**Validation Checks**:
+- **Status**: Must be "Active" (not Inactive, Substitute Only, etc.)
+- **Ministry Role**: General category from Volunteers sheet
+- **Ministry Skill**: Specific skill from MassTemplates sheet
+- **Blacklist (Unavailable)**: Volunteer cannot serve on specified dates
+- **Whitelist (Only Available For)**: Volunteer can ONLY serve specified Event IDs/dates
+
+**Override Documentation**:
+When user overrides warnings, Notes column is automatically updated:
+```
+[Override: Inactive, Missing Role] Original notes...
+```
+
+**Conditional Formatting**:
+- One-time setup: Admin Tools → Setup Assignment Validation
+- Rows with overrides highlighted in light orange
+- Visual audit trail for quality control
+
+**Best Practices**:
+1. Run Admin Tools → Setup Assignment Validation once to enable visual highlighting
+2. Respect warnings when possible - they prevent scheduling errors
+3. Use overrides for legitimate exceptions (emergencies, training, special events)
+4. Review orange-highlighted assignments periodically
+5. Keep Volunteers and Timeoffs sheets up to date to minimize false warnings
+
+**See Also**: ASSIGNMENT_VALIDATION.md for complete documentation, troubleshooting, and common scenarios
 
 ### Workflow 6: Data Protection
 
@@ -916,10 +965,25 @@ The system includes comprehensive documentation to support deployment and testin
 
 **Target Audience**: Parish administrators and developers validating system before production deployment
 
+### ASSIGNMENT_VALIDATION.md
+**Purpose**: Real-time assignment validation system guide
+
+**Contents**:
+- How the onEdit validation system works
+- Setup instructions for conditional formatting
+- Validation checks (status, ministry roles/skills, timeoffs)
+- Override workflow and documentation
+- Common scenarios and troubleshooting
+- Integration with auto-assignment
+- Visual feedback and audit trails
+
+**Target Audience**: Parish administrators manually assigning volunteers
+
 **Usage Pattern**:
 1. Follow QUICK_START.md to deploy the system
 2. Use CALENDAR_VALIDATION.md to verify liturgical accuracy
 3. Complete TESTING_CHECKLIST.md with parish data before going live
+4. Reference ASSIGNMENT_VALIDATION.md when manually assigning volunteers
 
 ## Additional Resources
 
@@ -946,11 +1010,18 @@ The system includes comprehensive documentation to support deployment and testin
 
 ---
 
-**Last Updated**: 2025-11-17
+**Last Updated**: 2025-11-18
 
-**Codebase Version**: Production-ready with simplified timeoff system
+**Codebase Version**: Production-ready with real-time assignment validation
 
 **Recent Changes**:
+- **Real-Time Assignment Validation System** (0d_onedit.gs, 0_code.gs):
+  - Added onEdit trigger for automatic validation when manually assigning volunteers
+  - Validates volunteer status (must be Active), ministry roles/skills, and timeoff conflicts
+  - Warning mode: allows overrides with confirmation dialog and automatic documentation
+  - Conditional formatting highlights override assignments in light orange
+  - Comprehensive documentation in ASSIGNMENT_VALIDATION.md
+  - Menu item: Admin Tools → Setup Assignment Validation
 - **Simplified Timeoff Management System** (0a_constants.gs, 0b_helper.gs, 3_assignmentlogic.gs, 4_timeoff-form.gs):
   - Reduced from 5 to 2 timeoff request types: Unavailable (blacklist) and Only Available For (whitelist)
   - Removed Special Availability, Preference Update, and Status Change types (handled manually in respective sheets)
