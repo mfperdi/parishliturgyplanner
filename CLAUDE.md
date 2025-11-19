@@ -114,9 +114,9 @@ The system uses multiple interconnected sheets within a single spreadsheet:
 - Columns: Timestamp, Volunteer Name, Email, Type, Start Date, End Date, Notes, Status, Reviewed Date, Review Notes
 - **Status**: Pending, Approved, Rejected
 - **Type** (dropdown):
-  - **Unavailable** (blacklist): Volunteer cannot serve on specified dates
-  - **Only Available For** (whitelist): Volunteer can ONLY serve on specified Event IDs/dates during the specified period
-- **Notes field format** (for "Only Available For" type only):
+  - **Not Available** (blacklist): Volunteer cannot serve on specified dates
+  - **Only Available** (whitelist): Volunteer can ONLY serve on specified Event IDs/dates during the specified period
+- **Notes field format** (for "Only Available" type only):
   - Comma-separated Event IDs and/or specific dates (e.g., "SUN-1000, SAT-1700" or "12/25/2025, 1/1/2026")
 
 #### Output Sheets
@@ -213,8 +213,8 @@ Layer 3 (Yearly):
 **Process** (`ASSIGNMENT_autoAssignRolesForMonthOptimized()`):
 1. Read active volunteers with ministry qualifications
 2. **Build timeoff maps** (approved timeoffs only):
-   - **Blacklist** map: Unavailable dates
-   - **Whitelist** map: Only Available For dates/Event IDs
+   - **Blacklist** map: Not Available dates
+   - **Whitelist** map: Only Available dates/Event IDs
    - **Special Availability** map: Override dates/Event IDs
 3. Process group assignments first (family teams)
 4. Group individual assignments by Mass
@@ -237,8 +237,8 @@ Layer 3 (Yearly):
 6. Mark assignments with status "Assigned"
 
 **Timeoff Logic**:
-- **Whitelist** (Only Available For): If a volunteer has a whitelist, they can ONLY be assigned to specified Event IDs or dates during the specified period
-- **Blacklist** (Unavailable): Volunteer is excluded from assignment on specified dates
+- **Whitelist** (Only Available): If a volunteer has a whitelist, they can ONLY be assigned to specified Event IDs or dates during the specified period
+- **Blacklist** (Not Available): Volunteer is excluded from assignment on specified dates
 - Whitelist takes precedence: if a whitelist exists for a volunteer, they must match the whitelist to be eligible
 
 **Volunteer Scoring Algorithm** (in `HELPER_calculateVolunteerScore()`):
@@ -314,40 +314,40 @@ Base score: 100
 **Workflow Overview**:
 The timeoff system supports two request types for managing volunteer availability:
 
-#### 1. Unavailable (Blacklist)
+#### 1. Not Available (Blacklist)
 **Use case**: Volunteer cannot serve on specified dates
 
 **Process**:
-1. Enter timeoff with TYPE = "Unavailable"
+1. Enter timeoff with TYPE = "Not Available"
 2. Set Start Date and End Date
 3. Submit (Status = "Pending")
 4. Admin approves request
 5. **Result**: Volunteer excluded from auto-assignment for those dates
 
 **Example**: "I'm on vacation 7/1-7/15"
-- Type: `Unavailable`
+- Type: `Not Available`
 - Start Date: `7/1/2026`
 - End Date: `7/15/2026`
 - Notes: (optional description)
 
-#### 2. Only Available For (Whitelist)
+#### 2. Only Available (Whitelist)
 **Use case**: Volunteer can ONLY serve specific masses or dates during a period
 
 **Process**:
-1. Enter timeoff with TYPE = "Only Available For"
+1. Enter timeoff with TYPE = "Only Available"
 2. Set Start Date and End Date (the period this restriction applies)
 3. **Notes field**: Enter Event IDs and/or specific dates (e.g., "SUN-1000, SAT-1700" or "12/25/2025, 1/1/2026")
 4. Submit and get approved
 5. **Result**: During the specified period, volunteer can ONLY be assigned to masses matching the specified Event IDs or dates
 
 **Example**: "I can only serve Saturday 5pm vigil masses this summer"
-- Type: `Only Available For`
+- Type: `Only Available`
 - Start Date: `6/1/2026`
 - End Date: `8/31/2026`
 - Notes: `SAT-1700`
 
 **Example**: "I'm only available for Christmas and New Year masses"
-- Type: `Only Available For`
+- Type: `Only Available`
 - Start Date: `12/1/2025`
 - End Date: `1/15/2026`
 - Notes: `12/25/2025, 1/1/2026`
@@ -389,8 +389,8 @@ The timeoff system supports two request types for managing volunteer availabilit
 - **Status**: Must be "Active" (not Inactive, Substitute Only, etc.)
 - **Ministry Role**: General category from Volunteers sheet
 - **Ministry Skill**: Specific skill from MassTemplates sheet
-- **Blacklist (Unavailable)**: Volunteer cannot serve on specified dates
-- **Whitelist (Only Available For)**: Volunteer can ONLY serve specified Event IDs/dates
+- **Blacklist (Not Available)**: Volunteer cannot serve on specified dates
+- **Whitelist (Only Available)**: Volunteer can ONLY serve specified Event IDs/dates
 
 **Override Documentation**:
 When user overrides warnings, Notes column is automatically updated:
@@ -1023,7 +1023,7 @@ The system includes comprehensive documentation to support deployment and testin
   - Comprehensive documentation in ASSIGNMENT_VALIDATION.md
   - Menu item: Admin Tools → Setup Assignment Validation
 - **Simplified Timeoff Management System** (0a_constants.gs, 0b_helper.gs, 3_assignmentlogic.gs, 4_timeoff-form.gs):
-  - Reduced from 5 to 2 timeoff request types: Unavailable (blacklist) and Only Available For (whitelist)
+  - Reduced from 5 to 2 timeoff request types: Not Available (blacklist) and Only Available (whitelist)
   - Removed Special Availability, Preference Update, and Status Change types (handled manually in respective sheets)
   - Simplified validation logic and removed auto-processing features
   - Clearer separation of concerns: timeoffs = availability only, preferences/status = manual edits

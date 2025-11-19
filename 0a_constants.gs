@@ -173,8 +173,8 @@ const CONSTANTS = {
 
   // 4. Timeoff Request Types
   TIMEOFF_TYPES: {
-    UNAVAILABLE: 'Unavailable',                    // Blacklist - don't schedule for these dates
-    ONLY_AVAILABLE: 'Only Available For'           // Whitelist - only schedule for these dates/masses (Notes field: Event IDs and/or dates)
+    UNAVAILABLE: 'Not Available',                  // Blacklist - don't schedule for these dates
+    ONLY_AVAILABLE: 'Only Available'               // Whitelist - only schedule for these dates/masses (Notes field: Event IDs and/or dates)
   },
 
   // 5. Validation Rules
