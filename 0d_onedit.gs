@@ -177,6 +177,10 @@ function ONEDIT_validateAssignment(sheet, row) {
       if (cleanedNotes !== currentNotes) {
         ONEDIT_safeSetValue(sheet.getRange(row, cols.NOTES), cleanedNotes);
       }
+
+      // Fill in both ID and Name for consistency (safe for typed columns)
+      ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID), volunteer.volunteerId);
+      ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME), volunteer.fullName);
       return;
     }
 
