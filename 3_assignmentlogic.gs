@@ -459,7 +459,7 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
 /**
  * Extracted candidate filtering
  * Filters volunteers based on timeoff blacklist/whitelist
- * NOW INCLUDES: Skill-to-Ministry mapping for proper matching
+ * NOW INCLUDES: Strict role matching - volunteers only assigned to their specified roles
  */
 function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap) {
   const candidates = [];
@@ -467,17 +467,27 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
   const massDateString = roleInfo.date.toDateString();
   const eventId = roleInfo.eventId;
 
-  // CRITICAL FIX: Map the specific skill to its general ministry category
+  // Map the specific skill to its general ministry category
   // Example: "1st reading" → "lector"
   const requiredMinistry = skillToMinistryMap.get(roleLower) || roleLower;
 
   Logger.log(`  🔍 Checking for skill "${roleLower}" → ministry "${requiredMinistry}"`);
 
   for (const volunteer of volunteers.values()) {
-    // 1. Check if volunteer can do this role
-    // Now checks if volunteer has the GENERAL MINISTRY for this specific skill
-    if (!volunteer.ministries.includes(requiredMinistry.toLowerCase())) {
-      continue;
+    // 1. STRICT ROLE MATCHING:
+    // If volunteer has specific role preferences, they must match exactly
+    // If volunteer has NO role preferences, they can do any role in their ministry
+    if (volunteer.rolePrefs && volunteer.rolePrefs.length > 0) {
+      // Volunteer has specific role preferences - MUST match exactly
+      if (!volunteer.rolePrefs.includes(roleLower)) {
+        // This volunteer specified roles, but this role isn't one of them
+        continue;
+      }
+    } else {
+      // Volunteer has NO role preferences - check if they have the general ministry
+      if (!volunteer.ministries.includes(requiredMinistry.toLowerCase())) {
+        continue;
+      }
     }
 
     // 2. Must be Active status
@@ -573,10 +583,21 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap) {
   const requiredMinistry = skillToMinistryMap.get(roleLower) || roleLower;
 
   for (const vol of volunteers.values()) {
-    if (vol.familyTeam &&
-        vol.familyTeam.toLowerCase() === assignment.assignedGroup.toLowerCase() &&
-        vol.ministries.includes(requiredMinistry.toLowerCase())) {
-      return vol;
+    if (!vol.familyTeam || vol.familyTeam.toLowerCase() !== assignment.assignedGroup.toLowerCase()) {
+      continue;
+    }
+
+    // STRICT ROLE MATCHING: Same logic as filterCandidates
+    if (vol.rolePrefs && vol.rolePrefs.length > 0) {
+      // Volunteer has specific role preferences - MUST match exactly
+      if (vol.rolePrefs.includes(roleLower)) {
+        return vol;
+      }
+    } else {
+      // Volunteer has NO role preferences - check if they have the general ministry
+      if (vol.ministries.includes(requiredMinistry.toLowerCase())) {
+        return vol;
+      }
     }
   }
   return null;
