@@ -42,18 +42,21 @@ function ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString) {
 function executeAssignmentLogic(monthString, month, scheduleYear) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
-  
+
   if (!assignmentsSheet) {
     throw new Error(`Assignments sheet '${CONSTANTS.SHEETS.ASSIGNMENTS}' not found`);
   }
-  
+
   // Read data once and cache
   const volunteerData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.VOLUNTEERS);
   const timeoffData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.TIMEOFFS);
-  
+
   // Build optimized data structures
   const volunteers = buildVolunteerMapOptimized(volunteerData);
   const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, scheduleYear);
+
+  // CRITICAL: Build skill-to-ministry mapping from MassTemplates
+  const skillToMinistryMap = buildSkillToMinistryMap();
 
   if (volunteers.size === 0) {
     Logger.log("WARNING: No active volunteers found");
@@ -66,9 +69,53 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
   Logger.log(`Found ${assignmentContext.unassignedRoles.length} unassigned roles and ${assignmentContext.groupAssignments.length} group assignments`);
 
   // Process assignments
-  const results = processAssignments(assignmentContext, volunteers, timeoffMaps, assignmentsSheet);
-  
+  const results = processAssignments(assignmentContext, volunteers, timeoffMaps, assignmentsSheet, skillToMinistryMap);
+
   return formatAssignmentResults(results, monthString);
+}
+
+/**
+ * Build skill-to-ministry mapping from MassTemplates sheet
+ * Maps specific skills (e.g., "1st reading") to general ministry categories (e.g., "Lector")
+ * This allows volunteers with "Lector" to be matched to "1st reading" assignments
+ */
+function buildSkillToMinistryMap() {
+  const map = new Map();
+
+  try {
+    const templateData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.TEMPLATES);
+    const cols = CONSTANTS.COLS.TEMPLATES;
+
+    for (const row of templateData) {
+      const ministryName = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1);
+      const roleName = HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1);
+
+      if (ministryName && roleName) {
+        // Map: "1st reading" → "Lector"
+        // Map: "2nd reading" → "Lector"
+        // Map: "chalice" → "Eucharistic Minister"
+        const skillLower = String(roleName).toLowerCase();
+        const ministryLower = String(ministryName).toLowerCase();
+
+        // Only add if not already mapped (first occurrence wins)
+        if (!map.has(skillLower)) {
+          map.set(skillLower, ministryLower);
+        }
+      }
+    }
+
+    Logger.log(`Built skill-to-ministry map with ${map.size} mappings`);
+
+    // Debug: show all mappings
+    for (const [skill, ministry] of map) {
+      Logger.log(`  "${skill}" → "${ministry}"`);
+    }
+
+  } catch (e) {
+    Logger.log(`WARNING: Could not build skill-to-ministry map: ${e.message}`);
+  }
+
+  return map;
 }
 
 /**
@@ -315,7 +362,7 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
 /**
  * Process assignments with improved algorithm
  */
-function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet) {
+function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, skillToMinistryMap) {
   const results = {
     groupAssignments: 0,
     individualAssignments: 0,
@@ -326,7 +373,7 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet) 
 
   // Process group assignments first
   for (const assignment of context.groupAssignments) {
-    const success = processGroupAssignment(assignment, volunteers, assignmentsSheet, assignCols);
+    const success = processGroupAssignment(assignment, volunteers, assignmentsSheet, assignCols, skillToMinistryMap);
     if (success) results.groupAssignments++;
   }
 
@@ -343,19 +390,20 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet) 
         volunteers,
         timeoffMaps,
         context.assignmentCounts,
-        massAssignments
+        massAssignments,
+        skillToMinistryMap
       );
-      
+
       if (volunteer) {
         // Make the assignment
         assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(volunteer.id);
         assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(volunteer.name);
         assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.STATUS).setValue("Assigned");
-        
+
         // Update tracking
         updateAssignmentCounts(context.assignmentCounts, volunteer.id, roleInfo.date);
         massAssignments.set(volunteer.id, roleInfo.role);
-        
+
         results.individualAssignments++;
         Logger.log(`Assigned ${volunteer.name} to ${roleInfo.role} on ${roleInfo.date.toDateString()}`);
       } else {
@@ -364,17 +412,17 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet) 
       }
     }
   }
-  
+
   return results;
 }
 
 /**
  * Simplified volunteer finding with extracted scoring logic and detailed logging
  */
-function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments) {
+function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap) {
   Logger.log(`\n🎯 Looking for volunteer for ${roleInfo.role} on ${roleInfo.date.toDateString()} (${roleInfo.eventId})`);
 
-  const candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments);
+  const candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap);
 
   Logger.log(`📋 Found ${candidates.length} eligible candidates`);
 
@@ -411,16 +459,24 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
 /**
  * Extracted candidate filtering
  * Filters volunteers based on timeoff blacklist/whitelist
+ * NOW INCLUDES: Skill-to-Ministry mapping for proper matching
  */
-function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments) {
+function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap) {
   const candidates = [];
   const roleLower = roleInfo.role.toLowerCase();
   const massDateString = roleInfo.date.toDateString();
   const eventId = roleInfo.eventId;
 
+  // CRITICAL FIX: Map the specific skill to its general ministry category
+  // Example: "1st reading" → "lector"
+  const requiredMinistry = skillToMinistryMap.get(roleLower) || roleLower;
+
+  Logger.log(`  🔍 Checking for skill "${roleLower}" → ministry "${requiredMinistry}"`);
+
   for (const volunteer of volunteers.values()) {
     // 1. Check if volunteer can do this role
-    if (!volunteer.ministries.includes(roleLower)) {
+    // Now checks if volunteer has the GENERAL MINISTRY for this specific skill
+    if (!volunteer.ministries.includes(requiredMinistry.toLowerCase())) {
       continue;
     }
 
@@ -497,26 +553,29 @@ function updateAssignmentCounts(assignmentCounts, volunteerId, date) {
   counts.recent = date;
 }
 
-function processGroupAssignment(assignment, volunteers, assignmentsSheet, assignCols) {
+function processGroupAssignment(assignment, volunteers, assignmentsSheet, assignCols, skillToMinistryMap) {
   // Simplified group assignment logic
-  const familyMember = findFamilyMember(assignment, volunteers);
-  
+  const familyMember = findFamilyMember(assignment, volunteers, skillToMinistryMap);
+
   if (familyMember) {
     assignmentsSheet.getRange(assignment.rowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(familyMember.id);
     assignmentsSheet.getRange(assignment.rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(familyMember.name);
   } else {
     assignmentsSheet.getRange(assignment.rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(assignment.assignedGroup);
   }
-  
+
   assignmentsSheet.getRange(assignment.rowIndex, assignCols.STATUS).setValue("Assigned");
   return true;
 }
 
-function findFamilyMember(assignment, volunteers) {
+function findFamilyMember(assignment, volunteers, skillToMinistryMap) {
+  const roleLower = assignment.role.toLowerCase();
+  const requiredMinistry = skillToMinistryMap.get(roleLower) || roleLower;
+
   for (const vol of volunteers.values()) {
-    if (vol.familyTeam && 
+    if (vol.familyTeam &&
         vol.familyTeam.toLowerCase() === assignment.assignedGroup.toLowerCase() &&
-        vol.ministries.includes(assignment.role.toLowerCase())) {
+        vol.ministries.includes(requiredMinistry.toLowerCase())) {
       return vol;
     }
   }
