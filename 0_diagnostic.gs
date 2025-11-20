@@ -32,6 +32,10 @@ function DIAGNOSTIC_checkAssignmentReadiness(monthString) {
     let inactiveCount = 0;
     let noMinistryCount = 0;
     const ministryCounts = new Map();
+    const roleCounts = new Map(); // NEW: Track volunteers by specific roles
+
+    // NEW: Build skill-to-ministry map from MassTemplates
+    const skillToMinistryMap = buildSkillToMinistryMap();
 
     for (const row of volunteerData) {
       const id = HELPER_safeArrayAccess(row, volCols.VOLUNTEER_ID - 1);
@@ -40,6 +44,7 @@ function DIAGNOSTIC_checkAssignmentReadiness(monthString) {
       const status = String(HELPER_safeArrayAccess(row, volCols.STATUS - 1, '')).toLowerCase();
       const name = HELPER_safeArrayAccess(row, volCols.FULL_NAME - 1);
       const ministriesRaw = HELPER_safeArrayAccess(row, volCols.MINISTRIES - 1, '');
+      const rolePrefsRaw = HELPER_safeArrayAccess(row, volCols.ROLES - 1, ''); // NEW: Read role preferences
 
       if (status === 'active') {
         activeCount++;
@@ -57,6 +62,27 @@ function DIAGNOSTIC_checkAssignmentReadiness(monthString) {
           ministries.forEach(ministry => {
             ministryCounts.set(ministry, (ministryCounts.get(ministry) || 0) + 1);
           });
+
+          // NEW: Parse role preferences
+          const rolePrefs = String(rolePrefsRaw)
+            .split(',')
+            .map(s => s.trim().toLowerCase())
+            .filter(s => s.length > 0);
+
+          if (rolePrefs.length > 0) {
+            // Volunteer has specific role preferences - count for those roles
+            rolePrefs.forEach(role => {
+              roleCounts.set(role, (roleCounts.get(role) || 0) + 1);
+            });
+          } else {
+            // Volunteer has NO role preferences - can do ANY role in their ministries
+            // Add them to all roles that map to their ministries
+            for (const [skill, ministry] of skillToMinistryMap) {
+              if (ministries.includes(ministry)) {
+                roleCounts.set(skill, (roleCounts.get(skill) || 0) + 1);
+              }
+            }
+          }
         }
       } else {
         inactiveCount++;
@@ -79,6 +105,10 @@ function DIAGNOSTIC_checkAssignmentReadiness(monthString) {
     Logger.log(`  Ministry distribution:`);
     for (const [ministry, count] of ministryCounts) {
       Logger.log(`    - ${ministry}: ${count} volunteers`);
+    }
+    Logger.log(`  Role coverage (with strict matching):`);
+    for (const [role, count] of roleCounts) {
+      Logger.log(`    - ${role}: ${count} volunteers`);
     }
 
     // 2. Check Assignments Sheet
@@ -137,16 +167,29 @@ function DIAGNOSTIC_checkAssignmentReadiness(monthString) {
       Logger.log(`    - ${role}: ${count} assignments`);
     }
 
-    // 3. Check Role Coverage
-    Logger.log("\n3. CHECKING ROLE COVERAGE...");
+    // 3. Check Role Coverage (using strict role matching)
+    Logger.log("\n3. CHECKING ROLE COVERAGE (STRICT MATCHING)...");
     let coverageIssues = 0;
 
     for (const [roleNeeded, countNeeded] of rolesNeeded) {
-      const volunteersForRole = ministryCounts.get(roleNeeded) || 0;
+      const volunteersForRole = roleCounts.get(roleNeeded) || 0;
+
+      // Get the ministry category for this role
+      const ministryCategory = skillToMinistryMap.get(roleNeeded) || roleNeeded;
+      const volunteersWithMinistry = ministryCounts.get(ministryCategory) || 0;
 
       if (volunteersForRole === 0) {
-        diagnostics.errors.push(`NO volunteers found for role "${roleNeeded}" (needed ${countNeeded} times)`);
-        Logger.log(`  ✗ ${roleNeeded}: NEED ${countNeeded}, HAVE 0 volunteers`);
+        if (volunteersWithMinistry > 0) {
+          diagnostics.errors.push(`NO volunteers found for role "${roleNeeded}" (needed ${countNeeded} times) - but ${volunteersWithMinistry} volunteers have "${ministryCategory}" ministry. Fix: Add "${roleNeeded}" to their ROLES column (Column K) OR leave ROLES blank for flexible assignment.`);
+          Logger.log(`  ✗ ${roleNeeded}: NEED ${countNeeded}, HAVE 0 volunteers`);
+          Logger.log(`     BUT: ${volunteersWithMinistry} volunteers have "${ministryCategory}" ministry`);
+          Logger.log(`     FIX: In Volunteers sheet, Column K (ROLES):`);
+          Logger.log(`          - Add "${roleNeeded}" to specific volunteers, OR`);
+          Logger.log(`          - Leave blank to allow any "${ministryCategory}" role`);
+        } else {
+          diagnostics.errors.push(`NO volunteers found for role "${roleNeeded}" (needed ${countNeeded} times) - and no volunteers have "${ministryCategory}" ministry`);
+          Logger.log(`  ✗ ${roleNeeded}: NEED ${countNeeded}, HAVE 0 volunteers and 0 with ministry`);
+        }
         coverageIssues++;
       } else if (volunteersForRole < countNeeded) {
         diagnostics.warnings.push(`Limited volunteers for "${roleNeeded}": ${volunteersForRole} volunteers, ${countNeeded} assignments`);
