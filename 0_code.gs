@@ -36,6 +36,8 @@ function onOpen(e) {
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
           .addItem('Setup Assignment Validation', 'ONEDIT_setupConditionalFormatting')
+          .addSeparator()
+          .addItem('Diagnose Assignment Issues', 'runAssignmentDiagnostic')
           .addItem('Debug Functions', 'showDebugPanel')
           .addItem('Export Data', 'exportCurrentSchedule'))
       .addToUi();
