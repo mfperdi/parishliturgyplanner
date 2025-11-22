@@ -55,6 +55,16 @@ function showSidebar() {
 }
 
 /**
+ * Serves the standalone web interface as a published web app.
+ * @param {object} e The request event (unused).
+ * @returns {HtmlOutput} The rendered web interface.
+ */
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile('WebApp')
+      .setTitle('Parish Scheduler Web');
+}
+
+/**
  * Fetches the list of months from the LiturgicalCalendar sheet.
  * Returns objects with both display names and values for better UX.
  * This function is called by the sidebar's JavaScript.
@@ -164,6 +174,23 @@ function getUnassignedRolesCount(monthString) {
     Logger.log(`Error getting unassigned roles count: ${e}`);
     return 0;
   }
+}
+
+/**
+ * Provides a snapshot of dashboard data for the web interface.
+ * @param {string} monthString The selected month (e.g., "2026-01"). Optional.
+ * @returns {{months: Array<object>, pendingTimeoffs: number, unassignedRoles: number}} Dashboard data.
+ */
+function getWebDashboardState(monthString) {
+  const months = getMonthsForSidebar();
+  const pendingTimeoffs = getPendingTimeoffsCount();
+  const unassignedRoles = monthString ? getUnassignedRolesCount(monthString) : 0;
+
+  return {
+    months,
+    pendingTimeoffs,
+    unassignedRoles,
+  };
 }
 
 // ---================================---
