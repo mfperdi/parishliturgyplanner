@@ -425,6 +425,27 @@
       showToast(err.message || 'Something went wrong.', true);
       setLoadingState(false);
     }
+
+    /**
+     * Generic wrapper exposing the server-side data layer through
+     * google.script.run. Each method returns a Promise so callers can
+     * await results.
+     */
+    const dataLayer = {
+      listSheets: () => runDataAction('DATA_listSheets'),
+      readRows: (sheetName) => runDataAction('DATA_readRows', sheetName),
+      createRow: (sheetName, keyColumn, record) => runDataAction('DATA_createRow', sheetName, keyColumn, record),
+      updateRow: (sheetName, keyColumn, record) => runDataAction('DATA_updateRow', sheetName, keyColumn, record),
+      deleteRow: (sheetName, keyColumn, keyValue) => runDataAction('DATA_deleteRow', sheetName, keyColumn, keyValue)
+    };
+
+    function runDataAction(action, ...args) {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject)[action](...args);
+      });
+    }
   </script>
 </body>
 </html>
