@@ -95,6 +95,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration;
       newRow[assignCols.MINISTRY_ROLE - 1] = role.skill;  // Use specific role name (e.g., "1st Reader") instead of ministry category
       newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
+      newRow[assignCols.IS_ANTICIPATED - 1] = mass.isAnticipated || false; // NEW: Vigil mass flag
       newRow[assignCols.MONTH_YEAR - 1] = monthString;
       newRow[assignCols.ASSIGNED_GROUP - 1] = mass.assignedGroup || "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";

@@ -331,7 +331,8 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
         role: HELPER_safeArrayAccess(row, assignCols.MINISTRY_ROLE - 1),
         eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1),
         massName: HELPER_safeArrayAccess(row, assignCols.DESCRIPTION - 1),
-        time: HELPER_safeArrayAccess(row, assignCols.TIME - 1)
+        time: HELPER_safeArrayAccess(row, assignCols.TIME - 1),
+        isAnticipated: HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1, false) // NEW: Vigil flag
       };
       
       if (assignedGroup && !assignedVolunteerId) {
@@ -481,7 +482,7 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       continue;
     }
 
-    // 3. Check Whitelist (if exists, must match date)
+    // 3. Check Whitelist (if exists, must match date AND vigil type)
     if (timeoffMaps.whitelist.has(volunteer.name)) {
       const whitelistMap = timeoffMaps.whitelist.get(volunteer.name);
 
@@ -490,17 +491,30 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
         // Date not in whitelist - exclude this volunteer
         continue;
       }
-      // Note: For now, we match just the date.
-      // Future enhancement: match vigil/non-vigil specifically
+
+      // Vigil-specific matching: Check if mass type matches
+      const whitelistTypes = whitelistMap.get(massDateString);
+      const massType = roleInfo.isAnticipated ? 'vigil' : 'non-vigil';
+
+      if (!whitelistTypes.has(massType)) {
+        // Wrong mass type (e.g., they selected non-vigil but this is vigil) - exclude
+        continue;
+      }
     }
 
-    // 4. Check Blacklist
+    // 4. Check Blacklist (date AND vigil type must match)
     if (timeoffMaps.blacklist.has(volunteer.name)) {
       const blacklistMap = timeoffMaps.blacklist.get(volunteer.name);
 
       // Check if this date is blacklisted
       if (blacklistMap.has(massDateString)) {
-        continue; // Blacklisted for this date
+        // Check if mass type matches
+        const blacklistTypes = blacklistMap.get(massDateString);
+        const massType = roleInfo.isAnticipated ? 'vigil' : 'non-vigil';
+
+        if (blacklistTypes.has(massType)) {
+          continue; // Blacklisted for this specific mass type
+        }
       }
     }
 

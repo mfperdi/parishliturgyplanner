@@ -129,13 +129,14 @@ const CONSTANTS = {
       LITURGICAL_CELEBRATION: 4,
       MINISTRY_ROLE: 5,
       EVENT_ID: 6,
-      MONTH_YEAR: 7,
-      ASSIGNED_GROUP: 8,
-      ASSIGNED_VOLUNTEER_ID: 9,
-      ASSIGNED_VOLUNTEER_NAME: 10,
-      STATUS: 11,
-      NOTES: 12,
-      FAMILY_GROUP: 13
+      IS_ANTICIPATED: 7,        // NEW: Is this a vigil mass? (true/false)
+      MONTH_YEAR: 8,            // Shifted from 7
+      ASSIGNED_GROUP: 9,        // Shifted from 8
+      ASSIGNED_VOLUNTEER_ID: 10, // Shifted from 9
+      ASSIGNED_VOLUNTEER_NAME: 11, // Shifted from 10
+      STATUS: 12,               // Shifted from 11
+      NOTES: 13,                // Shifted from 12
+      FAMILY_GROUP: 14          // Shifted from 13
     },
     
     // 'Volunteers' sheet (14 columns)
