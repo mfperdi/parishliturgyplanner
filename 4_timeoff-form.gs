@@ -256,24 +256,51 @@ function TIMEOFFS_getDatesForMonth(monthString) {
     // Get all masses for this month using existing schedule logic
     const allMasses = SCHEDULE_findMassesForMonth(month, year); // month is already 0-indexed from HELPER_validateMonthString
 
+    // Build liturgical celebration map from the calendar
+    const calData = HELPER_readSheetData(CONSTANTS.SHEETS.CALENDAR);
+    const calCols = CONSTANTS.COLS.CALENDAR;
+    const liturgyMap = new Map(); // Key: dateString (YYYY-MM-DD), Value: liturgical celebration name
+
+    for (const row of calData) {
+      const calDate = new Date(row[calCols.DATE - 1]);
+      if (isNaN(calDate.getTime())) continue;
+
+      const dateKey = calDate.toISOString().split('T')[0];
+      const celebration = row[calCols.LITURGICAL_CELEBRATION - 1];
+
+      if (celebration) {
+        liturgyMap.set(dateKey, celebration);
+      }
+    }
+
     // Group masses by date
-    const dateMap = new Map(); // Key: dateString (e.g., "2026-01-05"), Value: { hasVigil: bool, hasNonVigil: bool, date: Date }
+    const dateMap = new Map(); // Key: dateString (e.g., "2026-01-05"), Value: { hasVigil: bool, hasNonVigil: bool, date: Date, liturgy: string }
 
     for (const mass of allMasses) {
       const dateKey = mass.date.toISOString().split('T')[0]; // YYYY-MM-DD format
       const isVigil = mass.isAnticipated === true;
 
       if (!dateMap.has(dateKey)) {
+        // For vigil masses, get liturgy from next day
+        let liturgy = liturgyMap.get(dateKey) || "";
+
         dateMap.set(dateKey, {
           date: mass.date,
           hasVigil: false,
-          hasNonVigil: false
+          hasNonVigil: false,
+          liturgy: liturgy
         });
       }
 
       const dateInfo = dateMap.get(dateKey);
       if (isVigil) {
         dateInfo.hasVigil = true;
+        // For vigil masses, use the liturgy from the NEXT day
+        if (!dateInfo.liturgy) {
+          const nextDay = new Date(mass.date.getTime() + 24 * 60 * 60 * 1000);
+          const nextDayKey = nextDay.toISOString().split('T')[0];
+          dateInfo.liturgy = liturgyMap.get(nextDayKey) || "";
+        }
       } else {
         dateInfo.hasNonVigil = true;
       }
@@ -291,20 +318,21 @@ function TIMEOFFS_getDatesForMonth(monthString) {
       const date = dateInfo.date;
       const dayOfWeek = date.toLocaleString('en-US', { weekday: 'long' });
       const dateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+      const liturgy = dateInfo.liturgy || "Sunday";
 
       // If both vigil and non-vigil masses exist, create two checkboxes
       if (dateInfo.hasVigil && dateInfo.hasNonVigil) {
         // Non-vigil masses
         result.push({
           dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr}`,
+          display: `${dayOfWeek} ${dateStr} - ${liturgy}`,
           isVigil: false,
           date: date
         });
         // Vigil mass
         result.push({
           dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} (Vigil)`,
+          display: `${dayOfWeek} ${dateStr} - ${liturgy} (Vigil)`,
           isVigil: true,
           date: date
         });
@@ -312,7 +340,7 @@ function TIMEOFFS_getDatesForMonth(monthString) {
         // Only vigil mass
         result.push({
           dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} (Vigil)`,
+          display: `${dayOfWeek} ${dateStr} - ${liturgy} (Vigil)`,
           isVigil: true,
           date: date
         });
@@ -320,7 +348,7 @@ function TIMEOFFS_getDatesForMonth(monthString) {
         // Only non-vigil masses
         result.push({
           dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr}`,
+          display: `${dayOfWeek} ${dateStr} - ${liturgy}`,
           isVigil: false,
           date: date
         });
@@ -440,10 +468,10 @@ function TIMEOFFS_updateFormForMonth(monthString) {
 
 /**
  * Extract dates from Google Forms checkbox response text.
- * Input: "Sunday 1/5/2026, Saturday 1/11/2026 (Vigil), Sunday 1/12/2026"
- * Output: ["1/5/2026", "1/11/2026 (Vigil)", "1/12/2026"]
+ * Input: "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil), Sunday 2/8/2026 - 5th Sunday in Ordinary Time, Wednesday 2/18/2026 - Ash Wednesday"
+ * Output: ["2/7/2026 (Vigil)", "2/8/2026", "2/18/2026"]
  * @param {string} text Checkbox response text
- * @returns {Array<string>} Array of date strings
+ * @returns {Array<string>} Array of date strings with optional (Vigil) marker
  */
 function HELPER_extractDatesFromCheckboxes(text) {
   if (!text || typeof text !== 'string') return [];
@@ -456,12 +484,23 @@ function HELPER_extractDatesFromCheckboxes(text) {
   for (const part of parts) {
     if (!part) continue;
 
-    // Extract date portion (after day of week)
-    // Format: "Sunday 1/5/2026" or "Saturday 1/4/2026 (Vigil)"
-    const match = part.match(/(\d{1,2}\/\d{1,2}\/\d{4}(?:\s*\(Vigil\))?)/i);
+    // Extract date portion
+    // NEW Format: "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil)"
+    // OLD Format: "Sunday 1/5/2026" or "Saturday 1/4/2026 (Vigil)"
+    const dateMatch = part.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
 
-    if (match) {
-      dates.push(match[1]);
+    if (dateMatch) {
+      const dateStr = dateMatch[1];
+
+      // Check if this entry has (Vigil) marker anywhere in the string
+      const isVigil = part.toLowerCase().includes('(vigil)');
+
+      // Append (Vigil) to the date if needed
+      if (isVigil) {
+        dates.push(dateStr + ' (Vigil)');
+      } else {
+        dates.push(dateStr);
+      }
     }
   }
 
