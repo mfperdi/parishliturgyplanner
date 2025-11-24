@@ -156,18 +156,16 @@ const CONSTANTS = {
       DATE_TRAINED: 14
     },
     
-    // 'Timeoffs' sheet (10 columns)
+    // 'Timeoffs' sheet (8 columns)
     TIMEOFFS: {
       TIMESTAMP: 1,
       VOLUNTEER_NAME: 2,
       EMAIL: 3,
       TYPE: 4,
-      START_DATE: 5,
-      END_DATE: 6,
-      NOTES: 7,
-      STATUS: 8,
-      REVIEWED_DATE: 9,
-      REVIEW_NOTES: 10
+      NOTES: 5,           // Selected dates from checkboxes (e.g., "2/7/2026 (Vigil), 2/8/2026")
+      STATUS: 6,
+      REVIEWED_DATE: 7,
+      REVIEW_NOTES: 8
     }
   },
   
