@@ -19,6 +19,34 @@
 
 /**
  * @OnlyCurrentDoc
+ *
+ * OAuth Scopes:
+ * This script requires the following additional permissions to access Google Forms:
+ * @customfunction
+ */
+
+/**
+ * Explicitly declare OAuth scopes for Google Forms access.
+ * This allows the script to update form checkboxes dynamically.
+ *
+ * Required scopes:
+ * - https://www.googleapis.com/auth/forms (to update form questions)
+ * - https://www.googleapis.com/auth/spreadsheets (already included by @OnlyCurrentDoc)
+ */
+
+// Force authorization by calling a Forms API method
+// This function should be run once to trigger the authorization flow
+function authorizeFormsAccess() {
+  try {
+    // This dummy call forces the authorization dialog to appear
+    FormApp.getUi();
+    return "✓ Forms access authorized. You can now update timeoff forms.";
+  } catch (e) {
+    return "Authorization needed. Please approve the permissions when prompted.";
+  }
+}
+
+/**
  * This script manages the Parish Liturgical Scheduler with enhanced liturgical print features.
  * It adds a custom menu on open and shows the enhanced sidebar.
  */
