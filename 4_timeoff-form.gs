@@ -254,7 +254,7 @@ function TIMEOFFS_getDatesForMonth(monthString) {
     const { year, month } = HELPER_validateMonthString(monthString);
 
     // Get all masses for this month using existing schedule logic
-    const allMasses = SCHEDULE_findMassesForMonth(month - 1, year); // month is 0-indexed in the function
+    const allMasses = SCHEDULE_findMassesForMonth(month, year); // month is already 0-indexed from HELPER_validateMonthString
 
     // Group masses by date
     const dateMap = new Map(); // Key: dateString (e.g., "2026-01-05"), Value: { hasVigil: bool, hasNonVigil: bool, date: Date }
