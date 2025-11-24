@@ -87,7 +87,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
     // For each role in the template, create a new row
     for (const role of roles) {
-      const newRow = new Array(assignCols.FAMILY_GROUP).fill("");
+      const newRow = new Array(assignCols.NOTES).fill("");
 
       newRow[assignCols.DATE - 1] = mass.date;
       newRow[assignCols.TIME - 1] = mass.time;
