@@ -110,12 +110,27 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
   // 6. Write new rows to the sheet
   Logger.log(`6. Writing ${newAssignmentRows.length} new 'Unassigned' rows...`);
   if (newAssignmentRows.length > 0) {
+    const startRow = assignmentsSheet.getLastRow() + 1;
     assignmentsSheet.getRange(
-      assignmentsSheet.getLastRow() + 1, // Start on the next available row
+      startRow, // Start on the next available row
       1,
       newAssignmentRows.length,
       newAssignmentRows[0].length
     ).setValues(newAssignmentRows);
+
+    // 7. Format IS_ANTICIPATED column as checkboxes
+    Logger.log("7. Formatting IS_ANTICIPATED column as checkboxes...");
+    const checkboxRange = assignmentsSheet.getRange(
+      startRow,
+      assignCols.IS_ANTICIPATED,
+      newAssignmentRows.length,
+      1
+    );
+    const checkboxValidation = SpreadsheetApp.newDataValidation()
+      .requireCheckbox()
+      .setAllowInvalid(false)
+      .build();
+    checkboxRange.setDataValidation(checkboxValidation);
   }
 
   Logger.log("Schedule generation complete.");

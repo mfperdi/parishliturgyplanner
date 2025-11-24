@@ -64,6 +64,7 @@ function onOpen(e) {
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
           .addItem('Setup Assignment Validation', 'ONEDIT_setupConditionalFormatting')
+          .addItem('Format Assignment Checkboxes', 'setupAssignmentCheckboxes')
           .addSeparator()
           .addItem('Update Timeoff Form', 'promptUpdateTimeoffForm')
           .addSeparator()
@@ -423,6 +424,56 @@ function promptUpdateTimeoffForm() {
     const ui = SpreadsheetApp.getUi();
     ui.alert('Error', 'Could not update form: ' + e.message, ui.ButtonSet.OK);
     Logger.log(`ERROR in promptUpdateTimeoffForm: ${e.message}\n${e.stack}`);
+  }
+}
+
+/**
+ * Setup function to format IS_ANTICIPATED column as checkboxes for all existing data.
+ * Run once after adding the IS_ANTICIPATED column to convert text TRUE/FALSE to checkboxes.
+ * Accessed via: Admin Tools > Format Assignment Checkboxes
+ */
+function setupAssignmentCheckboxes() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+
+    if (!assignmentsSheet) {
+      throw new Error('Assignments sheet not found');
+    }
+
+    const lastRow = assignmentsSheet.getLastRow();
+
+    if (lastRow <= 1) {
+      SpreadsheetApp.getUi().alert('No Data', 'No assignment data found to format.', SpreadsheetApp.getUi().ButtonSet.OK);
+      return;
+    }
+
+    // Format IS_ANTICIPATED column (column 7) as checkboxes for all data rows
+    const checkboxRange = assignmentsSheet.getRange(
+      2, // Start from row 2 (skip header)
+      CONSTANTS.COLS.ASSIGNMENTS.IS_ANTICIPATED,
+      lastRow - 1, // All data rows
+      1 // Single column
+    );
+
+    const checkboxValidation = SpreadsheetApp.newDataValidation()
+      .requireCheckbox()
+      .setAllowInvalid(false)
+      .build();
+
+    checkboxRange.setDataValidation(checkboxValidation);
+
+    SpreadsheetApp.getUi().alert(
+      'Success',
+      `Formatted ${lastRow - 1} rows in the IS_ANTICIPATED column as checkboxes.`,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    Logger.log(`Successfully formatted IS_ANTICIPATED column as checkboxes for ${lastRow - 1} rows`);
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('Error', 'Could not format checkboxes: ' + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+    Logger.log(`ERROR in setupAssignmentCheckboxes: ${e.message}\n${e.stack}`);
   }
 }
 
