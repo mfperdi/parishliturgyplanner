@@ -80,49 +80,30 @@ function onFormSubmit(e) {
 
   switch(type) {
     case CONSTANTS.TIMEOFF_TYPES.ONLY_AVAILABLE:
-      // Whitelist requires Notes with Event IDs and/or dates
+    case CONSTANTS.TIMEOFF_TYPES.NOT_AVAILABLE:
+      // Both types now require date checkboxes
       if (!notes || notes.trim() === '') {
-        warnings.push("⚠️ Notes required: specify Event IDs and/or dates (e.g., SUN-1000, 12/25/2025)");
+        warnings.push("⚠️ No dates selected - please check at least one date");
       } else {
         try {
-          // NEW: Check if notes contain checkbox responses (formatted as "Display (EVENT-ID), ...")
-          const extractedIds = HELPER_extractEventIdsFromCheckboxes(notes);
+          // Extract dates from checkbox responses
+          const extractedDates = HELPER_extractDatesFromCheckboxes(notes);
 
-          if (extractedIds.length > 0) {
-            // Reformat Notes to just Event IDs for cleaner storage
-            const reformattedNotes = extractedIds.join(', ');
+          if (extractedDates.length > 0) {
+            // Reformat Notes to just dates for cleaner storage
+            const reformattedNotes = extractedDates.join(', ');
             sheet.getRange(row, cols.NOTES).setValue(reformattedNotes);
             notes = reformattedNotes; // Update local variable
 
-            // Validate the Event IDs
-            const validation = HELPER_validateEventIds(extractedIds);
-            if (validation.invalid.length > 0) {
-              warnings.push(`⚠️ Invalid Event IDs: ${validation.invalid.join(', ')}`);
-            }
+            Logger.log(`Extracted ${extractedDates.length} dates from checkbox response`);
           } else {
-            // No checkbox format detected - try parsing as manual entry
-            const parsed = HELPER_parseWhitelistNotes(notes);
-            if (parsed.invalid.length > 0) {
-              warnings.push(`⚠️ Could not parse: ${parsed.invalid.join(', ')}`);
-            }
-            if (parsed.eventIds.length > 0) {
-              const validation = HELPER_validateEventIds(parsed.eventIds);
-              if (validation.invalid.length > 0) {
-                warnings.push(`⚠️ Invalid Event IDs: ${validation.invalid.join(', ')}`);
-              }
-            }
-            if (parsed.eventIds.length === 0 && parsed.dates.length === 0 && parsed.invalid.length === 0) {
-              warnings.push("⚠️ Notes must contain Event IDs or dates");
-            }
+            // No dates detected - this shouldn't happen with required checkboxes
+            warnings.push("⚠️ Could not parse dates from selection");
           }
         } catch (e) {
-          warnings.push(`⚠️ Error parsing Notes: ${e.message}`);
+          warnings.push(`⚠️ Error parsing dates: ${e.message}`);
         }
       }
-      break;
-
-    case CONSTANTS.TIMEOFF_TYPES.NOT_AVAILABLE:
-      // Not Available - no special validation needed (dates are sufficient)
       break;
 
     default:
@@ -261,12 +242,13 @@ function TIMEOFFS_bulkApprovePending() {
 }
 
 /**
- * Gets all unique masses for a specific month.
- * Used to populate the Google Form with relevant mass options.
+ * Gets all unique dates with masses for a specific month.
+ * Groups masses by date and separates vigil masses from non-vigil masses.
+ * Used to populate the Google Form with date checkbox options.
  * @param {string} monthString Month in format "2026-01"
- * @returns {Array<object>} Array of mass objects with eventId, display, dayOfWeek, time
+ * @returns {Array<object>} Array of date objects with date, display, isVigil
  */
-function TIMEOFFS_getMassesForMonth(monthString) {
+function TIMEOFFS_getDatesForMonth(monthString) {
   try {
     // Validate month string
     const { year, month } = HELPER_validateMonthString(monthString);
@@ -274,53 +256,89 @@ function TIMEOFFS_getMassesForMonth(monthString) {
     // Get all masses for this month using existing schedule logic
     const allMasses = SCHEDULE_findMassesForMonth(month - 1, year); // month is 0-indexed in the function
 
-    // De-duplicate by Event ID and build display format
-    const uniqueMasses = new Map();
+    // Group masses by date
+    const dateMap = new Map(); // Key: dateString (e.g., "2026-01-05"), Value: { hasVigil: bool, hasNonVigil: bool, date: Date }
 
     for (const mass of allMasses) {
-      const eventId = mass.eventId;
+      const dateKey = mass.date.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const isVigil = mass.isAnticipated === true;
 
-      if (!eventId || uniqueMasses.has(eventId)) continue;
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, {
+          date: mass.date,
+          hasVigil: false,
+          hasNonVigil: false
+        });
+      }
 
-      // Build display string
-      const dayOfWeek = mass.date.toLocaleString('en-US', { weekday: 'long' });
-      const timeStr = typeof mass.time === 'string' ? mass.time :
-                      mass.time instanceof Date ? mass.time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) :
-                      'Time TBD';
-
-      const description = mass.description || '';
-      const displayText = description ?
-        `${dayOfWeek} ${timeStr} - ${description}` :
-        `${dayOfWeek} ${timeStr}`;
-
-      uniqueMasses.set(eventId, {
-        eventId: eventId,
-        display: displayText,
-        dayOfWeek: dayOfWeek,
-        time: timeStr
-      });
+      const dateInfo = dateMap.get(dateKey);
+      if (isVigil) {
+        dateInfo.hasVigil = true;
+      } else {
+        dateInfo.hasNonVigil = true;
+      }
     }
 
-    // Convert to array and sort by day of week, then time
-    const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const result = Array.from(uniqueMasses.values()).sort((a, b) => {
-      const dayCompare = dayOrder.indexOf(a.dayOfWeek) - dayOrder.indexOf(b.dayOfWeek);
-      if (dayCompare !== 0) return dayCompare;
-      return a.time.localeCompare(b.time);
+    // Build checkbox options
+    const result = [];
+
+    // Sort dates chronologically
+    const sortedDates = Array.from(dateMap.entries()).sort((a, b) => {
+      return a[1].date.getTime() - b[1].date.getTime();
     });
 
-    Logger.log(`Found ${result.length} unique masses for ${monthString}`);
+    for (const [dateKey, dateInfo] of sortedDates) {
+      const date = dateInfo.date;
+      const dayOfWeek = date.toLocaleString('en-US', { weekday: 'long' });
+      const dateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+
+      // If both vigil and non-vigil masses exist, create two checkboxes
+      if (dateInfo.hasVigil && dateInfo.hasNonVigil) {
+        // Non-vigil masses
+        result.push({
+          dateKey: dateKey,
+          display: `${dayOfWeek} ${dateStr}`,
+          isVigil: false,
+          date: date
+        });
+        // Vigil mass
+        result.push({
+          dateKey: dateKey,
+          display: `${dayOfWeek} ${dateStr} (Vigil)`,
+          isVigil: true,
+          date: date
+        });
+      } else if (dateInfo.hasVigil) {
+        // Only vigil mass
+        result.push({
+          dateKey: dateKey,
+          display: `${dayOfWeek} ${dateStr} (Vigil)`,
+          isVigil: true,
+          date: date
+        });
+      } else {
+        // Only non-vigil masses
+        result.push({
+          dateKey: dateKey,
+          display: `${dayOfWeek} ${dateStr}`,
+          isVigil: false,
+          date: date
+        });
+      }
+    }
+
+    Logger.log(`Found ${result.length} date options for ${monthString}`);
     return result;
 
   } catch (e) {
-    Logger.log(`ERROR in TIMEOFFS_getMassesForMonth: ${e.message}`);
-    throw new Error(`Could not get masses for month: ${e.message}`);
+    Logger.log(`ERROR in TIMEOFFS_getDatesForMonth: ${e.message}`);
+    throw new Error(`Could not get dates for month: ${e.message}`);
   }
 }
 
 /**
- * Updates the Google Form with mass options for a specific month.
- * Run this before timeoff review to ensure form has current month's masses.
+ * Updates the Google Form with date options and volunteer list for a specific month.
+ * Run this before timeoff review to ensure form has current month's dates.
  * @param {string} monthString Month in format "2026-01"
  * @returns {string} Success message
  */
@@ -349,45 +367,70 @@ function TIMEOFFS_updateFormForMonth(monthString) {
     const formId = match[1];
     const form = FormApp.openById(formId);
 
-    // Get masses for the month
-    const masses = TIMEOFFS_getMassesForMonth(monthString);
+    // Get volunteers for dropdown
+    const volunteers = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
+    const volunteerNames = volunteers
+      .filter(v => v[CONSTANTS.COLS.VOLUNTEERS.STATUS - 1] === 'Active')
+      .map(v => v[CONSTANTS.COLS.VOLUNTEERS.FULL_NAME - 1])
+      .filter(name => name && name.trim() !== '')
+      .sort();
 
-    if (masses.length === 0) {
-      throw new Error(`No masses found for ${monthString}. Please generate the schedule first.`);
+    // Get dates for the month
+    const dates = TIMEOFFS_getDatesForMonth(monthString);
+
+    if (dates.length === 0) {
+      throw new Error(`No dates found for ${monthString}. Please generate the schedule first.`);
     }
 
-    // Format options: "Display Text (EVENT-ID)"
-    const massOptions = masses.map(m => `${m.display} (${m.eventId})`);
+    // Format date options
+    const dateOptions = dates.map(d => d.display);
 
-    // Find or create the mass checkbox question
     const items = form.getItems();
-    let massQuestion = null;
 
+    // 1. Update or create Volunteer Name dropdown
+    let volunteerQuestion = null;
     for (const item of items) {
       const title = item.getTitle().toLowerCase();
-      if ((title.includes('mass') || title.includes('available')) &&
-          item.getType() === FormApp.ItemType.CHECKBOX) {
-        massQuestion = item.asCheckboxItem();
+      if (title.includes('volunteer') && title.includes('name') &&
+          item.getType() === FormApp.ItemType.LIST) {
+        volunteerQuestion = item.asListItem();
         break;
       }
     }
 
-    // If not found, create it
-    if (!massQuestion) {
-      massQuestion = form.addCheckboxItem()
-        .setTitle('Which masses CAN you serve? (Only Available requests only)')
-        .setHelpText('Select all masses you are available for during the specified period. Leave blank for "Not Available" requests.');
+    if (!volunteerQuestion) {
+      volunteerQuestion = form.addListItem()
+        .setTitle('Volunteer Name')
+        .setRequired(true);
+    }
+    volunteerQuestion.setChoiceValues(volunteerNames);
+
+    // 2. Find or create date checkbox question
+    let dateQuestion = null;
+    for (const item of items) {
+      const title = item.getTitle().toLowerCase();
+      if (title.includes('date') && item.getType() === FormApp.ItemType.CHECKBOX) {
+        dateQuestion = item.asCheckboxItem();
+        break;
+      }
+    }
+
+    if (!dateQuestion) {
+      dateQuestion = form.addCheckboxItem()
+        .setTitle('Select Dates')
+        .setHelpText('For "Not Available": Check dates you CANNOT serve.\nFor "Only Available": Check dates you CAN serve.')
+        .setRequired(true);
     }
 
     // Update choices
-    massQuestion.setChoiceValues(massOptions);
+    dateQuestion.setChoiceValues(dateOptions);
 
     // Get friendly month name
     const monthDate = new Date(monthString + '-01T12:00:00');
     const monthName = monthDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
-    Logger.log(`Updated form with ${massOptions.length} mass options for ${monthString}`);
-    return `✓ Form updated with ${massOptions.length} masses for ${monthName}`;
+    Logger.log(`Updated form with ${volunteerNames.length} volunteers and ${dateOptions.length} date options for ${monthString}`);
+    return `✓ Form updated for ${monthName}:\n- ${volunteerNames.length} volunteers\n- ${dateOptions.length} date options`;
 
   } catch (e) {
     Logger.log(`ERROR in TIMEOFFS_updateFormForMonth: ${e.message}`);
@@ -396,27 +439,33 @@ function TIMEOFFS_updateFormForMonth(monthString) {
 }
 
 /**
- * Extract Event IDs from Google Forms checkbox response text.
- * Input: "Sunday 10:00 AM - Family Mass (SUN-1000), Saturday 5:00 PM - Vigil (SAT-1700)"
- * Output: ["SUN-1000", "SAT-1700"]
+ * Extract dates from Google Forms checkbox response text.
+ * Input: "Sunday 1/5/2026, Saturday 1/11/2026 (Vigil), Sunday 1/12/2026"
+ * Output: ["1/5/2026", "1/11/2026 (Vigil)", "1/12/2026"]
  * @param {string} text Checkbox response text
- * @returns {Array<string>} Array of Event IDs
+ * @returns {Array<string>} Array of date strings
  */
-function HELPER_extractEventIdsFromCheckboxes(text) {
+function HELPER_extractDatesFromCheckboxes(text) {
   if (!text || typeof text !== 'string') return [];
 
-  const eventIds = [];
+  const dates = [];
 
-  // Match patterns like (SUN-1000) or (SAT-1700)
-  // Format: 3+ letters, hyphen, 4 digits in parentheses
-  const regex = /\(([A-Z]+-\d{4})\)/gi;
-  let match;
+  // Split by comma and clean up each entry
+  const parts = text.split(',').map(s => s.trim());
 
-  while ((match = regex.exec(text)) !== null) {
-    eventIds.push(match[1].toUpperCase());
+  for (const part of parts) {
+    if (!part) continue;
+
+    // Extract date portion (after day of week)
+    // Format: "Sunday 1/5/2026" or "Saturday 1/4/2026 (Vigil)"
+    const match = part.match(/(\d{1,2}\/\d{1,2}\/\d{4}(?:\s*\(Vigil\))?)/i);
+
+    if (match) {
+      dates.push(match[1]);
+    }
   }
 
-  return eventIds;
+  return dates;
 }
 
 /**
