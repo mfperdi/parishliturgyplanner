@@ -521,15 +521,23 @@ function SCHEDULE_findMassesForMonth(month, year) {
     const staticDate = new Date(row[yearCols.DATE - 1]);
 
     if (liturgyMatch) {
-      specialDate = liturgyDateMap.get(liturgyMatch); 
+      specialDate = liturgyDateMap.get(liturgyMatch);
       if (!specialDate) {
         Logger.log(`WARNING: Could not find LiturgicalCelebration "${liturgyMatch}" in calendar for EventID ${row[yearCols.EVENT_ID - 1]}. Skipping.`);
         continue;
       }
+
+      // NEW: If this is an anticipated mass, place it on the day BEFORE the liturgical celebration
+      const isAnticipated = row[yearCols.IS_ANTICIPATED - 1] === true;
+      if (isAnticipated) {
+        specialDate = new Date(specialDate.getTime() - 24 * 60 * 60 * 1000); // Subtract one day
+        specialDate.setHours(12, 0, 0, 0); // Keep at noon for consistency
+        Logger.log(`> Adjusted anticipated mass ${row[yearCols.EVENT_ID - 1]} to previous day: ${specialDate.toDateString()}`);
+      }
     } else if (!isNaN(staticDate.getTime())) {
       specialDate = setDateToNoon(staticDate); // Use static date, set to noon
     } else {
-      continue; 
+      continue;
     }
     
     // *** FIX: Skip Day 1 if it's a spillover day ***
