@@ -194,13 +194,14 @@ function parseListField(fieldValue, toLowerCase = true) {
 }
 
 /**
- * Optimized timeoff map building
+ * Optimized timeoff map building (DATE-BASED SYSTEM)
  * Returns object with two maps: blacklist, whitelist
+ * NEW: Uses date checkboxes from form - no more Event IDs
  */
 function buildTimeoffMapOptimized(timeoffData, month, year) {
   const result = {
-    blacklist: new Map(),        // Not Available: volunteer => Set<dateStrings>
-    whitelist: new Map()         // Only Available: volunteer => { eventIds: [], dates: Set<dateStrings> }
+    blacklist: new Map(),        // Not Available: volunteer => Map<dateString, Set<{vigil|non-vigil}>>
+    whitelist: new Map()         // Only Available: volunteer => Map<dateString, Set<{vigil|non-vigil}>>
   };
 
   const cols = CONSTANTS.COLS.TIMEOFFS;
@@ -217,79 +218,64 @@ function buildTimeoffMapOptimized(timeoffData, month, year) {
     // Only process approved timeoffs
     if (!name || status !== 'Approved') continue;
 
-    const startDate = new Date(HELPER_safeArrayAccess(row, cols.START_DATE - 1));
-    const endDate = new Date(HELPER_safeArrayAccess(row, cols.END_DATE - 1));
-
-    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-      Logger.log(`WARNING: Invalid dates for ${name}, skipping timeoff`);
-      continue;
-    }
-
-    // Skip if timeoff doesn't overlap with our month (for date-based types)
-    const overlapsMonth = !(endDate < monthStart || startDate > monthEnd);
+    const notes = HELPER_safeArrayAccess(row, cols.NOTES - 1);
 
     // Process based on TYPE
     switch (type) {
       case CONSTANTS.TIMEOFF_TYPES.NOT_AVAILABLE:
-        // Blacklist: Add blocked dates
-        if (!overlapsMonth) continue;
+        // Blacklist: Parse dates from Notes
+        const blacklistDates = HELPER_parseDateBasedNotes(notes);
 
-        if (!result.blacklist.has(name)) {
-          result.blacklist.set(name, new Set());
-        }
+        if (blacklistDates.length > 0) {
+          if (!result.blacklist.has(name)) {
+            result.blacklist.set(name, new Map());
+          }
 
-        const clampedStart = new Date(Math.max(startDate.getTime(), monthStart.getTime()));
-        const clampedEnd = new Date(Math.min(endDate.getTime(), monthEnd.getTime()));
+          const blacklistMap = result.blacklist.get(name);
 
-        for (let d = new Date(clampedStart); d <= clampedEnd; d.setDate(d.getDate() + 1)) {
-          result.blacklist.get(name).add(d.toDateString());
+          for (const dateInfo of blacklistDates) {
+            // Only include dates in current month
+            if (dateInfo.date >= monthStart && dateInfo.date <= monthEnd) {
+              if (!blacklistMap.has(dateInfo.dateString)) {
+                blacklistMap.set(dateInfo.dateString, new Set());
+              }
+
+              // Add vigil or non-vigil marker
+              blacklistMap.get(dateInfo.dateString).add(dateInfo.isVigil ? 'vigil' : 'non-vigil');
+            }
+          }
         }
         break;
 
       case CONSTANTS.TIMEOFF_TYPES.ONLY_AVAILABLE:
-        // Whitelist: Parse Notes for Event IDs and/or dates
-        const whitelistNotes = HELPER_safeArrayAccess(row, cols.NOTES - 1);
-        const whitelistParsed = HELPER_parseWhitelistNotes(whitelistNotes);
+        // Whitelist: Parse dates from Notes
+        const whitelistDates = HELPER_parseDateBasedNotes(notes);
 
-        if (whitelistParsed.eventIds.length > 0 || whitelistParsed.dates.length > 0) {
+        if (whitelistDates.length > 0) {
           if (!result.whitelist.has(name)) {
-            result.whitelist.set(name, { eventIds: [], dates: new Set() });
+            result.whitelist.set(name, new Map());
           }
 
-          const whitelist = result.whitelist.get(name);
+          const whitelistMap = result.whitelist.get(name);
 
-          // Add Event IDs
-          for (const eventId of whitelistParsed.eventIds) {
-            if (!whitelist.eventIds.includes(eventId)) {
-              whitelist.eventIds.push(eventId);
-            }
-          }
+          for (const dateInfo of whitelistDates) {
+            // Only include dates in current month
+            if (dateInfo.date >= monthStart && dateInfo.date <= monthEnd) {
+              if (!whitelistMap.has(dateInfo.dateString)) {
+                whitelistMap.set(dateInfo.dateString, new Set());
+              }
 
-          // Add dates (only if in current month)
-          for (const date of whitelistParsed.dates) {
-            if (date >= monthStart && date <= monthEnd) {
-              whitelist.dates.add(date.toDateString());
+              // Add vigil or non-vigil marker
+              whitelistMap.get(dateInfo.dateString).add(dateInfo.isVigil ? 'vigil' : 'non-vigil');
             }
           }
         }
         break;
 
       default:
-        // Unknown type or legacy blank TYPE - treat as Unavailable for backward compatibility
-        if (!type || type === '') {
-          // Legacy behavior: treat as blacklist
-          if (!overlapsMonth) continue;
-
-          if (!result.blacklist.has(name)) {
-            result.blacklist.set(name, new Set());
-          }
-
-          const legacyStart = new Date(Math.max(startDate.getTime(), monthStart.getTime()));
-          const legacyEnd = new Date(Math.min(endDate.getTime(), monthEnd.getTime()));
-
-          for (let d = new Date(legacyStart); d <= legacyEnd; d.setDate(d.getDate() + 1)) {
-            result.blacklist.get(name).add(d.toDateString());
-          }
+        // Unknown type - log warning
+        if (type && type !== '') {
+          Logger.log(`WARNING: Unknown timeoff type "${type}" for ${name}`);
         }
         break;
     }
@@ -495,21 +481,27 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       continue;
     }
 
-    // 3. Check Whitelist (if exists, must match)
+    // 3. Check Whitelist (if exists, must match date)
     if (timeoffMaps.whitelist.has(volunteer.name)) {
-      const whitelist = timeoffMaps.whitelist.get(volunteer.name);
-      const matchesWhitelist = whitelist.eventIds.includes(eventId) || whitelist.dates.has(massDateString);
+      const whitelistMap = timeoffMaps.whitelist.get(volunteer.name);
 
-      if (!matchesWhitelist) {
-        // Not on whitelist - exclude
+      // Check if this date is in the whitelist
+      if (!whitelistMap.has(massDateString)) {
+        // Date not in whitelist - exclude this volunteer
         continue;
       }
+      // Note: For now, we match just the date.
+      // Future enhancement: match vigil/non-vigil specifically
     }
 
     // 4. Check Blacklist
-    const blacklist = timeoffMaps.blacklist.get(volunteer.name);
-    if (blacklist && blacklist.has(massDateString)) {
-      continue; // Blacklisted for this date
+    if (timeoffMaps.blacklist.has(volunteer.name)) {
+      const blacklistMap = timeoffMaps.blacklist.get(volunteer.name);
+
+      // Check if this date is blacklisted
+      if (blacklistMap.has(massDateString)) {
+        continue; // Blacklisted for this date
+      }
     }
 
     // 5. Check if already assigned today
