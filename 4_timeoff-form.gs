@@ -244,26 +244,26 @@ function TIMEOFFS_getDatesForMonth(monthString) {
       const isVigil = mass.isAnticipated === true;
 
       if (!dateMap.has(dateKey)) {
-        // For vigil masses, get liturgy from next day
-        let liturgy = liturgyMap.get(dateKey) || "";
+        // Initialize with regular day's liturgy
+        const regularLiturgy = liturgyMap.get(dateKey) || "";
+
+        // For vigil masses, also get next day's liturgy
+        const nextDay = new Date(mass.date.getTime() + 24 * 60 * 60 * 1000);
+        const nextDayKey = nextDay.toISOString().split('T')[0];
+        const vigilLiturgy = liturgyMap.get(nextDayKey) || "";
 
         dateMap.set(dateKey, {
           date: mass.date,
           hasVigil: false,
           hasNonVigil: false,
-          liturgy: liturgy
+          liturgyRegular: regularLiturgy,
+          liturgyVigil: vigilLiturgy
         });
       }
 
       const dateInfo = dateMap.get(dateKey);
       if (isVigil) {
         dateInfo.hasVigil = true;
-        // For vigil masses, use the liturgy from the NEXT day
-        if (!dateInfo.liturgy) {
-          const nextDay = new Date(mass.date.getTime() + 24 * 60 * 60 * 1000);
-          const nextDayKey = nextDay.toISOString().split('T')[0];
-          dateInfo.liturgy = liturgyMap.get(nextDayKey) || "";
-        }
       } else {
         dateInfo.hasNonVigil = true;
       }
@@ -281,37 +281,40 @@ function TIMEOFFS_getDatesForMonth(monthString) {
       const date = dateInfo.date;
       const dayOfWeek = date.toLocaleString('en-US', { weekday: 'long' });
       const dateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
-      const liturgy = dateInfo.liturgy || "Sunday";
 
       // If both vigil and non-vigil masses exist, create two checkboxes
       if (dateInfo.hasVigil && dateInfo.hasNonVigil) {
-        // Non-vigil masses
+        // Non-vigil masses (use regular day's liturgy)
+        const regularLiturgy = dateInfo.liturgyRegular || "Sunday";
         result.push({
           dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} - ${liturgy}`,
+          display: `${dayOfWeek} ${dateStr} - ${regularLiturgy}`,
           isVigil: false,
           date: date
         });
-        // Vigil mass
+        // Vigil mass (use next day's liturgy)
+        const vigilLiturgy = dateInfo.liturgyVigil || "Sunday";
         result.push({
           dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} - ${liturgy} (Vigil)`,
+          display: `${dayOfWeek} ${dateStr} - ${vigilLiturgy} (Vigil)`,
           isVigil: true,
           date: date
         });
       } else if (dateInfo.hasVigil) {
-        // Only vigil mass
+        // Only vigil mass (use next day's liturgy)
+        const vigilLiturgy = dateInfo.liturgyVigil || "Sunday";
         result.push({
           dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} - ${liturgy} (Vigil)`,
+          display: `${dayOfWeek} ${dateStr} - ${vigilLiturgy} (Vigil)`,
           isVigil: true,
           date: date
         });
       } else {
-        // Only non-vigil masses
+        // Only non-vigil masses (use regular day's liturgy)
+        const regularLiturgy = dateInfo.liturgyRegular || "Sunday";
         result.push({
           dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} - ${liturgy}`,
+          display: `${dayOfWeek} ${dateStr} - ${regularLiturgy}`,
           isVigil: false,
           date: date
         });
