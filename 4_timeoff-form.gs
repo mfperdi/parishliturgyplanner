@@ -116,6 +116,7 @@ function TIMEOFFS_getPendingRequests() {
         name: row[cols.VOLUNTEER_NAME - 1],
         type: row[cols.TYPE - 1],
         selectedDates: row[cols.SELECTED_DATES - 1],
+        volunteerNotes: row[cols.VOLUNTEER_NOTES - 1],
         reviewNotes: row[cols.REVIEW_NOTES - 1]
       });
     }
