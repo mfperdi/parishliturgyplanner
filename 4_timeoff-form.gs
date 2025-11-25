@@ -23,7 +23,7 @@ function onFormSubmit(e) {
   // Get the submitted data
   const name = sheet.getRange(row, cols.VOLUNTEER_NAME).getValue();
   const type = sheet.getRange(row, cols.TYPE).getValue();
-  let notes = sheet.getRange(row, cols.NOTES).getValue();
+  let selectedDates = sheet.getRange(row, cols.SELECTED_DATES).getValue();
 
   let warnings = [];
 
@@ -45,22 +45,22 @@ function onFormSubmit(e) {
     case CONSTANTS.TIMEOFF_TYPES.ONLY_AVAILABLE:
     case CONSTANTS.TIMEOFF_TYPES.NOT_AVAILABLE:
       // Both types require date checkboxes
-      if (!notes || notes.trim() === '') {
+      if (!selectedDates || selectedDates.trim() === '') {
         warnings.push("⚠️ No dates selected - please check at least one date");
       } else {
         try {
           // Extract dates from checkbox responses
           // Input: "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil), Sunday 2/8/2026 - 5th Sunday in Ordinary Time"
           // Output: "2/7/2026 (Vigil), 2/8/2026"
-          const extractedDates = HELPER_extractDatesFromCheckboxes(notes);
+          const extractedDates = HELPER_extractDatesFromCheckboxes(selectedDates);
 
           if (extractedDates.length > 0) {
-            // Reformat Notes to just dates for cleaner storage
-            const reformattedNotes = extractedDates.join(', ');
-            sheet.getRange(row, cols.NOTES).setValue(reformattedNotes);
-            notes = reformattedNotes; // Update local variable
+            // Reformat to just dates for cleaner storage
+            const reformattedDates = extractedDates.join(', ');
+            sheet.getRange(row, cols.SELECTED_DATES).setValue(reformattedDates);
+            selectedDates = reformattedDates; // Update local variable
 
-            Logger.log(`Extracted ${extractedDates.length} dates from checkbox response: ${reformattedNotes}`);
+            Logger.log(`Extracted ${extractedDates.length} dates from checkbox response: ${reformattedDates}`);
           } else {
             // No dates detected - this shouldn't happen with required checkboxes
             warnings.push("⚠️ Could not parse dates from selection");
@@ -114,9 +114,8 @@ function TIMEOFFS_getPendingRequests() {
         rowNumber: i + 1,
         timestamp: row[cols.TIMESTAMP - 1],
         name: row[cols.VOLUNTEER_NAME - 1],
-        email: row[cols.EMAIL - 1],
         type: row[cols.TYPE - 1],
-        notes: row[cols.NOTES - 1],
+        selectedDates: row[cols.SELECTED_DATES - 1],
         reviewNotes: row[cols.REVIEW_NOTES - 1]
       });
     }

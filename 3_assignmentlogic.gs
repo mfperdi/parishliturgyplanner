@@ -218,13 +218,13 @@ function buildTimeoffMapOptimized(timeoffData, month, year) {
     // Only process approved timeoffs
     if (!name || status !== 'Approved') continue;
 
-    const notes = HELPER_safeArrayAccess(row, cols.NOTES - 1);
+    const selectedDates = HELPER_safeArrayAccess(row, cols.SELECTED_DATES - 1);
 
     // Process based on TYPE
     switch (type) {
       case CONSTANTS.TIMEOFF_TYPES.NOT_AVAILABLE:
-        // Blacklist: Parse dates from Notes
-        const blacklistDates = HELPER_parseDateBasedNotes(notes);
+        // Blacklist: Parse dates from Selected Dates column
+        const blacklistDates = HELPER_parseDateBasedNotes(selectedDates);
 
         if (blacklistDates.length > 0) {
           if (!result.blacklist.has(name)) {
@@ -248,8 +248,8 @@ function buildTimeoffMapOptimized(timeoffData, month, year) {
         break;
 
       case CONSTANTS.TIMEOFF_TYPES.ONLY_AVAILABLE:
-        // Whitelist: Parse dates from Notes
-        const whitelistDates = HELPER_parseDateBasedNotes(notes);
+        // Whitelist: Parse dates from Selected Dates column
+        const whitelistDates = HELPER_parseDateBasedNotes(selectedDates);
 
         if (whitelistDates.length > 0) {
           if (!result.whitelist.has(name)) {
