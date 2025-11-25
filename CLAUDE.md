@@ -104,7 +104,7 @@ The system uses multiple interconnected sheets within a single spreadsheet:
   - **Active**: Regular volunteers included in auto-assignment
   - **Inactive**: Volunteers not currently available
   - **Substitute Only**: Backup volunteers (manual assignment only)
-  - **Ministry Sponsor**: Ministry coordinators (manual assignment only)
+  - **Ministry Sponsor**: Ministry coordinators (auto-assigned to designated group masses, excluded from individual auto-assignment)
   - **Parent/Guardian**: Adults accompanying youth (manual assignment only)
 - Ministry Role: Comma-separated list (e.g., "Lector, Eucharistic Minister")
 - Preferred Mass Time: Event IDs (e.g., "SUN-1000, SAT-1700")
@@ -211,17 +211,20 @@ Layer 3 (Yearly):
 **Trigger**: User clicks "Auto-Assign Volunteers"
 
 **Process** (`ASSIGNMENT_autoAssignRolesForMonthOptimized()`):
-1. Read active volunteers with ministry qualifications
+1. Read volunteers with ministry qualifications (Active and Ministry Sponsor status)
 2. **Build timeoff maps** (approved timeoffs only):
    - **Blacklist** map: Not Available dates
    - **Whitelist** map: Only Available dates/Event IDs
    - **Special Availability** map: Override dates/Event IDs
 3. Process group assignments first (family teams)
+   - **Group assignments** (e.g., "Knights of Columbus"): Finds volunteers with matching Family Team
+   - Allows both **Active** and **Ministry Sponsor** status for group assignments
+   - If matching volunteer found, assigns specific volunteer name; otherwise assigns group name
 4. Group individual assignments by Mass
 5. For each Mass, for each role:
    - **Find eligible volunteers** using enhanced logic:
      1. Must have required ministry skill
-     2. Must be Active status
+     2. Must be Active status (Ministry Sponsors excluded from individual auto-assignment)
      3. Check **Special Availability** (overrides blacklist/whitelist if present)
      4. Check **Whitelist** (if exists, must match Event ID or date)
      5. Check **Blacklist** (exclude if date matches)
