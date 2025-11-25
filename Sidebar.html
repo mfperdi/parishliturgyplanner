@@ -450,6 +450,20 @@
         <div class="step-icon" style="background-color: #1a73e8;">5</div>
         <div class="step-content">
           <div class="step-title">
+            Update Timeoff Form
+            <span id="completion-form-update" class="completion-badge hidden">✓ Complete</span>
+          </div>
+          <div class="step-description">Update form with current month's dates and volunteer list</div>
+          <button id="btn-update-form" class="btn btn-primary" disabled>
+            Update Timeoff Form
+          </button>
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1a73e8;">6</div>
+        <div class="step-content">
+          <div class="step-title">
             Review Timeoffs
             <span id="timeoff-badge" class="step-badge hidden">0 pending</span>
             <span id="completion-timeoffs" class="completion-badge hidden">✓ Complete</span>
@@ -462,7 +476,7 @@
       </div>
 
       <div class="step-item">
-        <div class="step-icon" style="background-color: #1a73e8;">6</div>
+        <div class="step-icon" style="background-color: #1a73e8;">7</div>
         <div class="step-content">
           <div class="step-title">
             Auto-Assign Volunteers
@@ -486,7 +500,7 @@
     <div class="phase-content disabled" id="phase-completion-content">
 
       <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">7</div>
+        <div class="step-icon" style="background-color: #1e8e3e;">8</div>
         <div class="step-content">
           <div class="step-title">
             Print Schedule
@@ -511,6 +525,7 @@
     const btnAdmin = document.getElementById('btn-admin');
     const btnValidate = document.getElementById('btn-validate');
     const btnStep1 = document.getElementById('btn-step1');
+    const btnUpdateForm = document.getElementById('btn-update-form');
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
     const btnPrint = document.getElementById('btn-print');
@@ -533,6 +548,7 @@
     const completionCalendar = document.getElementById('completion-calendar');
     const completionValidation = document.getElementById('completion-validation');
     const completionSchedule = document.getElementById('completion-schedule');
+    const completionFormUpdate = document.getElementById('completion-form-update');
     const completionTimeoffs = document.getElementById('completion-timeoffs');
     const completionAssignment = document.getElementById('completion-assignment');
     const completionPrint = document.getElementById('completion-print');
@@ -610,6 +626,7 @@
       
       // Scheduling phase buttons
       btnStep1.disabled = !hasCalendar || !hasMonthSelected;
+      btnUpdateForm.disabled = !hasCalendar || !hasMonthSelected;
       btnTimeoffs.disabled = !hasCalendar || !hasMonthSelected;
       btnStep2.disabled = !hasCalendar || !hasMonthSelected;
 
@@ -650,7 +667,7 @@
     
     // Initialization
     window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnStep1, btnTimeoffs, btnStep2, btnPrint];
+      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnPrint];
       updatePhaseProgress('setup');
       
       google.script.run
@@ -749,7 +766,24 @@
       }
       // --- END: New logic ---
     });
-    
+
+    btnUpdateForm.addEventListener('click', () => {
+      const selectedMonth = monthSelect.value;
+      if (!selectedMonth) return;
+
+      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
+      const msg = `Updating timeoff form for ${selectedText}...`;
+      showLoading(msg);
+
+      google.script.run
+        .withSuccessHandler((message) => {
+          showSuccess(message);
+          markStepComplete('form-update');
+        })
+        .withFailureHandler((error) => showError(error, 'form-update'))
+        .TIMEOFFS_updateFormForMonth(selectedMonth);
+    });
+
     btnTimeoffs.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
@@ -856,6 +890,12 @@
                      '• Verify MassTemplates sheet has templates<br>' +
                      '• Check WeeklyMasses/MonthlyMasses/YearlyMasses sheets<br>' +
                      '• Ensure selected month is in configured year';
+          break;
+        case 'form-update':
+          helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
+                     '• Verify schedule was generated for this month<br>' +
+                     '• Check Google Form ID in Config sheet<br>' +
+                     '• Ensure proper OAuth permissions for Forms API';
           break;
         case 'timeoffs':
           helpText = '<br><br><strong>Tip:</strong> Verify Timeoffs sheet exists and has the correct columns';

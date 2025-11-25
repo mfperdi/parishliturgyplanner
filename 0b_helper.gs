@@ -698,6 +698,51 @@ function HELPER_parseWhitelistNotes(notesField) {
 }
 
 /**
+ * Parse date-based Notes field from timeoff form checkboxes.
+ * NEW system: Notes contain dates like "1/5/2026, 1/4/2026 (Vigil), 1/12/2026"
+ * @param {string} notesField - Notes field content
+ * @returns {Array<object>} Array of {dateString, isVigil} objects
+ */
+function HELPER_parseDateBasedNotes(notesField) {
+  const result = [];
+
+  if (!notesField || notesField.trim() === '') {
+    return result;
+  }
+
+  // Split by comma and process each item
+  const items = notesField.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+  for (const item of items) {
+    // Check if this is a vigil mass
+    const isVigil = item.toLowerCase().includes('(vigil)');
+
+    // Extract date (remove "(Vigil)" if present)
+    const dateStr = item.replace(/\s*\(vigil\)/i, '').trim();
+
+    // Try to parse the date
+    const parsedDate = new Date(dateStr);
+
+    if (!isNaN(parsedDate.getTime())) {
+      // Valid date - set to noon to avoid timezone issues
+      const safeDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate(), 12, 0, 0);
+
+      result.push({
+        date: safeDate,
+        dateString: safeDate.toDateString(),  // For Map keys
+        isVigil: isVigil,
+        original: item  // Keep original for debugging
+      });
+    } else {
+      Logger.log(`WARNING: Could not parse date from: "${item}"`);
+    }
+  }
+
+  Logger.log(`Parsed ${result.length} dates from notes`);
+  return result;
+}
+
+/**
  * Validate that Event IDs exist in mass configuration sheets
  * Checks WeeklyMasses, MonthlyMasses, and YearlyMasses
  *

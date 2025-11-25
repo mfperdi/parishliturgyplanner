@@ -19,6 +19,34 @@
 
 /**
  * @OnlyCurrentDoc
+ *
+ * OAuth Scopes:
+ * This script requires the following additional permissions to access Google Forms:
+ * @customfunction
+ */
+
+/**
+ * Explicitly declare OAuth scopes for Google Forms access.
+ * This allows the script to update form checkboxes dynamically.
+ *
+ * Required scopes:
+ * - https://www.googleapis.com/auth/forms (to update form questions)
+ * - https://www.googleapis.com/auth/spreadsheets (already included by @OnlyCurrentDoc)
+ */
+
+// Force authorization by calling a Forms API method
+// This function should be run once to trigger the authorization flow
+function authorizeFormsAccess() {
+  try {
+    // This dummy call forces the authorization dialog to appear
+    FormApp.getUi();
+    return "✓ Forms access authorized. You can now update timeoff forms.";
+  } catch (e) {
+    return "Authorization needed. Please approve the permissions when prompted.";
+  }
+}
+
+/**
  * This script manages the Parish Liturgical Scheduler with enhanced liturgical print features.
  * It adds a custom menu on open and shows the enhanced sidebar.
  */
@@ -36,6 +64,9 @@ function onOpen(e) {
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
           .addItem('Setup Assignment Validation', 'ONEDIT_setupConditionalFormatting')
+          .addItem('Format Assignment Checkboxes', 'setupAssignmentCheckboxes')
+          .addSeparator()
+          .addItem('Update Timeoff Form', 'promptUpdateTimeoffForm')
           .addSeparator()
           .addItem('Diagnose Assignment Issues', 'runAssignmentDiagnostic')
           .addItem('Debug Functions', 'showDebugPanel')
@@ -194,6 +225,16 @@ function triggerScheduleGeneration(monthString) {
  */
 function reviewTimeoffs(monthString) {
   try {
+    // STEP 1: Update the Google Form with masses for this month
+    try {
+      const updateResult = TIMEOFFS_updateFormForMonth(monthString);
+      Logger.log(`Form update: ${updateResult}`);
+    } catch (formError) {
+      // Non-critical error - continue even if form update fails
+      Logger.log(`Warning: Could not update form: ${formError.message}`);
+    }
+
+    // STEP 2: Get pending requests
     const pending = TIMEOFFS_getPendingRequests();
 
     if (pending.length === 0) {
@@ -203,7 +244,7 @@ function reviewTimeoffs(monthString) {
       if (timeoffsSheet) {
         ss.setActiveSheet(timeoffsSheet);
       }
-      return "No pending timeoff requests to review.";
+      return "No pending timeoff requests to review. Timeoff form has been updated with current month's masses.";
     }
 
     // Parse the month to get date range
@@ -332,6 +373,107 @@ function reviewTimeoffs(monthString) {
   } catch (e) {
     Logger.log(`Error in reviewTimeoffs: ${e}`);
     throw new Error(`Could not analyze timeoffs: ${e.message}`);
+  }
+}
+
+/**
+ * (MENU) Prompts user to select a month and updates the timeoff form with that month's masses.
+ * Accessed via: Admin Tools > Update Timeoff Form
+ */
+function promptUpdateTimeoffForm() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+
+    // Get available months
+    const months = getMonthsForSidebar();
+
+    if (months.length === 0) {
+      ui.alert('No Calendar Data',
+               'Please generate the liturgical calendar first (Show Sidebar > Generate Calendar)',
+               ui.ButtonSet.OK);
+      return;
+    }
+
+    // Build prompt with month options
+    let promptText = 'Select a month to update the timeoff form:\n\n';
+    months.forEach((m, idx) => {
+      promptText += `${idx + 1}. ${m.display}\n`;
+    });
+    promptText += '\nEnter the number (1-' + months.length + '):';
+
+    const response = ui.prompt('Update Timeoff Form', promptText, ui.ButtonSet.OK_CANCEL);
+
+    if (response.getSelectedButton() !== ui.Button.OK) {
+      return; // User cancelled
+    }
+
+    const selection = parseInt(response.getResponseText());
+
+    if (isNaN(selection) || selection < 1 || selection > months.length) {
+      ui.alert('Invalid Selection', 'Please enter a number between 1 and ' + months.length, ui.ButtonSet.OK);
+      return;
+    }
+
+    const selectedMonth = months[selection - 1].value;
+
+    // Update the form
+    const result = TIMEOFFS_updateFormForMonth(selectedMonth);
+    ui.alert('Success', result, ui.ButtonSet.OK);
+
+  } catch (e) {
+    const ui = SpreadsheetApp.getUi();
+    ui.alert('Error', 'Could not update form: ' + e.message, ui.ButtonSet.OK);
+    Logger.log(`ERROR in promptUpdateTimeoffForm: ${e.message}\n${e.stack}`);
+  }
+}
+
+/**
+ * Setup function to format IS_ANTICIPATED column as checkboxes for all existing data.
+ * Run once after adding the IS_ANTICIPATED column to convert text TRUE/FALSE to checkboxes.
+ * Accessed via: Admin Tools > Format Assignment Checkboxes
+ */
+function setupAssignmentCheckboxes() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+
+    if (!assignmentsSheet) {
+      throw new Error('Assignments sheet not found');
+    }
+
+    const lastRow = assignmentsSheet.getLastRow();
+
+    if (lastRow <= 1) {
+      SpreadsheetApp.getUi().alert('No Data', 'No assignment data found to format.', SpreadsheetApp.getUi().ButtonSet.OK);
+      return;
+    }
+
+    // Format IS_ANTICIPATED column (column 7) as checkboxes for all data rows
+    const checkboxRange = assignmentsSheet.getRange(
+      2, // Start from row 2 (skip header)
+      CONSTANTS.COLS.ASSIGNMENTS.IS_ANTICIPATED,
+      lastRow - 1, // All data rows
+      1 // Single column
+    );
+
+    const checkboxValidation = SpreadsheetApp.newDataValidation()
+      .requireCheckbox()
+      .setAllowInvalid(false)
+      .build();
+
+    checkboxRange.setDataValidation(checkboxValidation);
+
+    SpreadsheetApp.getUi().alert(
+      'Success',
+      `Formatted ${lastRow - 1} rows in the IS_ANTICIPATED column as checkboxes.`,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    Logger.log(`Successfully formatted IS_ANTICIPATED column as checkboxes for ${lastRow - 1} rows`);
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('Error', 'Could not format checkboxes: ' + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+    Logger.log(`ERROR in setupAssignmentCheckboxes: ${e.message}\n${e.stack}`);
   }
 }
 

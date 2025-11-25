@@ -87,7 +87,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
     // For each role in the template, create a new row
     for (const role of roles) {
-      const newRow = new Array(assignCols.FAMILY_GROUP).fill("");
+      const newRow = new Array(assignCols.NOTES).fill("");
 
       newRow[assignCols.DATE - 1] = mass.date;
       newRow[assignCols.TIME - 1] = mass.time;
@@ -95,6 +95,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration;
       newRow[assignCols.MINISTRY_ROLE - 1] = role.skill;  // Use specific role name (e.g., "1st Reader") instead of ministry category
       newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
+      newRow[assignCols.IS_ANTICIPATED - 1] = mass.isAnticipated || false; // NEW: Vigil mass flag
       newRow[assignCols.MONTH_YEAR - 1] = monthString;
       newRow[assignCols.ASSIGNED_GROUP - 1] = mass.assignedGroup || "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";
@@ -109,12 +110,27 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
   // 6. Write new rows to the sheet
   Logger.log(`6. Writing ${newAssignmentRows.length} new 'Unassigned' rows...`);
   if (newAssignmentRows.length > 0) {
+    const startRow = assignmentsSheet.getLastRow() + 1;
     assignmentsSheet.getRange(
-      assignmentsSheet.getLastRow() + 1, // Start on the next available row
+      startRow, // Start on the next available row
       1,
       newAssignmentRows.length,
       newAssignmentRows[0].length
     ).setValues(newAssignmentRows);
+
+    // 7. Format IS_ANTICIPATED column as checkboxes
+    Logger.log("7. Formatting IS_ANTICIPATED column as checkboxes...");
+    const checkboxRange = assignmentsSheet.getRange(
+      startRow,
+      assignCols.IS_ANTICIPATED,
+      newAssignmentRows.length,
+      1
+    );
+    const checkboxValidation = SpreadsheetApp.newDataValidation()
+      .requireCheckbox()
+      .setAllowInvalid(false)
+      .build();
+    checkboxRange.setDataValidation(checkboxValidation);
   }
 
   Logger.log("Schedule generation complete.");
@@ -505,15 +521,23 @@ function SCHEDULE_findMassesForMonth(month, year) {
     const staticDate = new Date(row[yearCols.DATE - 1]);
 
     if (liturgyMatch) {
-      specialDate = liturgyDateMap.get(liturgyMatch); 
+      specialDate = liturgyDateMap.get(liturgyMatch);
       if (!specialDate) {
         Logger.log(`WARNING: Could not find LiturgicalCelebration "${liturgyMatch}" in calendar for EventID ${row[yearCols.EVENT_ID - 1]}. Skipping.`);
         continue;
       }
+
+      // NEW: If this is an anticipated mass, place it on the day BEFORE the liturgical celebration
+      const isAnticipated = row[yearCols.IS_ANTICIPATED - 1] === true;
+      if (isAnticipated) {
+        specialDate = new Date(specialDate.getTime() - 24 * 60 * 60 * 1000); // Subtract one day
+        specialDate.setHours(12, 0, 0, 0); // Keep at noon for consistency
+        Logger.log(`> Adjusted anticipated mass ${row[yearCols.EVENT_ID - 1]} to previous day: ${specialDate.toDateString()}`);
+      }
     } else if (!isNaN(staticDate.getTime())) {
       specialDate = setDateToNoon(staticDate); // Use static date, set to noon
     } else {
-      continue; 
+      continue;
     }
     
     // *** FIX: Skip Day 1 if it's a spillover day ***

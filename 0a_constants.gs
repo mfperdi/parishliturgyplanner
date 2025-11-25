@@ -129,13 +129,13 @@ const CONSTANTS = {
       LITURGICAL_CELEBRATION: 4,
       MINISTRY_ROLE: 5,
       EVENT_ID: 6,
-      MONTH_YEAR: 7,
-      ASSIGNED_GROUP: 8,
-      ASSIGNED_VOLUNTEER_ID: 9,
-      ASSIGNED_VOLUNTEER_NAME: 10,
-      STATUS: 11,
-      NOTES: 12,
-      FAMILY_GROUP: 13
+      IS_ANTICIPATED: 7,        // Is this a vigil mass? (true/false)
+      MONTH_YEAR: 8,
+      ASSIGNED_GROUP: 9,
+      ASSIGNED_VOLUNTEER_ID: 10,
+      ASSIGNED_VOLUNTEER_NAME: 11,
+      STATUS: 12,
+      NOTES: 13
     },
     
     // 'Volunteers' sheet (14 columns)
@@ -156,18 +156,16 @@ const CONSTANTS = {
       DATE_TRAINED: 14
     },
     
-    // 'Timeoffs' sheet (10 columns)
+    // 'Timeoffs' sheet (8 columns)
     TIMEOFFS: {
       TIMESTAMP: 1,
       VOLUNTEER_NAME: 2,
-      EMAIL: 3,
-      TYPE: 4,
-      START_DATE: 5,
-      END_DATE: 6,
-      NOTES: 7,
-      STATUS: 8,
-      REVIEWED_DATE: 9,
-      REVIEW_NOTES: 10
+      TYPE: 3,
+      SELECTED_DATES: 4,    // Selected dates from checkboxes (e.g., "2/7/2026 (Vigil), 2/8/2026")
+      VOLUNTEER_NOTES: 5,   // Optional notes from volunteer (form question 4)
+      STATUS: 6,
+      REVIEWED_DATE: 7,
+      REVIEW_NOTES: 8       // Admin review notes and warnings
     }
   },
   
