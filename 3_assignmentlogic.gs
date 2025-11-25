@@ -120,17 +120,19 @@ function buildSkillToMinistryMap() {
 
 /**
  * Optimized volunteer map building with CORRECTED preference reading
+ * UPDATED: Include "Ministry Sponsor" status for group assignments
  */
 function buildVolunteerMapOptimized(volunteerData) {
   const volMap = new Map();
   const cols = CONSTANTS.COLS.VOLUNTEERS;
-  
+
   for (const row of volunteerData) {
     const id = HELPER_safeArrayAccess(row, cols.VOLUNTEER_ID - 1);
     if (!id) continue;
-    
+
     const status = String(HELPER_safeArrayAccess(row, cols.STATUS - 1, '')).toLowerCase();
-    if (status !== 'active') continue;
+    // Include both Active and Ministry Sponsor (Ministry Sponsors can be assigned to their groups)
+    if (status !== 'active' && status !== 'ministry sponsor') continue;
     
     const name = HELPER_safeArrayAccess(row, cols.FULL_NAME - 1);
     if (!name) {
@@ -155,9 +157,9 @@ function buildVolunteerMapOptimized(volunteerData) {
     // ROLES (column 11) = Role preferences like "1st reading, psalm"
     const rolePrefsRaw = HELPER_safeArrayAccess(row, cols.ROLES - 1, '');
     const rolePrefs = parseListField(rolePrefsRaw); // Lowercase for role matching
-    
+
     const familyTeam = HELPER_safeArrayAccess(row, cols.FAMILY_TEAM - 1) || null;
-    
+
     volMap.set(id, {
       id: id,
       name: name,
@@ -166,7 +168,7 @@ function buildVolunteerMapOptimized(volunteerData) {
       ministries: ministries,
       massPrefs: massPrefs,       // EventIDs like ["SUN-1000", "SAT-1700"]
       rolePrefs: rolePrefs,       // Roles like ["1st reading", "psalm"]
-      status: "Active"
+      status: status              // Preserve actual status (active or ministry sponsor)
     });
     
     // Debug logging for preferences
@@ -490,7 +492,9 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       }
     }
 
-    // 2. Must be Active status
+    // 2. Must be Active status (for individual assignments)
+    // Note: Ministry Sponsors are excluded from individual auto-assignment
+    // but can still be assigned to their designated group masses
     if (volunteer.status && volunteer.status.toLowerCase() !== 'active') {
       continue;
     }
@@ -582,6 +586,8 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap) {
   const roleLower = assignment.role.toLowerCase();
   const requiredMinistry = skillToMinistryMap.get(roleLower) || roleLower;
 
+  // Note: No status check here - allows both Active and Ministry Sponsor
+  // volunteers to be assigned to their designated group masses
   for (const vol of volunteers.values()) {
     if (!vol.familyTeam || vol.familyTeam.toLowerCase() !== assignment.assignedGroup.toLowerCase()) {
       continue;
