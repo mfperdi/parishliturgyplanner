@@ -456,7 +456,7 @@ Thank you for serving our parish community! 🙏`;
     // 3. Create fresh date checkbox question
     const dateQuestion = form.addCheckboxItem()
       .setTitle('Select the dates that apply to your request')
-      .setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.\n\n💡 TIP: The liturgical celebration name helps identify special holy days (Ash Wednesday, Easter, Christmas, etc.)')
+      .setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.')
       .setRequired(true)
       .setChoiceValues(dateOptions);
 
