@@ -362,6 +362,51 @@ function TIMEOFFS_updateFormForMonth(monthString) {
     const formId = match[1];
     const form = FormApp.openById(formId);
 
+    // Get friendly month name for form title and description
+    const monthDate = new Date(monthString + '-01T12:00:00');
+    const monthName = monthDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+    // Update form title
+    form.setTitle(`Ministry Schedule - Timeoff Request for ${monthName}`);
+
+    // Update form description
+    const description = `Use this form to submit TEMPORARY availability changes for ${monthName} ministry scheduling.
+
+📅 COMMON EXAMPLES:
+✓ Vacation/travel: "I cannot serve March 10-17"
+   → Select "I CANNOT Serve" and check those dates
+
+✓ Limited availability: "I can only help March 8 and March 22"
+   → Select "I Can ONLY Serve" and check only those 2 dates
+
+✓ Mass time restrictions: "I can only serve evening masses this month"
+   → Select type, check dates, and explain in the Additional Details field
+
+❌ PERMANENT CHANGES (contact parish office instead):
+• Changing your regular preferred mass time
+• Adding/removing ministry roles
+• Updating contact information
+• Changing volunteer status (inactive, etc.)
+
+Questions? Contact the parish office for assistance.`;
+
+    form.setDescription(description);
+
+    // Update confirmation message
+    const confirmationMessage = `✓ Your timeoff request has been submitted!
+
+WHAT HAPPENS NEXT:
+1. Parish staff will review your request within 2-3 business days
+2. You'll be notified when your request is approved or if we have questions
+3. Check your email or the parish bulletin for your final assignments
+
+NEED TO MAKE CHANGES?
+If you need to modify or cancel this request, contact the parish office.
+
+Thank you for serving our parish community! 🙏`;
+
+    form.setConfirmationMessage(confirmationMessage);
+
     // Get volunteers for dropdown
     const volunteers = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
     const volunteerNames = volunteers
@@ -395,12 +440,38 @@ function TIMEOFFS_updateFormForMonth(monthString) {
 
     if (!volunteerQuestion) {
       volunteerQuestion = form.addListItem()
-        .setTitle('Volunteer Name')
+        .setTitle('Your Name')
+        .setHelpText('Select your name from the list. If you don\'t see your name, contact the parish office.')
         .setRequired(true);
+    } else {
+      volunteerQuestion.setTitle('Your Name');
+      volunteerQuestion.setHelpText('Select your name from the list. If you don\'t see your name, contact the parish office.');
     }
     volunteerQuestion.setChoiceValues(volunteerNames);
 
-    // 2. Find or create date checkbox question
+    // 2. Find or create Type dropdown
+    let typeQuestion = null;
+    for (const item of items) {
+      const title = item.getTitle().toLowerCase();
+      if (title.includes('type') && item.getType() === FormApp.ItemType.LIST) {
+        typeQuestion = item.asListItem();
+        break;
+      }
+    }
+
+    const types = Object.values(CONSTANTS.TIMEOFF_TYPES);
+    if (!typeQuestion) {
+      typeQuestion = form.addListItem()
+        .setTitle('What type of availability change is this?')
+        .setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"\n  \n💡 Most requests are "I CANNOT serve"')
+        .setRequired(true);
+    } else {
+      typeQuestion.setTitle('What type of availability change is this?');
+      typeQuestion.setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"\n  \n💡 Most requests are "I CANNOT serve"');
+    }
+    typeQuestion.setChoiceValues(types);
+
+    // 3. Find or create date checkbox question
     let dateQuestion = null;
     for (const item of items) {
       const title = item.getTitle().toLowerCase();
@@ -412,17 +483,36 @@ function TIMEOFFS_updateFormForMonth(monthString) {
 
     if (!dateQuestion) {
       dateQuestion = form.addCheckboxItem()
-        .setTitle('Select Dates')
-        .setHelpText('For "Not Available": Check dates you CANNOT serve.\nFor "Only Available": Check dates you CAN serve.')
+        .setTitle('Select the dates that apply to your request')
+        .setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.\n\n💡 TIP: The liturgical celebration name helps identify special holy days (Ash Wednesday, Easter, Christmas, etc.)')
         .setRequired(true);
+    } else {
+      dateQuestion.setTitle('Select the dates that apply to your request');
+      dateQuestion.setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.\n\n💡 TIP: The liturgical celebration name helps identify special holy days (Ash Wednesday, Easter, Christmas, etc.)');
     }
 
     // Update choices
     dateQuestion.setChoiceValues(dateOptions);
 
-    // Get friendly month name
-    const monthDate = new Date(monthString + '-01T12:00:00');
-    const monthName = monthDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    // 4. Find or create Notes question
+    let notesQuestion = null;
+    for (const item of items) {
+      const title = item.getTitle().toLowerCase();
+      if ((title.includes('note') || title.includes('detail')) && item.getType() === FormApp.ItemType.PARAGRAPH_TEXT) {
+        notesQuestion = item.asParagraphTextItem();
+        break;
+      }
+    }
+
+    if (!notesQuestion) {
+      notesQuestion = form.addParagraphTextItem()
+        .setTitle('Additional details or restrictions (Optional)')
+        .setHelpText('Use this field for:\n\n• Mass time restrictions: "Can only serve evening masses" or "Available only after 6pm"\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n• Context: "Family wedding" or "Surgery recovery"\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward.')
+        .setRequired(false);
+    } else {
+      notesQuestion.setTitle('Additional details or restrictions (Optional)');
+      notesQuestion.setHelpText('Use this field for:\n\n• Mass time restrictions: "Can only serve evening masses" or "Available only after 6pm"\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n• Context: "Family wedding" or "Surgery recovery"\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward.');
+    }
 
     Logger.log(`Updated form with ${volunteerNames.length} volunteers and ${dateOptions.length} date options for ${monthString}`);
     return `✓ Form updated for ${monthName}:\n- ${volunteerNames.length} volunteers\n- ${dateOptions.length} date options`;
