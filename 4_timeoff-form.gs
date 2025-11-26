@@ -477,28 +477,22 @@ Thank you for serving our parish community! 🙏`;
     }
     typeQuestion.setChoiceValues(types);
 
-    // 3. Find or create date checkbox question
-    let dateQuestion = null;
-    for (const item of items) {
+    // 3. Delete ALL existing date checkbox questions to prevent duplicates
+    for (let i = items.length - 1; i >= 0; i--) {
+      const item = items[i];
       const title = item.getTitle().toLowerCase();
       if (title.includes('date') && item.getType() === FormApp.ItemType.CHECKBOX) {
-        dateQuestion = item.asCheckboxItem();
-        break;
+        form.deleteItem(i);
+        Logger.log(`Deleted old date checkbox item: ${item.getTitle()}`);
       }
     }
 
-    if (!dateQuestion) {
-      dateQuestion = form.addCheckboxItem()
-        .setTitle('Select the dates that apply to your request')
-        .setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.\n\n💡 TIP: The liturgical celebration name helps identify special holy days (Ash Wednesday, Easter, Christmas, etc.)')
-        .setRequired(true);
-    } else {
-      dateQuestion.setTitle('Select the dates that apply to your request');
-      dateQuestion.setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.\n\n💡 TIP: The liturgical celebration name helps identify special holy days (Ash Wednesday, Easter, Christmas, etc.)');
-    }
-
-    // Update choices
-    dateQuestion.setChoiceValues(dateOptions);
+    // Create fresh date checkbox question
+    const dateQuestion = form.addCheckboxItem()
+      .setTitle('Select the dates that apply to your request')
+      .setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.\n\n💡 TIP: The liturgical celebration name helps identify special holy days (Ash Wednesday, Easter, Christmas, etc.)')
+      .setRequired(true)
+      .setChoiceValues(dateOptions);
 
     // 4. Find or create Notes question
     let notesQuestion = null;
