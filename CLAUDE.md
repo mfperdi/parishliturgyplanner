@@ -110,14 +110,15 @@ The system uses multiple interconnected sheets within a single spreadsheet:
 - Preferred Mass Time: Event IDs (e.g., "SUN-1000, SAT-1700")
 - Ministry Role Preference: Specific roles (e.g., "1st reading, psalm")
 
-**Timeoffs** - Timeoff request tracking with blacklist and whitelist support
-- Columns: Timestamp, Volunteer Name, Email, Type, Start Date, End Date, Notes, Status, Reviewed Date, Review Notes
+**Timeoffs** - Timeoff request tracking via Google Form with blacklist and whitelist support
+- Columns: Timestamp, Volunteer Name, Type, Selected Dates, Volunteer Notes, Status, Reviewed Date, Review Notes
 - **Status**: Pending, Approved, Rejected
 - **Type** (dropdown):
-  - **Not Available** (blacklist): Volunteer cannot serve on specified dates
-  - **Only Available** (whitelist): Volunteer can ONLY serve on specified Event IDs/dates during the specified period
-- **Notes field format** (for "Only Available" type only):
-  - Comma-separated Event IDs and/or specific dates (e.g., "SUN-1000, SAT-1700" or "12/25/2025, 1/1/2026")
+  - **"I CANNOT serve these dates"** (blacklist): Volunteer unavailable on checked dates
+  - **"I can ONLY serve these dates"** (whitelist): Volunteer can ONLY be assigned to checked dates
+- **Selected Dates**: Parsed from form checkboxes (e.g., "2/7/2026 (Vigil), 2/8/2026, 2/15/2026")
+- **Volunteer Notes**: Optional additional details from form (mass time restrictions, context, etc.)
+- **Review Notes**: System-generated warnings + admin review notes
 
 #### Output Sheets
 
@@ -310,62 +311,135 @@ Base score: 100
 
 ### Workflow 5a: Timeoff Management
 
-**Initial Setup**: Run once to add dropdown validation
-- Menu: Admin Tools → Setup Timeoff Validation
-- Adds dropdown to TYPE column in Timeoffs sheet
+**Overview**: Volunteers submit temporary availability changes via Google Form. Admin updates form monthly with current dates, volunteers fill it out, admin approves/rejects, and system respects timeoffs during auto-assignment.
 
-**Workflow Overview**:
-The timeoff system supports two request types for managing volunteer availability:
+**Initial Setup** (one-time):
+1. Create Google Form linked to Timeoffs sheet (Tools > Create a new form)
+2. Admin menu: Admin Tools → Setup Timeoff Validation (adds TYPE dropdown to sheet)
 
-#### 1. Not Available (Blacklist)
-**Use case**: Volunteer cannot serve on specified dates
+**Monthly Workflow**:
+1. **Admin: Update Form** (before volunteers submit)
+   - Sidebar: Select month → "Update Timeoff Form"
+   - System populates form with all mass dates for the month
+   - Date checkboxes show liturgical context: "Sunday 2/8/2026 - 5th Sunday in Ordinary Time"
+   - Vigil masses separated: "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil)"
 
-**Process**:
-1. Enter timeoff with TYPE = "Not Available"
-2. Set Start Date and End Date
-3. Submit (Status = "Pending")
-4. Admin approves request
-5. **Result**: Volunteer excluded from auto-assignment for those dates
+2. **Volunteers: Submit Requests**
+   - Open Google Form (share link via email/bulletin)
+   - Select name from dropdown
+   - Choose request type (see below)
+   - Check applicable dates
+   - Add optional notes for special circumstances
+   - Submit form
 
-**Example**: "I'm on vacation 7/1-7/15"
-- Type: `Not Available`
-- Start Date: `7/1/2026`
-- End Date: `7/15/2026`
-- Notes: (optional description)
+3. **System: Validate Submission**
+   - Checks volunteer name exists
+   - Validates date selections
+   - Parses checkbox responses into clean date format
+   - Adds warnings to Review Notes if issues found
+   - Sets Status = "Pending"
 
-#### 2. Only Available (Whitelist)
-**Use case**: Volunteer can ONLY serve specific masses or dates during a period
+4. **Admin: Review and Approve**
+   - Menu: Admin Tools → Review Timeoff Requests
+   - Review pending requests with context
+   - Approve or reject with optional notes
+   - System timestamps review
 
-**Process**:
-1. Enter timeoff with TYPE = "Only Available"
-2. Set Start Date and End Date (the period this restriction applies)
-3. **Notes field**: Enter Event IDs and/or specific dates (e.g., "SUN-1000, SAT-1700" or "12/25/2025, 1/1/2026")
-4. Submit and get approved
-5. **Result**: During the specified period, volunteer can ONLY be assigned to masses matching the specified Event IDs or dates
+5. **Auto-Assignment: Respects Timeoffs**
+   - Only approved timeoffs are enforced
+   - See "Timeoff Logic" section below for details
 
-**Example**: "I can only serve Saturday 5pm vigil masses this summer"
-- Type: `Only Available`
-- Start Date: `6/1/2026`
-- End Date: `8/31/2026`
-- Notes: `SAT-1700`
+---
 
-**Example**: "I'm only available for Christmas and New Year masses"
-- Type: `Only Available`
-- Start Date: `12/1/2025`
-- End Date: `1/15/2026`
-- Notes: `12/25/2025, 1/1/2026`
+#### Timeoff Request Types
 
-**Notes Field Format**:
-- Event IDs: 3+ letters, hyphen, 4 digits (e.g., `SUN-1000`, `SAT-1700`)
-- Dates: Any standard date format (e.g., `12/25/2025`, `1/1/2026`)
-- Multiple values: Comma-separated (e.g., `SUN-1000, SAT-1700, 12/25/2025`)
+The system supports two types for managing temporary availability:
 
-**Best Practices**:
-1. Run Admin Tools → Setup Timeoff Validation once to add TYPE dropdown
-2. System validates requests and adds warnings to Review Notes
-3. For preference changes (e.g., changing preferred mass times), edit the Volunteers sheet directly
-4. For status changes (e.g., marking volunteer as Inactive), edit the Volunteers sheet directly
-5. For special event assignments (e.g., manually assigning someone despite unavailability), use the Assignments sheet directly
+**Type 1: "I CANNOT serve these dates"** (Blacklist)
+- **Use case**: Volunteer unavailable on specific dates
+- **Common reasons**: Vacation, family event, work conflict, illness
+- **Process**: Volunteer checks all dates they CANNOT serve
+- **Result**: Volunteer excluded from auto-assignment on those dates
+- **Example**: "I'm on vacation Feb 10-17"
+  - Select type: "I CANNOT serve these dates"
+  - Check all dates from Feb 10-17 (each individual date)
+  - Optional notes: "Family vacation"
+
+**Type 2: "I can ONLY serve these dates"** (Whitelist)
+- **Use case**: Volunteer restricted to specific dates (unavailable all other dates this month)
+- **Common reasons**: Temporary schedule conflict, limited availability period
+- **Process**: Volunteer checks ONLY the dates they CAN serve
+- **Result**: Volunteer can ONLY be assigned to checked dates (excluded from all other dates)
+- **Example**: "I can only help Feb 8 and Feb 22 this month"
+  - Select type: "I can ONLY serve these dates"
+  - Check ONLY Feb 8 and Feb 22 (do not check other dates)
+  - Optional notes: "New work schedule - only free these 2 Sundays"
+
+**Important Distinction**:
+- **"I CANNOT serve"**: Most common type (90% of requests). Check dates you're UNavailable.
+- **"I can ONLY serve"**: Rare. Check dates you CAN serve, implies you're unavailable all other dates.
+
+---
+
+#### Special Cases
+
+**Scenario: Vigil vs. Non-Vigil Mass Distinctions**
+- Form separates Saturday vigil from Sunday mass
+- Example: Unavailable for entire weekend
+  - Check "Saturday 2/7/2026 - 5th Sunday (Vigil)"
+  - AND check "Sunday 2/8/2026 - 5th Sunday"
+
+**Scenario: Temporary Mass Time Preferences**
+- Example: "I can only serve evening masses this month"
+- Solution: Use "I can ONLY serve" type + check all dates + add note "Evening masses only"
+- Admin reviews note and can manually adjust if needed
+
+**Scenario: Holy Days with Multiple Mass Times**
+- Example: "I can only serve the 7pm mass on Assumption Day"
+- Solution: Check Assumption date + add note "7pm evening mass only"
+- Admin may need to manually verify assignment or add Event ID to Notes field
+
+**Scenario: Permanent Preference Changes**
+- Example: "I want to permanently change to Saturday evening masses"
+- **Do NOT use timeoff form** - this is a permanent change
+- Instruct volunteer to contact admin directly
+- Admin updates Volunteers sheet → Preferred Mass Time column
+
+---
+
+#### Form User Experience Improvements
+
+**Clear Type Names**: Active voice makes distinction obvious
+- ❌ Old: "Not Available" / "Only Available" (ambiguous)
+- ✅ New: "I CANNOT serve these dates" / "I can ONLY serve these dates"
+
+**Comprehensive Help Text**: Each form question includes:
+- When to use each option
+- Examples with real scenarios
+- Tips for common situations (vigil masses, date ranges, etc.)
+- Guidance on permanent vs. temporary changes
+
+**Form Description**: Top of form sets expectations
+- What the form is for (temporary changes only)
+- Common examples with type selection guidance
+- What NOT to use it for (permanent changes)
+- Admin contact info
+
+**Confirmation Message**: After submission
+- What happens next (review timeline, email notification)
+- How to make changes or cancel
+- When schedule will be published
+
+---
+
+#### Best Practices
+
+1. **Update form monthly** before volunteers start submitting (use Sidebar → Update Timeoff Form)
+2. **Communicate form link** via email/bulletin with submission deadline
+3. **Review requests promptly** - volunteers appreciate quick feedback
+4. **For permanent changes**: Update Volunteers sheet directly (Preferred Mass Time, Status, Ministry Roles)
+5. **For edge cases**: Manual assignment in Assignments sheet with override is acceptable
+6. **Run validation setup once**: Admin Tools → Setup Timeoff Validation (adds TYPE dropdown)
 
 ### Workflow 5b: Real-Time Assignment Validation
 
