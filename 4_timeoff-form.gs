@@ -433,9 +433,9 @@ Thank you for serving our parish community! 🙏`;
 
     // Delete ALL existing form items to prevent duplicates
     const items = form.getItems();
-    for (let i = items.length - 1; i >= 0; i--) {
-      form.deleteItem(i);
-      Logger.log(`Deleted old form item: ${items[i].getTitle()}`);
+    for (const item of items) {
+      Logger.log(`Deleting form item: ${item.getTitle()}`);
+      form.deleteItem(item);
     }
 
     // 1. Create fresh Volunteer Name dropdown
