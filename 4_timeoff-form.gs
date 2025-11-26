@@ -362,6 +362,51 @@ function TIMEOFFS_updateFormForMonth(monthString) {
     const formId = match[1];
     const form = FormApp.openById(formId);
 
+    // Get friendly month name for form title and description
+    const monthDate = new Date(monthString + '-01T12:00:00');
+    const monthName = monthDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+    // Update form title
+    form.setTitle(`Ministry Schedule - Timeoff Request for ${monthName}`);
+
+    // Update form description
+    const description = `Use this form to submit TEMPORARY availability changes for ${monthName} ministry scheduling.
+
+📅 COMMON EXAMPLES:
+✓ Vacation/travel: "I cannot serve March 10-17"
+   → Select "I CANNOT Serve" and check those dates
+
+✓ Limited availability: "I can only help March 8 and March 22"
+   → Select "I Can ONLY Serve" and check only those 2 dates
+
+✓ Mass time restrictions: "I can only serve evening masses this month"
+   → Select type, check dates, and explain in the Additional Details field
+
+❌ PERMANENT CHANGES (contact parish office instead):
+• Changing your regular preferred mass time
+• Adding/removing ministry roles
+• Updating contact information
+• Changing volunteer status (inactive, etc.)
+
+Questions? Contact the parish office for assistance.`;
+
+    form.setDescription(description);
+
+    // Update confirmation message
+    const confirmationMessage = `✓ Your timeoff request has been submitted!
+
+WHAT HAPPENS NEXT:
+1. Parish staff will review your request within 2-3 business days
+2. You'll be notified when your request is approved or if we have questions
+3. Check your email or the parish bulletin for your final assignments
+
+NEED TO MAKE CHANGES?
+If you need to modify or cancel this request, contact the parish office.
+
+Thank you for serving our parish community! 🙏`;
+
+    form.setConfirmationMessage(confirmationMessage);
+
     // Get volunteers for dropdown
     const volunteers = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
     const volunteerNames = volunteers
@@ -468,10 +513,6 @@ function TIMEOFFS_updateFormForMonth(monthString) {
       notesQuestion.setTitle('Additional details or restrictions (Optional)');
       notesQuestion.setHelpText('Use this field for:\n\n• Mass time restrictions: "Can only serve evening masses" or "Available only after 6pm"\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n• Context: "Family wedding" or "Surgery recovery"\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward.');
     }
-
-    // Get friendly month name
-    const monthDate = new Date(monthString + '-01T12:00:00');
-    const monthName = monthDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
     Logger.log(`Updated form with ${volunteerNames.length} volunteers and ${dateOptions.length} date options for ${monthString}`);
     return `✓ Form updated for ${monthName}:\n- ${volunteerNames.length} volunteers\n- ${dateOptions.length} date options`;
