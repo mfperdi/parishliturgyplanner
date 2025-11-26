@@ -66,7 +66,10 @@ The system uses multiple interconnected sheets within a single spreadsheet:
 **Config** - System settings
 - `Setting` (Column A): Setting name
 - `Value` (Column B): Setting value
-- Key settings: `Year to Schedule`, `Calendar Region`, `Parish Name`
+- Key settings: `Year to Schedule`, `Calendar Region`, `Parish Name`, `Ministry Name`, `Ministry Coordinator`
+- `Parish Name`: Used in form titles (e.g., "St. Catherine of Siena")
+- `Ministry Name`: Used in form titles (e.g., "Word Ministry")
+- `Ministry Coordinator`: Contact person referenced in form help text and messages (e.g., "Word Ministry Coordinator")
 
 **SaintsCalendar** - Fixed feast days and saints
 - Columns: Month, Day, Liturgical Celebration, Rank, Color, Calendar
