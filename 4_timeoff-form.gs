@@ -469,11 +469,11 @@ Thank you for serving our parish community! 🙏`;
     if (!typeQuestion) {
       typeQuestion = form.addListItem()
         .setTitle('What type of availability change is this?')
-        .setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"\n  \n💡 Most requests are "I CANNOT serve"')
+        .setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"')
         .setRequired(true);
     } else {
       typeQuestion.setTitle('What type of availability change is this?');
-      typeQuestion.setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"\n  \n💡 Most requests are "I CANNOT serve"');
+      typeQuestion.setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"');
     }
     typeQuestion.setChoiceValues(types);
 
