@@ -366,11 +366,16 @@ function TIMEOFFS_updateFormForMonth(monthString) {
     const monthDate = new Date(monthString + '-01T12:00:00');
     const monthName = monthDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
 
+    // Get parish and ministry names from Config
+    const config = HELPER_readConfigSafe();
+    const parishName = config['Parish Name'] || 'Parish';
+    const ministryName = config['Ministry Name'] || 'Ministry Schedule';
+
     // Update form title
-    form.setTitle(`Ministry Schedule - Timeoff Request for ${monthName}`);
+    form.setTitle(`${parishName} ${ministryName} - Timeoff Request for ${monthName}`);
 
     // Update form description
-    const description = `Use this form to submit TEMPORARY availability changes for ${monthName} ministry scheduling.
+    const description = `Use this form to submit TEMPORARY availability changes for ${parishName} ${ministryName} scheduling in ${monthName}.
 
 📅 COMMON EXAMPLES:
 ✓ Vacation/travel: "I cannot serve March 10-17"
@@ -388,7 +393,7 @@ function TIMEOFFS_updateFormForMonth(monthString) {
 • Updating contact information
 • Changing volunteer status (inactive, etc.)
 
-Questions? Contact the parish office for assistance.`;
+Questions? Contact ${parishName} for assistance.`;
 
     form.setDescription(description);
 
@@ -396,12 +401,12 @@ Questions? Contact the parish office for assistance.`;
     const confirmationMessage = `✓ Your timeoff request has been submitted!
 
 WHAT HAPPENS NEXT:
-1. Parish staff will review your request within 2-3 business days
+1. ${parishName} staff will review your request within 2-3 business days
 2. You'll be notified when your request is approved or if we have questions
 3. Check your email or the parish bulletin for your final assignments
 
 NEED TO MAKE CHANGES?
-If you need to modify or cancel this request, contact the parish office.
+If you need to modify or cancel this request, contact ${parishName}.
 
 Thank you for serving our parish community! 🙏`;
 
