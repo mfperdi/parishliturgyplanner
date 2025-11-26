@@ -431,88 +431,40 @@ Thank you for serving our parish community! 🙏`;
     // Format date options
     const dateOptions = dates.map(d => d.display);
 
+    // Delete ALL existing form items to prevent duplicates
     const items = form.getItems();
-
-    // 1. Update or create Volunteer Name dropdown
-    let volunteerQuestion = null;
-    for (const item of items) {
-      const title = item.getTitle().toLowerCase();
-      if (title.includes('volunteer') && title.includes('name') &&
-          item.getType() === FormApp.ItemType.LIST) {
-        volunteerQuestion = item.asListItem();
-        break;
-      }
-    }
-
-    if (!volunteerQuestion) {
-      volunteerQuestion = form.addListItem()
-        .setTitle('Your Name')
-        .setHelpText(`Select your name from the list. If you don't see your name, contact ${coordinator}.`)
-        .setRequired(true);
-    } else {
-      volunteerQuestion.setTitle('Your Name');
-      volunteerQuestion.setHelpText(`Select your name from the list. If you don't see your name, contact ${coordinator}.`);
-    }
-    volunteerQuestion.setChoiceValues(volunteerNames);
-
-    // 2. Find or create Type dropdown
-    let typeQuestion = null;
-    for (const item of items) {
-      const title = item.getTitle().toLowerCase();
-      if (title.includes('type') && item.getType() === FormApp.ItemType.LIST) {
-        typeQuestion = item.asListItem();
-        break;
-      }
-    }
-
-    const types = Object.values(CONSTANTS.TIMEOFF_TYPES);
-    if (!typeQuestion) {
-      typeQuestion = form.addListItem()
-        .setTitle('What type of availability change is this?')
-        .setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"')
-        .setRequired(true);
-    } else {
-      typeQuestion.setTitle('What type of availability change is this?');
-      typeQuestion.setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"');
-    }
-    typeQuestion.setChoiceValues(types);
-
-    // 3. Delete ALL existing date checkbox questions to prevent duplicates
     for (let i = items.length - 1; i >= 0; i--) {
-      const item = items[i];
-      const title = item.getTitle().toLowerCase();
-      if (title.includes('date') && item.getType() === FormApp.ItemType.CHECKBOX) {
-        form.deleteItem(i);
-        Logger.log(`Deleted old date checkbox item: ${item.getTitle()}`);
-      }
+      form.deleteItem(i);
+      Logger.log(`Deleted old form item: ${items[i].getTitle()}`);
     }
 
-    // Create fresh date checkbox question
+    // 1. Create fresh Volunteer Name dropdown
+    const volunteerQuestion = form.addListItem()
+      .setTitle('Your Name')
+      .setHelpText(`Select your name from the list. If you don't see your name, contact ${coordinator}.`)
+      .setRequired(true)
+      .setChoiceValues(volunteerNames);
+
+    // 2. Create fresh Type dropdown
+    const types = Object.values(CONSTANTS.TIMEOFF_TYPES);
+    const typeQuestion = form.addListItem()
+      .setTitle('What type of availability change is this?')
+      .setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"')
+      .setRequired(true)
+      .setChoiceValues(types);
+
+    // 3. Create fresh date checkbox question
     const dateQuestion = form.addCheckboxItem()
       .setTitle('Select the dates that apply to your request')
       .setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.\n\n💡 TIP: The liturgical celebration name helps identify special holy days (Ash Wednesday, Easter, Christmas, etc.)')
       .setRequired(true)
       .setChoiceValues(dateOptions);
 
-    // 4. Find or create Notes question
-    let notesQuestion = null;
-    for (const item of items) {
-      const title = item.getTitle().toLowerCase();
-      if ((title.includes('note') || title.includes('detail')) && item.getType() === FormApp.ItemType.PARAGRAPH_TEXT) {
-        notesQuestion = item.asParagraphTextItem();
-        break;
-      }
-    }
-
-    if (!notesQuestion) {
-      notesQuestion = form.addParagraphTextItem()
-        .setTitle('Additional details or restrictions (Optional)')
-        .setHelpText('Use this field for:\n\n• Mass time restrictions: "Can only serve evening masses" or "Available only after 6pm"\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n• Context: "Family wedding" or "Surgery recovery"\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward.')
-        .setRequired(false);
-    } else {
-      notesQuestion.setTitle('Additional details or restrictions (Optional)');
-      notesQuestion.setHelpText('Use this field for:\n\n• Mass time restrictions: "Can only serve evening masses" or "Available only after 6pm"\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n• Context: "Family wedding" or "Surgery recovery"\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward.');
-    }
+    // 4. Create fresh Notes question
+    const notesQuestion = form.addParagraphTextItem()
+      .setTitle('Additional details or restrictions (Optional)')
+      .setHelpText('Use this field for:\n\n• Mass time restrictions: "Can only serve evening masses" or "Available only after 6pm"\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n• Context: "Family wedding" or "Surgery recovery"\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward.')
+      .setRequired(false);
 
     Logger.log(`Updated form with ${volunteerNames.length} volunteers and ${dateOptions.length} date options for ${monthString}`);
     return `✓ Form updated for ${monthName}:\n- ${volunteerNames.length} volunteers\n- ${dateOptions.length} date options`;
