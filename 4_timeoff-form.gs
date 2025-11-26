@@ -370,6 +370,7 @@ function TIMEOFFS_updateFormForMonth(monthString) {
     const config = HELPER_readConfigSafe();
     const parishName = config['Parish Name'] || 'Parish';
     const ministryName = config['Ministry Name'] || 'Ministry Schedule';
+    const coordinator = config['Ministry Coordinator'] || 'the parish office';
 
     // Update form title
     form.setTitle(`${parishName} ${ministryName} - Timeoff Request for ${monthName}`);
@@ -387,13 +388,13 @@ function TIMEOFFS_updateFormForMonth(monthString) {
 ✓ Mass time restrictions: "I can only serve evening masses this month"
    → Select type, check dates, and explain in the Additional Details field
 
-❌ PERMANENT CHANGES (contact parish office instead):
+❌ PERMANENT CHANGES (contact ${coordinator} instead):
 • Changing your regular preferred mass time
 • Adding/removing ministry roles
 • Updating contact information
 • Changing volunteer status (inactive, etc.)
 
-Questions? Contact ${parishName} for assistance.`;
+Questions? Contact ${coordinator} for assistance.`;
 
     form.setDescription(description);
 
@@ -401,12 +402,12 @@ Questions? Contact ${parishName} for assistance.`;
     const confirmationMessage = `✓ Your timeoff request has been submitted!
 
 WHAT HAPPENS NEXT:
-1. ${parishName} staff will review your request within 2-3 business days
+1. ${coordinator} will review your request within 2-3 business days
 2. You'll be notified when your request is approved or if we have questions
 3. Check your email or the parish bulletin for your final assignments
 
 NEED TO MAKE CHANGES?
-If you need to modify or cancel this request, contact ${parishName}.
+If you need to modify or cancel this request, contact ${coordinator}.
 
 Thank you for serving our parish community! 🙏`;
 
@@ -446,11 +447,11 @@ Thank you for serving our parish community! 🙏`;
     if (!volunteerQuestion) {
       volunteerQuestion = form.addListItem()
         .setTitle('Your Name')
-        .setHelpText('Select your name from the list. If you don\'t see your name, contact the parish office.')
+        .setHelpText(`Select your name from the list. If you don't see your name, contact ${coordinator}.`)
         .setRequired(true);
     } else {
       volunteerQuestion.setTitle('Your Name');
-      volunteerQuestion.setHelpText('Select your name from the list. If you don\'t see your name, contact the parish office.');
+      volunteerQuestion.setHelpText(`Select your name from the list. If you don't see your name, contact ${coordinator}.`);
     }
     volunteerQuestion.setChoiceValues(volunteerNames);
 
