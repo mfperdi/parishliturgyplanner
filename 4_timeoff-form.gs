@@ -451,40 +451,88 @@ Thank you for serving our parish community! 🙏`;
     // Format date options
     const dateOptions = dates.map(d => d.display);
 
-    // Delete ALL existing form items to prevent duplicates
+    // Get existing form items - we'll update them instead of deleting/recreating
     const items = form.getItems();
-    for (const item of items) {
-      Logger.log(`Deleting form item: ${item.getTitle()}`);
-      form.deleteItem(item);
-    }
 
-    // 1. Create fresh Volunteer Name dropdown
-    const volunteerQuestion = form.addListItem()
-      .setTitle('Your Name')
-      .setHelpText(`Select your name from the list. If you don't see your name, contact ${coordinator}.`)
-      .setRequired(true)
-      .setChoiceValues(volunteerNames);
+    // Expected question structure (in order):
+    // 1. Your Name (list)
+    // 2. What type of availability change is this? (list)
+    // 3. Select the dates that apply to your request (checkbox)
+    // 4. Additional details or restrictions (paragraph)
 
-    // 2. Create fresh Type dropdown
     const types = Object.values(CONSTANTS.TIMEOFF_TYPES);
-    const typeQuestion = form.addListItem()
-      .setTitle('What type of availability change is this?')
-      .setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"')
-      .setRequired(true)
-      .setChoiceValues(types);
 
-    // 3. Create fresh date checkbox question
-    const dateQuestion = form.addCheckboxItem()
-      .setTitle('Select the dates that apply to your request')
-      .setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.')
-      .setRequired(true)
-      .setChoiceValues(dateOptions);
+    // If form has no questions yet, create them fresh
+    if (items.length === 0) {
+      Logger.log('No existing questions found - creating fresh form structure');
 
-    // 4. Create fresh Notes question
-    const notesQuestion = form.addParagraphTextItem()
-      .setTitle('Additional details or restrictions (Optional)')
-      .setHelpText('Use this field for:\n\n• Mass time restrictions: "Can only serve evening masses" or "Available only after 6pm"\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n• Context: "Family wedding" or "Surgery recovery"\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward.')
-      .setRequired(false);
+      // 1. Create Volunteer Name dropdown
+      form.addListItem()
+        .setTitle('Your Name')
+        .setHelpText(`Select your name from the list. If you don't see your name, contact ${coordinator}.`)
+        .setRequired(true)
+        .setChoiceValues(volunteerNames);
+
+      // 2. Create Type dropdown
+      form.addListItem()
+        .setTitle('What type of availability change is this?')
+        .setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"')
+        .setRequired(true)
+        .setChoiceValues(types);
+
+      // 3. Create date checkbox question
+      form.addCheckboxItem()
+        .setTitle('Select the dates that apply to your request')
+        .setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.')
+        .setRequired(true)
+        .setChoiceValues(dateOptions);
+
+      // 4. Create Notes question
+      form.addParagraphTextItem()
+        .setTitle('Additional details or restrictions (Optional)')
+        .setHelpText('Use this field for:\n\n• Mass time restrictions: "Can only serve evening masses" or "Available only after 6pm"\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n• Context: "Family wedding" or "Surgery recovery"\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward.')
+        .setRequired(false);
+
+      Logger.log('Created fresh form structure with 4 questions');
+
+    } else {
+      // Update existing questions to preserve column mapping
+      Logger.log(`Found ${items.length} existing questions - updating choices only`);
+
+      // Question 1: Your Name (list)
+      if (items.length > 0 && items[0].getType() === FormApp.ItemType.LIST) {
+        const volunteerQuestion = items[0].asListItem();
+        volunteerQuestion.setChoiceValues(volunteerNames);
+        Logger.log(`Updated volunteer name dropdown with ${volunteerNames.length} names`);
+      } else {
+        Logger.log('WARNING: Question 1 is not a list item or does not exist');
+      }
+
+      // Question 2: Type (list)
+      if (items.length > 1 && items[1].getType() === FormApp.ItemType.LIST) {
+        const typeQuestion = items[1].asListItem();
+        typeQuestion.setChoiceValues(types);
+        Logger.log('Updated type dropdown');
+      } else {
+        Logger.log('WARNING: Question 2 is not a list item or does not exist');
+      }
+
+      // Question 3: Dates (checkbox)
+      if (items.length > 2 && items[2].getType() === FormApp.ItemType.CHECKBOX) {
+        const dateQuestion = items[2].asCheckboxItem();
+        dateQuestion.setChoiceValues(dateOptions);
+        Logger.log(`Updated date checkboxes with ${dateOptions.length} dates`);
+      } else {
+        Logger.log('WARNING: Question 3 is not a checkbox item or does not exist');
+      }
+
+      // Question 4: Notes (paragraph) - no choices to update, just verify it exists
+      if (items.length > 3 && items[3].getType() === FormApp.ItemType.PARAGRAPH_TEXT) {
+        Logger.log('Notes field verified');
+      } else {
+        Logger.log('WARNING: Question 4 is not a paragraph text item or does not exist');
+      }
+    }
 
     Logger.log(`Updated form with ${volunteerNames.length} volunteers and ${dateOptions.length} date options for ${monthString}`);
     return `✓ Form updated for ${monthName}:\n- ${volunteerNames.length} volunteers\n- ${dateOptions.length} date options`;
