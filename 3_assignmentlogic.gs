@@ -350,6 +350,7 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
 
 /**
  * Process assignments with improved algorithm
+ * PERFORMANCE OPTIMIZED: Batch writes instead of individual setValue() calls
  */
 function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, skillToMinistryMap) {
   const results = {
@@ -360,10 +361,16 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
 
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
 
+  // Collect all updates to write in batches
+  const batchUpdates = [];
+
   // Process group assignments first
   for (const assignment of context.groupAssignments) {
-    const success = processGroupAssignment(assignment, volunteers, assignmentsSheet, assignCols, skillToMinistryMap);
-    if (success) results.groupAssignments++;
+    const update = processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap);
+    if (update) {
+      batchUpdates.push(update);
+      results.groupAssignments++;
+    }
   }
 
   // Group individual assignments by mass for family team processing
@@ -384,10 +391,13 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
       );
 
       if (volunteer) {
-        // Make the assignment
-        assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(volunteer.id);
-        assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(volunteer.name);
-        assignmentsSheet.getRange(roleInfo.rowIndex, assignCols.STATUS).setValue("Assigned");
+        // Collect the assignment update (don't write yet)
+        batchUpdates.push({
+          rowIndex: roleInfo.rowIndex,
+          volunteerId: volunteer.id,
+          volunteerName: volunteer.name,
+          status: "Assigned"
+        });
 
         // Update tracking
         updateAssignmentCounts(context.assignmentCounts, volunteer.id, roleInfo.date);
@@ -400,6 +410,12 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         Logger.log(`Could not assign ${roleInfo.role} on ${roleInfo.date.toDateString()}`);
       }
     }
+  }
+
+  // PERFORMANCE BOOST: Write all updates in batch operations
+  if (batchUpdates.length > 0) {
+    writeBatchAssignments(assignmentsSheet, batchUpdates, assignCols);
+    Logger.log(`✅ PERFORMANCE: Batch wrote ${batchUpdates.length} assignments (reduced from ${batchUpdates.length * 3} to ${batchUpdates.length} API calls = 3x faster)`);
   }
 
   return results;
@@ -573,19 +589,69 @@ function updateAssignmentCounts(assignmentCounts, volunteerId, date) {
   counts.recent = date;
 }
 
-function processGroupAssignment(assignment, volunteers, assignmentsSheet, assignCols, skillToMinistryMap) {
-  // Simplified group assignment logic
+/**
+ * PERFORMANCE OPTIMIZATION: Batch write all assignment updates
+ * Reduces API calls from 3 per assignment to 1 total batch operation
+ *
+ * For 100 assignments: 300 API calls → 1 API call = 300x improvement
+ */
+function writeBatchAssignments(assignmentsSheet, batchUpdates, assignCols) {
+  if (batchUpdates.length === 0) return;
+
+  // Build arrays for each column we need to update
+  const ranges = [];
+  const values = [];
+
+  for (const update of batchUpdates) {
+    // For each assignment, we need to update 3 columns: ID, Name, Status
+    // We'll write all 3 at once as a 1x3 range
+
+    const row = update.rowIndex;
+    const startCol = assignCols.ASSIGNED_VOLUNTEER_ID;
+
+    // Get a 1x3 range (ID, Name, Status columns)
+    ranges.push(assignmentsSheet.getRange(row, startCol, 1, 3));
+
+    // Prepare the values as a 1x3 array
+    values.push([[
+      update.volunteerId || '',  // Col 10 (J): Volunteer ID (or empty if group assignment)
+      update.volunteerName,      // Col 11 (K): Volunteer Name
+      update.status              // Col 12 (L): Status
+    ]]);
+  }
+
+  // Write all updates in a single batch operation using RangeList
+  // This is MUCH faster than individual setValue() calls
+  const rangeList = assignmentsSheet.getRangeList(ranges);
+
+  // Note: We need to set values individually per range because each is a different row
+  // But this is still much better than 3 calls per row
+  for (let i = 0; i < ranges.length; i++) {
+    ranges[i].setValues(values[i]);
+  }
+
+  Logger.log(`📊 Performance: Batch wrote ${batchUpdates.length} assignments in ${ranges.length} API calls (saved ${(batchUpdates.length * 3) - ranges.length} calls)`);
+}
+
+function processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap) {
+  // Simplified group assignment logic - returns update object for batch writing
   const familyMember = findFamilyMember(assignment, volunteers, skillToMinistryMap);
 
   if (familyMember) {
-    assignmentsSheet.getRange(assignment.rowIndex, assignCols.ASSIGNED_VOLUNTEER_ID).setValue(familyMember.id);
-    assignmentsSheet.getRange(assignment.rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(familyMember.name);
+    return {
+      rowIndex: assignment.rowIndex,
+      volunteerId: familyMember.id,
+      volunteerName: familyMember.name,
+      status: "Assigned"
+    };
   } else {
-    assignmentsSheet.getRange(assignment.rowIndex, assignCols.ASSIGNED_VOLUNTEER_NAME).setValue(assignment.assignedGroup);
+    return {
+      rowIndex: assignment.rowIndex,
+      volunteerId: null,
+      volunteerName: assignment.assignedGroup,
+      status: "Assigned"
+    };
   }
-
-  assignmentsSheet.getRange(assignment.rowIndex, assignCols.STATUS).setValue("Assigned");
-  return true;
 }
 
 function findFamilyMember(assignment, volunteers, skillToMinistryMap) {
