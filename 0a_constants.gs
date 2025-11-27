@@ -121,7 +121,7 @@ const CONSTANTS = {
       ROLE_NAME: 3         // Specific role/skill within ministry
     },
     
-    // 'Assignments' sheet (13 columns)
+    // 'Assignments' sheet (12 columns + 3 formula helper columns)
     ASSIGNMENTS: {
       DATE: 1,
       TIME: 2,
@@ -134,8 +134,9 @@ const CONSTANTS = {
       ASSIGNED_GROUP: 9,
       ASSIGNED_VOLUNTEER_ID: 10,
       ASSIGNED_VOLUNTEER_NAME: 11,
-      STATUS: 12,
-      NOTES: 13
+      STATUS: 12
+      // NOTES: 13 - REMOVED - Replaced with formula helper columns (Qualified?, Active?, Free?)
+      // Helper columns M-O are formula-based and not written by scripts
     },
     
     // 'Volunteers' sheet (14 columns)

@@ -87,7 +87,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
     // For each role in the template, create a new row
     for (const role of roles) {
-      const newRow = new Array(assignCols.NOTES).fill("");
+      const newRow = new Array(assignCols.STATUS).fill(""); // 12 columns (A-L), formulas in M-O
 
       newRow[assignCols.DATE - 1] = mass.date;
       newRow[assignCols.TIME - 1] = mass.time;
@@ -101,7 +101,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] = "";
       newRow[assignCols.STATUS - 1] = "Unassigned"; // Set default status
-      newRow[assignCols.NOTES - 1] = mass.notes || "";
+      // Notes column removed - helper formulas (Qualified?, Active?, Free?) in columns M-O
 
       newAssignmentRows.push(newRow);
     }
