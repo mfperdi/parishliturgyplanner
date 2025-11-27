@@ -592,11 +592,11 @@ function applyScheduleFormatting(sheet, config) {
   
   // Set optimal column widths
   if (config.columnWidths === 'auto' || !config.columnWidths) {
-    sheet.setColumnWidth(1, 80);  // Date
-    sheet.setColumnWidth(2, 70);  // Time
-    sheet.setColumnWidth(3, 140); // Description
-    sheet.setColumnWidth(4, 130); // Ministry/Role
-    sheet.setColumnWidth(5, 140); // Assigned Volunteer
+    sheet.setColumnWidth(1, 100);  // Date (increased from 80)
+    sheet.setColumnWidth(2, 90);   // Time (increased from 70)
+    sheet.setColumnWidth(3, 200);  // Description (increased from 140)
+    sheet.setColumnWidth(4, 180);  // Ministry/Role (increased from 130)
+    sheet.setColumnWidth(5, 200);  // Assigned Volunteer (increased from 140)
   } else if (typeof config.columnWidths === 'object') {
     // Custom column widths
     Object.keys(config.columnWidths).forEach(col => {
