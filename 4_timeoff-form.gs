@@ -26,6 +26,7 @@ function onFormSubmit(e) {
   let selectedDates = sheet.getRange(row, cols.SELECTED_DATES).getValue();
 
   let warnings = [];
+  let monthValue = '';
 
   Logger.log(`Processing form submission for ${name}, Type: ${type}`);
 
@@ -60,6 +61,20 @@ function onFormSubmit(e) {
             sheet.getRange(row, cols.SELECTED_DATES).setValue(reformattedDates);
             selectedDates = reformattedDates; // Update local variable
 
+            // Extract month from first date (format: "2/7/2026" or "2/7/2026 (Vigil)")
+            const firstDateStr = extractedDates[0].replace(' (Vigil)', '').trim();
+            try {
+              const dateParts = firstDateStr.split('/');
+              if (dateParts.length === 3) {
+                const month = parseInt(dateParts[0]) - 1; // JavaScript months are 0-indexed
+                const year = parseInt(dateParts[2]);
+                const dateObj = new Date(year, month, 1, 12, 0, 0);
+                monthValue = dateObj.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+              }
+            } catch (dateError) {
+              Logger.log(`Could not extract month from date: ${dateError.message}`);
+            }
+
             Logger.log(`Extracted ${extractedDates.length} dates from checkbox response: ${reformattedDates}`);
           } else {
             // No dates detected - this shouldn't happen with required checkboxes
@@ -87,10 +102,15 @@ function onFormSubmit(e) {
     sheet.getRange(row, cols.REVIEW_NOTES).setValue(warnings.join("\n"));
   }
 
+  // Write Month value
+  if (monthValue) {
+    sheet.getRange(row, cols.MONTH).setValue(monthValue);
+  }
+
   // Set status to Pending
   sheet.getRange(row, cols.STATUS).setValue("Pending");
 
-  Logger.log(`Form submission complete for ${name}. Type: ${type}, Warnings: ${warnings.length}`);
+  Logger.log(`Form submission complete for ${name}. Type: ${type}, Month: ${monthValue}, Warnings: ${warnings.length}`);
 }
 
 /**
