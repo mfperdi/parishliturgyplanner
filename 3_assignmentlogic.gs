@@ -106,11 +106,6 @@ function buildSkillToMinistryMap() {
 
     Logger.log(`Built skill-to-ministry map with ${map.size} mappings`);
 
-    // Debug: show all mappings
-    for (const [skill, ministry] of map) {
-      Logger.log(`  "${skill}" → "${ministry}"`);
-    }
-
   } catch (e) {
     Logger.log(`WARNING: Could not build skill-to-ministry map: ${e.message}`);
   }
@@ -170,11 +165,8 @@ function buildVolunteerMapOptimized(volunteerData) {
       rolePrefs: rolePrefs,       // Roles like ["1st reading", "psalm"]
       status: status              // Preserve actual status (active or ministry sponsor)
     });
-    
-    // Debug logging for preferences
-    Logger.log(`${name}: massPrefs=[${massPrefs.join(',')}], rolePrefs=[${rolePrefs.join(',')}]`);
   }
-  
+
   Logger.log(`Built optimized volunteer map with ${volMap.size} volunteers`);
   return volMap;
 }
@@ -404,10 +396,10 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         massAssignments.set(volunteer.id, roleInfo.role);
 
         results.individualAssignments++;
-        Logger.log(`Assigned ${volunteer.name} to ${roleInfo.role} on ${roleInfo.date.toDateString()}`);
+        // Reduced logging for performance - only log summary
       } else {
         results.skipped++;
-        Logger.log(`Could not assign ${roleInfo.role} on ${roleInfo.date.toDateString()}`);
+        // Failures logged in findOptimalVolunteer
       }
     }
   }
@@ -422,17 +414,15 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
 }
 
 /**
- * Simplified volunteer finding with extracted scoring logic and detailed logging
+ * Simplified volunteer finding with extracted scoring logic
+ * PERFORMANCE: Reduced logging to prevent slowdowns
  */
 function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap) {
-  Logger.log(`\n🎯 Looking for volunteer for ${roleInfo.role} on ${roleInfo.date.toDateString()} (${roleInfo.eventId})`);
-
   const candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap);
 
-  Logger.log(`📋 Found ${candidates.length} eligible candidates`);
-
   if (candidates.length === 0) {
-    Logger.log(`❌ No eligible volunteers found for ${roleInfo.role}`);
+    // Only log failures to reduce noise
+    Logger.log(`⚠️ No eligible volunteers for ${roleInfo.role} on ${roleInfo.date.toDateString()}`);
     return null;
   }
 
@@ -449,14 +439,6 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
   }
 
   candidates.sort((a, b) => b.score - a.score);
-
-  Logger.log(`🏆 Selected ${candidates[0].volunteer.name} (score: ${candidates[0].score}) for ${roleInfo.role}`);
-
-  // Show top 3 candidates for debugging
-  const topCandidates = candidates.slice(0, 3);
-  topCandidates.forEach((candidate, index) => {
-    Logger.log(`  ${index + 1}. ${candidate.volunteer.name}: ${candidate.score} points`);
-  });
 
   return candidates[0].volunteer;
 }
@@ -475,8 +457,6 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
   // Map the specific skill to its general ministry category
   // Example: "1st reading" → "lector"
   const requiredMinistry = skillToMinistryMap.get(roleLower) || roleLower;
-
-  Logger.log(`  🔍 Checking for skill "${roleLower}" → ministry "${requiredMinistry}"`);
 
   for (const volunteer of volunteers.values()) {
     // 1. STRICT ROLE MATCHING:
@@ -591,46 +571,35 @@ function updateAssignmentCounts(assignmentCounts, volunteerId, date) {
 
 /**
  * PERFORMANCE OPTIMIZATION: Batch write all assignment updates
- * Reduces API calls from 3 per assignment to 1 total batch operation
+ * Reduces API calls from 3 per assignment to 1 per assignment
  *
- * For 100 assignments: 300 API calls → 1 API call = 300x improvement
+ * For 100 assignments: 300 API calls → 100 API calls = 3x improvement
  */
 function writeBatchAssignments(assignmentsSheet, batchUpdates, assignCols) {
   if (batchUpdates.length === 0) return;
 
-  // Build arrays for each column we need to update
-  const ranges = [];
-  const values = [];
+  try {
+    Logger.log(`📝 Writing ${batchUpdates.length} assignments in batch mode...`);
 
-  for (const update of batchUpdates) {
-    // For each assignment, we need to update 3 columns: ID, Name, Status
-    // We'll write all 3 at once as a 1x3 range
+    // Write each assignment's 3 columns (ID, Name, Status) in a single setValues call
+    for (const update of batchUpdates) {
+      const row = update.rowIndex;
+      const startCol = assignCols.ASSIGNED_VOLUNTEER_ID;
 
-    const row = update.rowIndex;
-    const startCol = assignCols.ASSIGNED_VOLUNTEER_ID;
+      // Write all 3 columns at once: [ID, Name, Status]
+      assignmentsSheet.getRange(row, startCol, 1, 3).setValues([[
+        update.volunteerId || '',  // Col 10 (J): Volunteer ID (or empty if group)
+        update.volunteerName,      // Col 11 (K): Volunteer Name
+        update.status              // Col 12 (L): Status
+      ]]);
+    }
 
-    // Get a 1x3 range (ID, Name, Status columns)
-    ranges.push(assignmentsSheet.getRange(row, startCol, 1, 3));
-
-    // Prepare the values as a 1x3 array
-    values.push([[
-      update.volunteerId || '',  // Col 10 (J): Volunteer ID (or empty if group assignment)
-      update.volunteerName,      // Col 11 (K): Volunteer Name
-      update.status              // Col 12 (L): Status
-    ]]);
+    Logger.log(`✅ Performance: Batch wrote ${batchUpdates.length} assignments in ${batchUpdates.length} API calls (saved ${batchUpdates.length * 2} calls)`);
+  } catch (e) {
+    Logger.log(`❌ ERROR in writeBatchAssignments: ${e.message}`);
+    Logger.log(`Stack: ${e.stack}`);
+    throw new Error(`Failed to write batch assignments: ${e.message}`);
   }
-
-  // Write all updates in a single batch operation using RangeList
-  // This is MUCH faster than individual setValue() calls
-  const rangeList = assignmentsSheet.getRangeList(ranges);
-
-  // Note: We need to set values individually per range because each is a different row
-  // But this is still much better than 3 calls per row
-  for (let i = 0; i < ranges.length; i++) {
-    ranges[i].setValues(values[i]);
-  }
-
-  Logger.log(`📊 Performance: Batch wrote ${batchUpdates.length} assignments in ${ranges.length} API calls (saved ${(batchUpdates.length * 3) - ranges.length} calls)`);
 }
 
 function processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap) {
