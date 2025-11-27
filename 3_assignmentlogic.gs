@@ -581,17 +581,51 @@ function writeBatchAssignments(assignmentsSheet, batchUpdates, assignCols) {
   try {
     Logger.log(`📝 Writing ${batchUpdates.length} assignments in batch mode...`);
 
+    // Get sheet dimensions for validation
+    const maxRows = assignmentsSheet.getMaxRows();
+    const maxCols = assignmentsSheet.getMaxColumns();
+    const startCol = assignCols.ASSIGNED_VOLUNTEER_ID;
+
+    Logger.log(`Sheet dimensions: ${maxRows} rows × ${maxCols} cols, writing to cols ${startCol}-${startCol + 2}`);
+
+    // Validate updates before writing
+    for (const update of batchUpdates) {
+      const row = update.rowIndex;
+
+      // Validation
+      if (!row || row < 1) {
+        throw new Error(`Invalid row index: ${row} (must be >= 1)`);
+      }
+
+      if (row > maxRows) {
+        throw new Error(`Row ${row} exceeds sheet max rows (${maxRows}). Update may reference deleted row.`);
+      }
+
+      if (startCol + 2 > maxCols) {
+        throw new Error(`Column range ${startCol}-${startCol + 2} exceeds sheet max cols (${maxCols})`);
+      }
+
+      if (!update.volunteerName) {
+        throw new Error(`Missing volunteer name for row ${row}`);
+      }
+    }
+
     // Write each assignment's 3 columns (ID, Name, Status) in a single setValues call
     for (const update of batchUpdates) {
       const row = update.rowIndex;
-      const startCol = assignCols.ASSIGNED_VOLUNTEER_ID;
 
-      // Write all 3 columns at once: [ID, Name, Status]
-      assignmentsSheet.getRange(row, startCol, 1, 3).setValues([[
-        update.volunteerId || '',  // Col 10 (J): Volunteer ID (or empty if group)
-        update.volunteerName,      // Col 11 (K): Volunteer Name
-        update.status              // Col 12 (L): Status
-      ]]);
+      try {
+        // Write all 3 columns at once: [ID, Name, Status]
+        assignmentsSheet.getRange(row, startCol, 1, 3).setValues([[
+          update.volunteerId || '',  // Col 10 (J): Volunteer ID (or empty if group)
+          update.volunteerName,      // Col 11 (K): Volunteer Name
+          update.status              // Col 12 (L): Status
+        ]]);
+      } catch (rangeError) {
+        Logger.log(`❌ Failed to write row ${row}: ${rangeError.message}`);
+        Logger.log(`   Update data: volunteerId=${update.volunteerId}, name=${update.volunteerName}, status=${update.status}`);
+        throw new Error(`Range error at row ${row}, col ${startCol}: ${rangeError.message}`);
+      }
     }
 
     Logger.log(`✅ Performance: Batch wrote ${batchUpdates.length} assignments in ${batchUpdates.length} API calls (saved ${batchUpdates.length * 2} calls)`);
