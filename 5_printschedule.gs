@@ -232,7 +232,7 @@ function getAssignmentDataForMonth(monthString) {
           assignedGroup: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_GROUP - 1),
           assignedVolunteerName: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_VOLUNTEER_NAME - 1) || 'UNASSIGNED',
           status: HELPER_safeArrayAccess(row, assignCols.STATUS - 1, 'Pending'),
-          notes: HELPER_safeArrayAccess(row, assignCols.NOTES - 1),
+          // notes field removed - Notes column no longer exists
           eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1)
         });
       }

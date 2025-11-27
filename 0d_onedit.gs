@@ -123,7 +123,7 @@ function ONEDIT_validateAssignment(sheet, row) {
     const eventId = rowData[cols.EVENT_ID - 1];
     const volunteerId = rowData[cols.ASSIGNED_VOLUNTEER_ID - 1];
     const volunteerName = rowData[cols.ASSIGNED_VOLUNTEER_NAME - 1];
-    const currentNotes = rowData[cols.NOTES - 1] || "";
+    // Notes column removed - validation shown in formula columns M-O instead
 
     // Must have either volunteer ID or name
     if (!volunteerId && !volunteerName) {
@@ -172,12 +172,6 @@ function ONEDIT_validateAssignment(sheet, row) {
 
     // If no warnings, we're good
     if (warnings.length === 0) {
-      // Clear any previous override notes
-      const cleanedNotes = currentNotes.replace(/\[Override:.*?\]\s*/g, '').trim();
-      if (cleanedNotes !== currentNotes) {
-        ONEDIT_safeSetValue(sheet.getRange(row, cols.NOTES), cleanedNotes);
-      }
-
       // Fill in both ID and Name for consistency (safe for typed columns)
       ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID), volunteer.volunteerId);
       ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME), volunteer.fullName);
@@ -194,8 +188,8 @@ function ONEDIT_validateAssignment(sheet, row) {
       return;
     }
 
-    // User confirmed override - document it in Notes
-    ONEDIT_addWarningNote(sheet, row, warnings, currentNotes);
+    // User confirmed override - warnings will show in formula columns M-O
+    // (Notes column removed - override documentation no longer needed)
 
     // Fill in both ID and Name for consistency (safe for typed columns)
     ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID), volunteer.volunteerId);
@@ -441,40 +435,38 @@ function ONEDIT_showValidationDialog(volunteerName, warnings) {
 }
 
 /**
- * Adds warning documentation to Notes column
+ * DEPRECATED: Notes column removed - validation shown in formula columns M-O
  * @param {Sheet} sheet - The Assignments sheet
  * @param {number} row - Row number
  * @param {array} warnings - Array of warning messages
  * @param {string} currentNotes - Current notes content
  */
 function ONEDIT_addWarningNote(sheet, row, warnings, currentNotes) {
-  const cols = CONSTANTS.COLS.ASSIGNMENTS;
-
-  // Create summary of warnings
-  const warningTypes = [];
-  warnings.forEach(w => {
-    if (w.includes('status')) warningTypes.push('Inactive');
-    if (w.includes('ministry role') || w.includes('skill')) warningTypes.push('Missing Role');
-    if (w.includes('unavailable')) warningTypes.push('Unavailable');
-    if (w.includes('only available')) warningTypes.push('Not in Whitelist');
-  });
-
-  // Remove any previous override notes
-  let cleanedNotes = currentNotes.replace(/\[Override:.*?\]\s*/g, '').trim();
-
-  // Add new override note
-  const overrideNote = `[Override: ${warningTypes.join(', ')}]`;
-  const newNotes = overrideNote + (cleanedNotes ? ' ' + cleanedNotes : '');
-
-  // Use safe write for typed columns
-  ONEDIT_safeSetValue(sheet.getRange(row, cols.NOTES), newNotes);
+  // Function no longer needed - Notes column removed
+  // Validation warnings now displayed in formula helper columns (Qualified?, Active?, Free?)
+  Logger.log('ONEDIT_addWarningNote called but Notes column has been removed');
 }
 
 /**
- * Sets up conditional formatting to highlight overridden assignments
+ * DEPRECATED: Notes column removed - validation shown in formula columns M-O
+ * Sets up conditional formatting to highlight assignments with validation warnings
  * Call this once from menu or manually to set up the formatting rules
  */
 function ONEDIT_setupConditionalFormatting() {
+  Logger.log('ONEDIT_setupConditionalFormatting: Notes column removed, conditional formatting no longer applies');
+  SpreadsheetApp.getUi().alert(
+    'Conditional Formatting Updated',
+    'The Notes-based conditional formatting has been removed.\n\n' +
+    'Validation warnings are now shown directly in helper columns:\n' +
+    '• Column M: Qualified?\n' +
+    '• Column N: Active?\n' +
+    '• Column O: Free?\n\n' +
+    'You can manually add conditional formatting based on these columns if desired.',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
+  return;
+
+  /* LEGACY CODE - DISABLED
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
@@ -483,20 +475,8 @@ function ONEDIT_setupConditionalFormatting() {
       throw new Error('Assignments sheet not found');
     }
 
-    // Clear existing conditional formatting rules on this sheet
-    const existingRules = sheet.getConditionalFormatRules();
-    const otherRules = existingRules.filter(rule => {
-      // Keep rules that don't apply to our notes column
-      const ranges = rule.getRanges();
-      return !ranges.some(range => range.getColumn() === CONSTANTS.COLS.ASSIGNMENTS.NOTES);
-    });
-
-    // Create new rule: Highlight rows where Notes contains "[Override:"
-    const notesCol = CONSTANTS.COLS.ASSIGNMENTS.NOTES;
-    const lastRow = Math.max(sheet.getLastRow(), 100); // At least 100 rows
-
-    // Rule applies to entire row
-    const range = sheet.getRange(2, 1, lastRow - 1, 13);
+    // Legacy Notes-based formatting - no longer used
+    const range = sheet.getRange(2, 1, lastRow - 1, 12);
 
     // Formula checks if Notes column (column 12) contains "[Override:"
     const formula = `=REGEXMATCH($L2, "\\[Override:")`;
