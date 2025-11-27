@@ -22,7 +22,7 @@ function generatePrintableSchedule(monthString, options = {}) {
       sheetName: options.sheetName || 'MonthlyView',
       layoutStyle: options.layoutStyle || 'liturgical', // 'liturgical' or 'chronological'
       includeColors: options.includeColors !== false, // Default true
-      includeSummary: options.includeSummary !== false, // Default true
+      includeSummary: options.includeSummary === true, // Default false (user can enable if needed)
       columnWidths: options.columnWidths || 'auto',
       groupByLiturgy: options.groupByLiturgy !== false, // Default true
       showRankInfo: options.showRankInfo !== false, // Default true
