@@ -465,42 +465,4 @@ function ONEDIT_setupConditionalFormatting() {
     SpreadsheetApp.getUi().ButtonSet.OK
   );
   return;
-
-  /* LEGACY CODE - DISABLED
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
-
-    if (!sheet) {
-      throw new Error('Assignments sheet not found');
-    }
-
-    // Legacy Notes-based formatting - no longer used
-    const range = sheet.getRange(2, 1, lastRow - 1, 12);
-
-    // Formula checks if Notes column (column 12) contains "[Override:"
-    const formula = `=REGEXMATCH($L2, "\\[Override:")`;
-
-    const rule = SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied(formula)
-      .setBackground('#FCE5CD') // Light orange background
-      .setRanges([range])
-      .build();
-
-    // Apply rules
-    sheet.setConditionalFormatRules([...otherRules, rule]);
-
-    SpreadsheetApp.getUi().alert(
-      '✓ Conditional Formatting Set Up',
-      'Assignments with validation overrides will now be highlighted in light orange.\n\n' +
-      'This highlighting will automatically update as you make assignments.',
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
-
-    return 'Conditional formatting set up successfully';
-
-  } catch (error) {
-    Logger.log(`Error setting up conditional formatting: ${error.message}`);
-    throw new Error(`Could not set up conditional formatting: ${error.message}`);
-  }
 }
