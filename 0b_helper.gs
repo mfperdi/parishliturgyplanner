@@ -592,27 +592,6 @@ function PRINT_exportLiturgicalSchedulePDF(monthString) {
 }
 
 /**
- * MISSING FUNCTION: Generate liturgical schedule (wrapper for enhanced print function)
- */
-function PRINT_generateLiturgicalSchedule(monthString) {
-  try {
-    // Use the enhanced print function with liturgical-specific options
-    const result = generatePrintableSchedule(monthString, {
-      sheetName: 'LiturgicalSchedule',
-      layoutStyle: 'liturgical',
-      showRankInfo: true,
-      includeColors: true,
-      groupByLiturgy: true
-    });
-    
-    return result;
-  } catch (e) {
-    Logger.log(`Error in PRINT_generateLiturgicalSchedule: ${e.message}`);
-    throw e;
-  }
-}
-
-/**
  * Clear the sheet cache (useful for testing or when data changes)
  */
 function HELPER_clearCache() {
