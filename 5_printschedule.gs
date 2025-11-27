@@ -211,21 +211,43 @@ function loadLiturgicalNotes() {
  */
 function getAssignmentDataForMonth(monthString) {
   const assignments = [];
-  
+
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
     const data = assignmentsSheet.getDataRange().getValues();
     const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
     data.shift(); // Remove header
-    
+
     for (const row of data) {
       const rowMonthYear = HELPER_safeArrayAccess(row, assignCols.MONTH_YEAR - 1);
-      
+
       if (rowMonthYear === monthString && row[assignCols.DATE - 1]) {
+        // Create date object with validation
+        const dateValue = row[assignCols.DATE - 1];
+        const date = new Date(dateValue);
+
+        // Create time object with validation - handle invalid/empty times
+        const timeValue = row[assignCols.TIME - 1];
+        let time;
+        if (timeValue && timeValue instanceof Date && !isNaN(timeValue.getTime())) {
+          time = timeValue;
+        } else if (timeValue) {
+          time = new Date(timeValue);
+          // If conversion failed, set to midnight as fallback
+          if (isNaN(time.getTime())) {
+            Logger.log(`Warning: Invalid time value for assignment on ${date}: ${timeValue}. Using midnight as fallback.`);
+            time = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+          }
+        } else {
+          // No time value - use midnight as fallback
+          Logger.log(`Warning: Missing time value for assignment on ${date}. Using midnight as fallback.`);
+          time = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+        }
+
         assignments.push({
-          date: new Date(row[assignCols.DATE - 1]),
-          time: new Date(row[assignCols.TIME - 1]), // Ensure this is a Date object for sorting
+          date: date,
+          time: time,
           massName: HELPER_safeArrayAccess(row, assignCols.DESCRIPTION - 1),
           liturgicalCelebration: HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1),
           ministryRole: HELPER_safeArrayAccess(row, assignCols.MINISTRY_ROLE - 1),
@@ -237,23 +259,32 @@ function getAssignmentDataForMonth(monthString) {
         });
       }
     }
-    
+
     // Sort assignments by date, then time, then role
+    // Now safe because we've validated all date/time objects
     assignments.sort((a, b) => {
-      if (a.date.getTime() !== b.date.getTime()) {
-        return a.date.getTime() - b.date.getTime();
+      const aTime = a.date.getTime();
+      const bTime = b.date.getTime();
+
+      if (aTime !== bTime) {
+        return aTime - bTime;
       }
-      // *** FIX 1: Compare time objects directly, not as strings ***
-      if (a.time.getTime() !== b.time.getTime()) {
-        return a.time.getTime() - b.time.getTime();
+
+      const aTimeOfDay = a.time.getTime();
+      const bTimeOfDay = b.time.getTime();
+
+      if (aTimeOfDay !== bTimeOfDay) {
+        return aTimeOfDay - bTimeOfDay;
       }
+
       return a.ministryRole.localeCompare(b.ministryRole);
     });
-    
+
   } catch (error) {
     Logger.log(`Error reading assignment data: ${error}`);
+    throw error; // Re-throw to surface the actual error
   }
-  
+
   return assignments;
 }
 
@@ -428,13 +459,19 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
     massByDateTime.get(massKey).assignments.push(assignment);
   }
 
-  // Sort masses chronologically
+  // Sort masses chronologically (now safe with validated date/time objects)
   const sortedMasses = Array.from(massByDateTime.values()).sort((a, b) => {
-    if (a.date.getTime() !== b.date.getTime()) {
-      return a.date.getTime() - b.date.getTime();
+    const aDateTime = a.date.getTime();
+    const bDateTime = b.date.getTime();
+
+    if (aDateTime !== bDateTime) {
+      return aDateTime - bDateTime;
     }
-    // *** FIX 2: Compare time objects directly, not as strings ***
-    return a.time.getTime() - b.time.getTime();
+
+    const aTimeOfDay = a.time.getTime();
+    const bTimeOfDay = b.time.getTime();
+
+    return aTimeOfDay - bTimeOfDay;
   });
 
   // Create rows for each mass
