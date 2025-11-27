@@ -277,15 +277,19 @@ function groupAssignmentsByLiturgy(assignments) {
 /**
  * Creates the schedule header section.
  * ASSUMES: Rows 1-2 are manually set up with logo and header text.
- * UPDATES: Only cell B3 with the current generated timestamp.
+ * UPDATES: Cell B2 with the schedule title and cell B3 with the current generated timestamp.
  */
 function createScheduleHeader(sheet, parishName, displayName, config, printConfig) {
   // Rows 1-2 are manually set up by the user with:
   // - A1:A3 merged with logo image
   // - B1: Parish Name
-  // - B2: Schedule Title
+  // - B2: Schedule Title (updated dynamically below)
 
-  // Update only the generated timestamp in B3
+  // Update cell B2 with the scheduling period and "Schedule"
+  sheet.getRange(2, 2).setValue(`${displayName} Schedule`);
+  Logger.log(`Updated schedule title in cell B2: ${displayName} Schedule`);
+
+  // Update the generated timestamp in B3
   const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
   sheet.getRange(3, 2).setValue(generatedText);
   sheet.getRange(3, 2).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('left');
