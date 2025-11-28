@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --border: #dfe3eb;
+      --primary: #1a73e8;
+      --primary-dark: #1558ad;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --success: #0f9d58;
+      --error: #d93025;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', 'Roboto', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .app-shell { padding: 16px; max-width: 1200px; margin: 0 auto; }
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .brand { font-weight: 700; font-size: 18px; }
+    select, input, button, textarea {
+      font: inherit;
+    }
+    select, input, textarea {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      width: 100%;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+    button.primary { background: var(--primary); color: #fff; }
+    button.primary:hover { background: var(--primary-dark); }
+    button.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    button.danger { background: var(--error); color: #fff; }
+    button[disabled] { opacity: 0.6; cursor: not-allowed; }
+    .layout { display: grid; gap: 12px; grid-template-columns: 1.4fr 1fr; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+    }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { background: #f2f5fa; font-weight: 600; }
+    tr:hover td { background: #f9fbff; }
+    tr.active td { background: #e8f0fe; }
+    .status-bar { margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #fff; display: flex; align-items: center; gap: 10px; }
+    .status-bar.success { border-color: #c9e9d6; color: var(--success); }
+    .status-bar.error { border-color: #f3c7c1; color: var(--error); }
+    .status-bar .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+    .status-bar.success .dot { background: var(--success); }
+    .status-bar.error .dot { background: var(--error); }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+    label { font-size: 12px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 4px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pagination { display: flex; align-items: center; gap: 8px; justify-content: flex-end; padding: 10px 0; }
+    .automation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+    .automation-grid button { width: 100%; }
+    .divider { height: 1px; background: var(--border); margin: 14px 0; }
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="topbar">
+      <div class="brand">Parish Liturgy Planner – CRUD & Automations</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted);">
+          Sheet
+          <select id="sheetSelect"></select>
+        </label>
+        <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted);">
+          Page Size
+          <select id="pageSizeSelect">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div id="statusBar" class="status-bar">
+      <span class="dot"></span>
+      <div id="statusText">Loading data…</div>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <strong>Records</strong>
+            <div id="recordCount" style="color:var(--muted); font-size:12px;"></div>
+          </div>
+          <div class="actions">
+            <button class="ghost" onclick="refreshRows()">Refresh</button>
+            <button class="primary" onclick="startNew()">New Entry</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="dataTable"></table>
+        </div>
+        <div class="pagination">
+          <button class="ghost" onclick="changePage(-1)">Prev</button>
+          <div id="pageInfo" style="color:var(--muted);"></div>
+          <button class="ghost" onclick="changePage(1)">Next</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <strong id="formTitle">Edit Entry</strong>
+        </div>
+        <div id="formFields" class="form-grid"></div>
+        <div class="divider"></div>
+        <div class="actions">
+          <button class="primary" onclick="saveRow()">Save</button>
+          <button class="danger" onclick="deleteRow()" id="deleteBtn">Delete</button>
+        </div>
+        <div style="margin-top:8px; color:var(--muted); font-size:12px;">
+          Tip: Click a row in the table to edit. Use “New Entry” for a blank form.
+        </div>
+      </section>
+    </div>
+
+    <section class="panel" style="margin-top:12px;">
+      <div class="panel-header">
+        <strong>Automations</strong>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted);">
+            Month (YYYY-MM)
+            <select id="monthSelect"></select>
+          </label>
+        </div>
+      </div>
+      <div class="automation-grid">
+        <button class="primary" onclick="runAutomation('calendar')">Generate Calendar</button>
+        <button class="primary" onclick="runAutomation('schedule')">Generate Schedule</button>
+        <button class="primary" onclick="runAutomation('assign')">Auto-Assign Volunteers</button>
+        <button class="primary" onclick="runAutomation('substitutes')">Find Substitutes</button>
+        <button class="primary" onclick="runAutomation('print')">Printable Schedule</button>
+        <button class="ghost" onclick="runAutomation('timeoffs')">Review Timeoffs</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      metadata: [],
+      header: [],
+      rows: [],
+      selectedSheet: '',
+      selectedRow: null,
+      page: 0,
+      pageSize: 20,
+      total: 0,
+      statusOptions: {},
+      timeoffTypes: {},
+      months: []
+    };
+
+    function safeEscape(value) {
+      if (window.CSS && CSS.escape) return CSS.escape(value);
+      return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+    }
+
+    function setStatus(message, type = '') {
+      const bar = document.getElementById('statusBar');
+      const text = document.getElementById('statusText');
+      bar.className = 'status-bar ' + (type || '');
+      text.textContent = message;
+    }
+
+    function init() {
+      setStatus('Loading sheets…');
+      google.script.run
+        .withSuccessHandler((data) => {
+          state.metadata = data.sheets;
+          state.statusOptions = data.statusOptions || {};
+          state.timeoffTypes = data.timeoffTypes || {};
+          state.selectedSheet = data.sheets[0]?.id || '';
+          buildSheetSelect();
+          refreshRows();
+        })
+        .withFailureHandler((err) => setStatus(err.message || 'Failed to load metadata', 'error'))
+        .WEBAPP_getSheetMetadata();
+
+      google.script.run
+        .withSuccessHandler((months) => {
+          state.months = months || [];
+          buildMonthSelect();
+        })
+        .withFailureHandler(() => {
+          setStatus('Loaded sheets. Months unavailable.', 'error');
+        })
+        .getMonthsForSidebar();
+
+      document.getElementById('pageSizeSelect').addEventListener('change', (e) => {
+        state.pageSize = Number(e.target.value);
+        state.page = 0;
+        refreshRows();
+      });
+    }
+
+    function buildSheetSelect() {
+      const select = document.getElementById('sheetSelect');
+      select.innerHTML = '';
+      state.metadata.forEach((sheet) => {
+        const opt = document.createElement('option');
+        opt.value = sheet.id;
+        opt.textContent = sheet.label;
+        select.appendChild(opt);
+      });
+      select.value = state.selectedSheet;
+      select.onchange = () => {
+        state.selectedSheet = select.value;
+        state.page = 0;
+        state.selectedRow = null;
+        refreshRows();
+      };
+    }
+
+    function buildMonthSelect() {
+      const select = document.getElementById('monthSelect');
+      select.innerHTML = '<option value="">Select month</option>';
+      state.months.forEach((m) => {
+        const opt = document.createElement('option');
+        opt.value = m.value;
+        opt.textContent = m.display;
+        select.appendChild(opt);
+      });
+    }
+
+    function refreshRows() {
+      if (!state.selectedSheet) return;
+      setStatus(`Loading ${state.selectedSheet}…`);
+      google.script.run
+        .withSuccessHandler((res) => {
+          state.header = res.header || [];
+          state.rows = res.rows || [];
+          state.total = res.total || 0;
+          renderTable();
+          buildForm();
+          setStatus(`Loaded ${state.total} rows from ${state.selectedSheet}`, 'success');
+        })
+        .withFailureHandler((err) => setStatus(err.message || 'Failed to load rows', 'error'))
+        .WEBAPP_listRows(state.selectedSheet, state.page, state.pageSize);
+    }
+
+    function renderTable() {
+      const table = document.getElementById('dataTable');
+      const recordCount = document.getElementById('recordCount');
+      const pageInfo = document.getElementById('pageInfo');
+      recordCount.textContent = `${state.total} rows`;
+      const start = state.page * state.pageSize + 1;
+      const end = Math.min(state.total, start + state.pageSize - 1);
+      pageInfo.textContent = state.total ? `${start}-${end} of ${state.total}` : '0 rows';
+
+      const thead = '<thead><tr>' + state.header.map((h) => `<th>${h || ''}</th>`).join('') + '</tr></thead>';
+      const bodyRows = state.rows.map((row) => {
+        const cells = state.header.map((h) => `<td>${row.values[h] ?? ''}</td>`).join('');
+        const active = state.selectedRow?.rowNumber === row.rowNumber ? ' class="active"' : '';
+        return `<tr data-row="${row.rowNumber}"${active}>${cells}</tr>`;
+      }).join('');
+      const tbody = `<tbody>${bodyRows || '<tr><td colspan="'+state.header.length+'" style="text-align:center; color:var(--muted);">No rows found</td></tr>'}</tbody>`;
+      table.innerHTML = thead + tbody;
+      Array.from(table.querySelectorAll('tbody tr')).forEach((tr) => {
+        tr.onclick = () => {
+          const rowNum = Number(tr.getAttribute('data-row'));
+          const found = state.rows.find((r) => r.rowNumber === rowNum);
+          if (found) {
+            state.selectedRow = found;
+            buildForm();
+            renderTable();
+          }
+        };
+      });
+    }
+
+    function buildForm() {
+      const container = document.getElementById('formFields');
+      container.innerHTML = '';
+      document.getElementById('formTitle').textContent = state.selectedRow ? `Editing row ${state.selectedRow.rowNumber}` : 'New Entry';
+      document.getElementById('deleteBtn').disabled = !state.selectedRow;
+
+      state.header.forEach((field) => {
+        const wrapper = document.createElement('div');
+        const label = document.createElement('label');
+        label.textContent = field || '(blank header)';
+        wrapper.appendChild(label);
+
+        const options = getOptionsForField(field);
+        let input;
+        if (options) {
+          input = document.createElement('select');
+          options.forEach((opt) => {
+            const option = document.createElement('option');
+            option.value = opt;
+            option.textContent = opt;
+            input.appendChild(option);
+          });
+        } else {
+          input = document.createElement('textarea');
+          input.rows = 2;
+        }
+
+        input.name = `field-${field}`;
+        input.value = state.selectedRow?.values?.[field] ?? '';
+        wrapper.appendChild(input);
+        container.appendChild(wrapper);
+      });
+    }
+
+    function getOptionsForField(field) {
+      if (field.toLowerCase() === 'status') {
+        if (state.selectedSheet === 'Volunteers') return state.statusOptions.VOLUNTEER;
+        if (state.selectedSheet === 'Timeoffs') return state.statusOptions.TIMEOFF;
+        if (state.selectedSheet === 'Assignments') return state.statusOptions.ASSIGNMENT;
+      }
+      if (field.toLowerCase() === 'type' && state.selectedSheet === 'Timeoffs') {
+        return Object.values(state.timeoffTypes || {});
+      }
+      return null;
+    }
+
+    function collectFormData() {
+      const data = {};
+      state.header.forEach((field) => {
+        const input = document.querySelector(`[name="field-${safeEscape(field)}"]`);
+        if (input) {
+          data[field] = input.value;
+        }
+      });
+      return data;
+    }
+
+    function saveRow() {
+      const payload = collectFormData();
+      const rowNumber = state.selectedRow?.rowNumber || null;
+      setStatus('Saving…');
+      google.script.run
+        .withSuccessHandler((res) => {
+          setStatus(`Saved row ${res.rowNumber}`, 'success');
+          state.selectedRow = { rowNumber: res.rowNumber, values: payload };
+          refreshRows();
+        })
+        .withFailureHandler((err) => setStatus(err.message || 'Save failed', 'error'))
+        .WEBAPP_saveRow(state.selectedSheet, rowNumber, payload);
+    }
+
+    function deleteRow() {
+      if (!state.selectedRow) return;
+      if (!confirm('Delete this row?')) return;
+      setStatus('Deleting…');
+      google.script.run
+        .withSuccessHandler(() => {
+          setStatus('Row deleted', 'success');
+          state.selectedRow = null;
+          refreshRows();
+        })
+        .withFailureHandler((err) => setStatus(err.message || 'Delete failed', 'error'))
+        .WEBAPP_deleteRow(state.selectedSheet, state.selectedRow.rowNumber);
+    }
+
+    function startNew() {
+      state.selectedRow = null;
+      buildForm();
+      renderTable();
+      setStatus('Ready to create a new entry');
+    }
+
+    function changePage(delta) {
+      const maxPage = Math.max(0, Math.ceil(state.total / state.pageSize) - 1);
+      state.page = Math.min(maxPage, Math.max(0, state.page + delta));
+      refreshRows();
+    }
+
+    function runAutomation(action) {
+      const month = document.getElementById('monthSelect').value;
+      const needsMonth = ['schedule', 'assign', 'timeoffs', 'print', 'substitutes'];
+      if (needsMonth.includes(action) && !month) {
+        setStatus('Please choose a month first.', 'error');
+        return;
+      }
+
+      setStatus('Running automation…');
+      let runner;
+      switch (action) {
+        case 'calendar':
+          runner = google.script.run.withSuccessHandler(msg => setStatus(msg || 'Calendar generated', 'success'))
+            .withFailureHandler(err => setStatus(err.message || 'Calendar failed', 'error'))
+            .triggerCalendarGeneration();
+          break;
+        case 'schedule':
+          runner = google.script.run.withSuccessHandler(msg => setStatus(msg || 'Schedule generated', 'success'))
+            .withFailureHandler(err => setStatus(err.message || 'Schedule failed', 'error'))
+            .triggerScheduleGeneration(month);
+          break;
+        case 'assign':
+          runner = google.script.run.withSuccessHandler(msg => setStatus(msg || 'Assignments updated', 'success'))
+            .withFailureHandler(err => setStatus(err.message || 'Auto-assign failed', 'error'))
+            .triggerAssignment(month);
+          break;
+        case 'print':
+          runner = google.script.run.withSuccessHandler(msg => setStatus(msg || 'Printable schedule ready', 'success'))
+            .withFailureHandler(err => setStatus(err.message || 'Print failed', 'error'))
+            .generatePrintableSchedule(month);
+          break;
+        case 'substitutes':
+          runner = google.script.run.withSuccessHandler(msg => setStatus(msg || 'Substitutes sheet prepared', 'success'))
+            .withFailureHandler(err => setStatus(err.message || 'Substitute helper failed', 'error'))
+            .findSubstituteAssignments(month);
+          break;
+        case 'timeoffs':
+          runner = google.script.run.withSuccessHandler(msg => setStatus(msg || 'Timeoffs reviewed', 'success'))
+            .withFailureHandler(err => setStatus(err.message || 'Timeoff review failed', 'error'))
+            .reviewTimeoffs(month);
+          break;
+      }
+      return runner;
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
