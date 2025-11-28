@@ -18,31 +18,64 @@
  */
 
 /**
- * @OnlyCurrentDoc
- *
  * OAuth Scopes:
- * This script requires the following additional permissions to access Google Forms:
+ * This script requires the following permissions:
+ *
  * @customfunction
+ *
+ * Required scopes:
+ * - https://www.googleapis.com/auth/spreadsheets (full access to create/edit spreadsheets)
+ *   Needed for: Archive system (creates new spreadsheet files), all sheet operations
+ *
+ * - https://www.googleapis.com/auth/forms (access to Google Forms)
+ *   Needed for: Timeoff form updates (dynamic date checkboxes)
+ *
+ * - https://www.googleapis.com/auth/drive.file (access to Drive files created by this app)
+ *   Needed for: Archive file organization (moving archives to folders)
+ *
+ * Note: @OnlyCurrentDoc is NOT used because the archive system requires
+ * the ability to create new spreadsheet files for year-end archives.
  */
 
 /**
- * Explicitly declare OAuth scopes for Google Forms access.
- * This allows the script to update form checkboxes dynamically.
+ * Force authorization for all required permissions.
+ * Run this function once to trigger the authorization dialog.
  *
- * Required scopes:
- * - https://www.googleapis.com/auth/forms (to update form questions)
- * - https://www.googleapis.com/auth/spreadsheets (already included by @OnlyCurrentDoc)
+ * This function requests:
+ * - Spreadsheet access (including ability to create new spreadsheets)
+ * - Google Forms access (for timeoff form updates)
+ * - Google Drive access (for archive file organization)
  */
-
-// Force authorization by calling a Forms API method
-// This function should be run once to trigger the authorization flow
-function authorizeFormsAccess() {
+function authorizeAllPermissions() {
   try {
-    // This dummy call forces the authorization dialog to appear
+    // Test spreadsheet creation permission (needed for archives)
+    SpreadsheetApp.getActiveSpreadsheet();
+
+    // Test Forms access permission (needed for timeoff forms)
     FormApp.getUi();
-    return "✓ Forms access authorized. You can now update timeoff forms.";
+
+    // Test Drive access permission (needed for archive organization)
+    DriveApp.getRootFolder();
+
+    SpreadsheetApp.getUi().alert(
+      '✓ Authorization Successful',
+      'All required permissions have been granted:\n\n' +
+      '✓ Spreadsheet access (create archives)\n' +
+      '✓ Forms access (update timeoff forms)\n' +
+      '✓ Drive access (organize archive files)\n\n' +
+      'You can now use all features including the archive system.',
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+
+    return "✓ All permissions authorized successfully.";
   } catch (e) {
-    return "Authorization needed. Please approve the permissions when prompted.";
+    SpreadsheetApp.getUi().alert(
+      'Authorization Needed',
+      'Please approve the requested permissions when prompted.\n\n' +
+      'Error: ' + e.message,
+      SpreadsheetApp.getUi().ButtonSet.OK
+    );
+    return "Authorization needed. Error: " + e.message;
   }
 }
 
@@ -61,6 +94,8 @@ function onOpen(e) {
       .addItem('Show Sidebar', 'showSidebar')
       .addSeparator()
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Admin Tools')
+          .addItem('Authorize Permissions', 'authorizeAllPermissions')
+          .addSeparator()
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
           .addItem('Setup Assignment Validation', 'ONEDIT_setupConditionalFormatting')
