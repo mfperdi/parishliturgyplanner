@@ -512,7 +512,51 @@
           </button>
         </div>
       </div>
-      
+
+    </div>
+  </div>
+
+  <!-- Archive Section -->
+  <div class="phase-container">
+    <div class="phase-header" style="background: linear-gradient(135deg, #5f6368, #3c4043);">
+      <span>📦</span>
+      <span>Archive Management</span>
+    </div>
+    <div class="phase-content">
+
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #5f6368;">🗄️</div>
+        <div class="step-content">
+          <div class="step-title">Year-End Archive</div>
+          <div class="step-description">Create archive file for completed year</div>
+          <button id="btn-archive" class="btn btn-outline">
+            Archive Current Year
+          </button>
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #5f6368;">📂</div>
+        <div class="step-content">
+          <div class="step-title">View Archives</div>
+          <div class="step-description">Access previous years' archived data</div>
+          <button id="btn-view-archives" class="btn btn-outline">
+            View Archives
+          </button>
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #c5221f;">🗑️</div>
+        <div class="step-content">
+          <div class="step-title">Clear Old Data</div>
+          <div class="step-description">Remove old data to start new year fresh</div>
+          <button id="btn-clear-data" class="btn btn-outline">
+            Clear Old Data
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -836,6 +880,35 @@
         })
         .withFailureHandler((error) => showError(error, 'print'))
         .generatePrintableSchedule(selectedMonth);
+    });
+
+    // Archive button event listeners
+    const btnArchive = document.getElementById('btn-archive');
+    const btnViewArchives = document.getElementById('btn-view-archives');
+    const btnClearData = document.getElementById('btn-clear-data');
+
+    btnArchive.addEventListener('click', () => {
+      showLoading('Creating archive file...');
+      google.script.run
+        .withSuccessHandler((message) => showSuccess('Archive created successfully!'))
+        .withFailureHandler((error) => showError(error, 'archive'))
+        .ARCHIVE_promptArchiveCurrentYear();
+    });
+
+    btnViewArchives.addEventListener('click', () => {
+      showLoading('Loading archives...');
+      google.script.run
+        .withSuccessHandler((message) => showSuccess('Archives loaded'))
+        .withFailureHandler((error) => showError(error, 'view archives'))
+        .ARCHIVE_showArchiveList();
+    });
+
+    btnClearData.addEventListener('click', () => {
+      showLoading('Clearing old data...');
+      google.script.run
+        .withSuccessHandler((message) => showSuccess('Data cleared successfully'))
+        .withFailureHandler((error) => showError(error, 'clear data'))
+        .ARCHIVE_promptClearOldData();
     });
 
     // Enhanced status functions

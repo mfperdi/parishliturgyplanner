@@ -190,5 +190,20 @@ const CONSTANTS = {
     MIN_YEAR: 2020,
     MAX_YEAR: 2050,
     REQUIRED_CONFIG: ['Year to Schedule']
+  },
+
+  // 6. Archive Configuration
+  ARCHIVE: {
+    // Sheets to archive (year-specific data)
+    SHEETS_TO_ARCHIVE: ['LiturgicalCalendar', 'Assignments', 'Timeoffs'],
+
+    // Optional sheets to archive (configuration snapshots)
+    OPTIONAL_SHEETS: ['CalendarOverrides', 'Config', 'Volunteers'],
+
+    // Archive file naming format: "[Parish Name] - [YYYY] Archive"
+    FILE_NAME_TEMPLATE: '{parishName} - {year} Archive',
+
+    // Archive metadata
+    METADATA_SHEET_NAME: 'Archive_Info'
   }
 };
