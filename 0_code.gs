@@ -46,39 +46,19 @@
  * - Google Forms access (for timeoff form updates)
  * - Google Drive access (for archive file organization)
  */
+/**
+ * Simple function to trigger OAuth authorization.
+ * Just uses the APIs we need - this triggers the permission dialog.
+ */
+/**
+ * Dummy function to trigger OAuth authorization.
+ * The scopes in appsscript.json will trigger the auth dialog automatically.
+ */
 function authorizeAllPermissions() {
-  try {
-    // Test spreadsheet creation permission (needed for archives)
-    SpreadsheetApp.getActiveSpreadsheet();
-
-    // Test Forms access permission (needed for timeoff forms)
-    FormApp.getUi();
-
-    // Test Drive access permission (needed for archive organization)
-    DriveApp.getRootFolder();
-
-    SpreadsheetApp.getUi().alert(
-      '✓ Authorization Successful',
-      'All required permissions have been granted:\n\n' +
-      '✓ Spreadsheet access (create archives)\n' +
-      '✓ Forms access (update timeoff forms)\n' +
-      '✓ Drive access (organize archive files)\n\n' +
-      'You can now use all features including the archive system.',
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
-
-    return "✓ All permissions authorized successfully.";
-  } catch (e) {
-    SpreadsheetApp.getUi().alert(
-      'Authorization Needed',
-      'Please approve the requested permissions when prompted.\n\n' +
-      'Error: ' + e.message,
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
-    return "Authorization needed. Error: " + e.message;
-  }
+  // Don't call any restricted APIs - just return
+  // The auth dialog will appear automatically because of appsscript.json
+  return "Authorization dialog should appear. Please approve the requested permissions.";
 }
-
 /**
  * This script manages the Parish Liturgical Scheduler with enhanced liturgical print features.
  * It adds a custom menu on open and shows the enhanced sidebar.
