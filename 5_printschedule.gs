@@ -374,6 +374,7 @@ function createLiturgicalContent(sheet, scheduleData, startRow, config) {
 
 /**
  * Creates a section for a single liturgical celebration.
+ * PERFORMANCE: Batch write celebration header data
  */
 function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, startRow, config, printConfig, liturgicalNotes) {
   let currentRow = startRow;
@@ -382,29 +383,38 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
   const liturgicalColorOverrides = (printConfig && printConfig.liturgicalColors) || {};
   const bgColor = config.includeColors ? HELPER_getLiturgicalColorHex(liturgyInfo.color, liturgicalColorOverrides) : '#d9ead3';
 
-  sheet.getRange(currentRow, 1).setValue(celebration);
-  sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold');
+  // PERFORMANCE: Batch write header data
+  const headerData = [[celebration]];
+  let headerRows = 1;
+
+  // Add rank info row if enabled
+  if (config.showRankInfo && liturgyInfo) {
+    let rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
+    if (liturgicalNotes && liturgicalNotes.has(celebration)) {
+      rankInfo += ` | ${liturgicalNotes.get(celebration)}`;
+    }
+    headerData.push([rankInfo]);
+    headerRows = 2;
+  }
+
+  // Write both header rows in one call
+  sheet.getRange(currentRow, 1, headerRows, 1).setValues(headerData);
+
+  // Apply formatting to celebration title
+  const titleRange = sheet.getRange(currentRow, 1);
+  titleRange.setFontSize(14).setFontWeight('bold');
   if (config.includeColors) {
-    sheet.getRange(currentRow, 1).setBackground(bgColor);
+    titleRange.setBackground(bgColor);
   }
   sheet.getRange(currentRow, 1, 1, 5).merge();
   currentRow++;
 
-  // Rank/Season/Color info (if enabled)
-  if (config.showRankInfo && liturgyInfo) {
-    // Build rank info line
-    let rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
-
-    // Append liturgical notes if they exist for this celebration
-    if (liturgicalNotes && liturgicalNotes.has(celebration)) {
-      const notes = liturgicalNotes.get(celebration);
-      rankInfo += ` | ${notes}`;
-    }
-
-    sheet.getRange(currentRow, 1).setValue(rankInfo);
-    sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic');
+  // Apply formatting to rank info row if it exists
+  if (headerRows === 2) {
+    const rankRange = sheet.getRange(currentRow, 1);
+    rankRange.setFontSize(10).setFontStyle('italic');
     if (config.includeColors) {
-      sheet.getRange(currentRow, 1).setBackground(bgColor);
+      rankRange.setBackground(bgColor);
     }
     sheet.getRange(currentRow, 1, 1, 5).merge();
     currentRow++;
@@ -422,27 +432,26 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
 
 /**
  * Creates table headers for assignment data.
+ * PERFORMANCE: Use batch write instead of individual setValue() calls
  */
 function createTableHeaders(sheet, startRow) {
   const headers = ['Date', 'Time', 'Description', 'Ministry/Role', 'Assigned Volunteer'];
 
-  for (let i = 0; i < headers.length; i++) {
-    sheet.getRange(startRow, i + 1).setValue(headers[i]);
-  }
+  // PERFORMANCE: Write all headers in one API call instead of 5
+  sheet.getRange(startRow, 1, 1, headers.length).setValues([headers]);
 
   const headerRange = sheet.getRange(startRow, 1, 1, headers.length);
   headerRange.setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   headerRange.setBorder(true, true, true, true, true, true);
-  
+
   return startRow + 1;
 }
 
 /**
- * Creates assignment rows with optimized grouping and ministry group colors.
+ * Creates assignment rows with optimized batch operations.
+ * PERFORMANCE: Collects all data first, then writes in bulk operations
  */
 function createAssignmentRows(sheet, assignments, startRow, config, printConfig) {
-  let currentRow = startRow;
-
   // Group assignments by mass for cleaner display
   const massByDateTime = new Map();
 
@@ -459,7 +468,7 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
     massByDateTime.get(massKey).assignments.push(assignment);
   }
 
-  // Sort masses chronologically (now safe with validated date/time objects)
+  // Sort masses chronologically
   const sortedMasses = Array.from(massByDateTime.values()).sort((a, b) => {
     const aDateTime = a.date.getTime();
     const bDateTime = b.date.getTime();
@@ -474,7 +483,11 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
     return aTimeOfDay - bTimeOfDay;
   });
 
-  // Create rows for each mass
+  // PERFORMANCE: Collect all row data before writing
+  const rowData = [];
+  const formattingInfo = []; // Track special formatting needs
+
+  let rowIndex = 0;
   for (const mass of sortedMasses) {
     // Sort assignments within the mass by role
     mass.assignments.sort((a, b) => a.ministryRole.localeCompare(b.ministryRole));
@@ -482,39 +495,64 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
     for (let i = 0; i < mass.assignments.length; i++) {
       const assignment = mass.assignments[i];
 
-      // Only show date/time/mass name on first row of each mass
-      if (i === 0) {
-        // *** FIX 3: Bypass helper and use direct formatting for the date ***
-        sheet.getRange(currentRow, 1).setValue(mass.date).setNumberFormat('M/d/yyyy');
-        sheet.getRange(currentRow, 2).setValue(HELPER_formatTime(mass.time));
-        sheet.getRange(currentRow, 3).setValue(mass.massName);
-      }
+      // Build row data
+      const row = [
+        i === 0 ? mass.date : '',  // Only show date on first row of mass
+        i === 0 ? HELPER_formatTime(mass.time) : '',  // Only show time on first row
+        i === 0 ? mass.massName : '',  // Only show mass name on first row
+        assignment.ministryRole,
+        assignment.assignedVolunteerName
+      ];
 
-      sheet.getRange(currentRow, 4).setValue(assignment.ministryRole);
-      sheet.getRange(currentRow, 5).setValue(assignment.assignedVolunteerName);
+      rowData.push(row);
 
-      // Format the row
-      const rowRange = sheet.getRange(currentRow, 1, 1, 5);
-      rowRange.setBorder(true, true, true, true, false, false);
+      // Track formatting needs
+      formattingInfo.push({
+        rowOffset: rowIndex,
+        isUnassigned: assignment.assignedVolunteerName === 'UNASSIGNED',
+        assignedGroup: assignment.assignedGroup,
+        hasDate: i === 0  // Need to apply date format to first row
+      });
 
-      // Apply background color based on assignment status and ministry group
-      if (assignment.assignedVolunteerName === 'UNASSIGNED') {
-        // Highlight unassigned roles in red
-        sheet.getRange(currentRow, 5).setBackground('#fce8e6');
-      } else if (assignment.assignedGroup && printConfig && printConfig.ministryGroupColors) {
-        // Check if there's a configured color for this ministry group
-        const groupColor = printConfig.ministryGroupColors[assignment.assignedGroup];
-        if (groupColor) {
-          // Apply ministry group color to the entire row
-          rowRange.setBackground(groupColor);
-        }
-      }
-
-      currentRow++;
+      rowIndex++;
     }
   }
 
-  return currentRow;
+  // PERFORMANCE: Write all data in ONE API call
+  if (rowData.length > 0) {
+    sheet.getRange(startRow, 1, rowData.length, 5).setValues(rowData);
+    Logger.log(`✅ PERFORMANCE: Batch wrote ${rowData.length} assignment rows in 1 API call (saved ${rowData.length * 5 - 1} calls)`);
+
+    // Apply formatting in batches
+    // 1. Apply borders to all rows at once
+    sheet.getRange(startRow, 1, rowData.length, 5).setBorder(true, true, true, true, false, false);
+
+    // 2. Apply date formatting to date cells (first row of each mass)
+    // 3. Apply background colors where needed
+    for (let i = 0; i < formattingInfo.length; i++) {
+      const info = formattingInfo[i];
+      const actualRow = startRow + info.rowOffset;
+
+      // Apply date format to first row of each mass
+      if (info.hasDate) {
+        sheet.getRange(actualRow, 1).setNumberFormat('M/d/yyyy');
+      }
+
+      // Apply background colors
+      if (info.isUnassigned) {
+        // Highlight unassigned volunteer name cell
+        sheet.getRange(actualRow, 5).setBackground('#fce8e6');
+      } else if (info.assignedGroup && printConfig && printConfig.ministryGroupColors) {
+        const groupColor = printConfig.ministryGroupColors[info.assignedGroup];
+        if (groupColor) {
+          // Apply ministry group color to entire row
+          sheet.getRange(actualRow, 1, 1, 5).setBackground(groupColor);
+        }
+      }
+    }
+  }
+
+  return startRow + rowData.length;
 }
 
 /**
@@ -533,34 +571,43 @@ function createChronologicalContent(sheet, scheduleData, startRow, config) {
 
 /**
  * Creates the summary section.
+ * PERFORMANCE: Batch write summary data
  */
 function createScheduleSummary(sheet, assignments, startRow, config) {
   let currentRow = startRow + 1;
-  
-  // Summary header
-  sheet.getRange(currentRow, 1).setValue('MINISTRY ASSIGNMENT SUMMARY');
+
+  // Calculate statistics
+  const stats = calculateAssignmentStatistics(assignments);
+
+  // PERFORMANCE: Batch write all summary data
+  const summaryData = [
+    ['MINISTRY ASSIGNMENT SUMMARY'],
+    [`Total Ministry Assignments: ${stats.totalRoles}`],
+    [`✓ Assigned: ${stats.assignedRoles} (${Math.round(stats.assignedRoles/stats.totalRoles*100)}%)`],
+    [`⚠ Still Needed: ${stats.unassignedRoles} (${Math.round(stats.unassignedRoles/stats.totalRoles*100)}%)`]
+  ];
+
+  sheet.getRange(currentRow, 1, summaryData.length, 1).setValues(summaryData);
+
+  // Apply formatting to header
   sheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold').setBackground('#fff2cc');
   sheet.getRange(currentRow, 1, 1, 5).merge();
   currentRow++;
-  
-  // Calculate statistics
-  const stats = calculateAssignmentStatistics(assignments);
-  
-  // Basic statistics
-  sheet.getRange(currentRow, 1).setValue(`Total Ministry Assignments: ${stats.totalRoles}`);
+
+  // Skip total row (no special background)
   currentRow++;
-  
-  sheet.getRange(currentRow, 1).setValue(`✓ Assigned: ${stats.assignedRoles} (${Math.round(stats.assignedRoles/stats.totalRoles*100)}%)`);
+
+  // Apply green background to assigned row
   if (stats.assignedRoles > 0) {
     sheet.getRange(currentRow, 1).setBackground('#e6f4ea');
   }
   currentRow++;
-  
-  sheet.getRange(currentRow, 1).setValue(`⚠ Still Needed: ${stats.unassignedRoles} (${Math.round(stats.unassignedRoles/stats.totalRoles*100)}%)`);
+
+  // Apply red background to unassigned row
   if (stats.unassignedRoles > 0) {
     sheet.getRange(currentRow, 1).setBackground('#fce8e6');
   }
-  
+
   return currentRow + 2;
 }
 
