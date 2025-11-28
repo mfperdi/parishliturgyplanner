@@ -249,56 +249,43 @@ function HELPER_readPrintScheduleConfig() {
 
 /**
  * Consolidated volunteer scoring (extracted from assignment logic)
- * Enhanced with detailed preference debugging
+ * PERFORMANCE: Removed verbose logging (was generating thousands of log lines)
  */
 function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignmentCounts, massAssignments, volunteers) {
   let score = 100; // Base score
   const counts = assignmentCounts.get(volunteer.id) || { total: 0, recent: new Date(0) };
   const roleLower = roleToFill.toLowerCase();
-  
-  Logger.log(`  Scoring ${volunteer.name} for ${roleToFill} (${eventId}):`);
-  Logger.log(`    - Base score: ${score}`);
-  
-  // Frequency penalty
+
+  // Frequency penalty: -5 points per previous assignment
   const frequencyPenalty = counts.total * 5;
   score -= frequencyPenalty;
-  Logger.log(`    - Frequency penalty (-${frequencyPenalty}): ${score}`);
-  
-  // Mass preference bonus
+
+  // Mass preference bonus: +20 points if volunteer prefers this Event ID
   if (eventId && volunteer.massPrefs.includes(eventId)) {
     score += 20;
-    Logger.log(`    - Mass preference bonus (+20 for ${eventId}): ${score}`);
-  } else if (eventId && volunteer.massPrefs.length > 0) {
-    Logger.log(`    - No mass preference match: has [${volunteer.massPrefs.join(',')}] but needs ${eventId}`);
   }
-  
-  // Role preference bonus
+
+  // Role preference bonus: +15 points if volunteer prefers this role
   if (volunteer.rolePrefs.includes(roleLower)) {
     score += 15;
-    Logger.log(`    - Role preference bonus (+15 for ${roleLower}): ${score}`);
-  } else if (volunteer.rolePrefs.length > 0) {
-    Logger.log(`    - No role preference match: has [${volunteer.rolePrefs.join(',')}] but needs ${roleLower}`);
   }
-  
-  // Family team bonus
+
+  // Family team bonus: +25 points if family member already assigned to this Mass
   if (volunteer.familyTeam && massAssignments) {
     for (const [assignedVolId, assignedRole] of massAssignments) {
       const assignedVol = volunteers.get(assignedVolId);
       if (assignedVol && assignedVol.familyTeam === volunteer.familyTeam) {
         score += 25;
-        Logger.log(`    - Family team bonus (+25 with ${assignedVol.name}): ${score}`);
         break;
       }
     }
   }
-  
-  // Flexibility bonus
+
+  // Flexibility bonus: +3 points for volunteers with no preferences (easy to schedule)
   if (volunteer.massPrefs.length === 0 && volunteer.rolePrefs.length === 0) {
     score += 3;
-    Logger.log(`    - Flexibility bonus (+3): ${score}`);
   }
-  
-  Logger.log(`    - FINAL SCORE: ${score}`);
+
   return score;
 }
 
