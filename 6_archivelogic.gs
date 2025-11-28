@@ -358,7 +358,7 @@ function ARCHIVE_createMetadataSheet(archiveSpreadsheet, year, copiedSheets) {
     ['Parish Name', parishName],
     ['Archived Year', year],
     ['Archive Created', new Date()],
-    ['Created By', Session.getActiveUser().getEmail()],
+    ['Created By', 'Parish Administrator'],
     [''],
     ['ARCHIVED SHEETS'],
     ['Sheet Name', 'Rows Archived']
