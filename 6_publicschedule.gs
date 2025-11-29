@@ -88,14 +88,14 @@ function PUBLISH_getOrCreatePublicSpreadsheet() {
     // Create spreadsheet
     const publicSpreadsheet = SpreadsheetApp.create(spreadsheetName);
 
-    // Delete default "Sheet1"
-    const defaultSheet = publicSpreadsheet.getSheets()[0];
-    if (defaultSheet && defaultSheet.getName() === 'Sheet1') {
+    // Add instructions sheet first (before deleting Sheet1)
+    const instructionsSheet = publicSpreadsheet.insertSheet('Instructions', 0);
+
+    // Delete default "Sheet1" (now safe because Instructions sheet exists)
+    const defaultSheet = publicSpreadsheet.getSheetByName('Sheet1');
+    if (defaultSheet) {
       publicSpreadsheet.deleteSheet(defaultSheet);
     }
-
-    // Add instructions sheet
-    const instructionsSheet = publicSpreadsheet.insertSheet('Instructions', 0);
     const instructions = [
       ['📅 Parish Ministry Schedule - Volunteer View'],
       [''],
