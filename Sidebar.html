@@ -513,6 +513,20 @@
         </div>
       </div>
 
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1e8e3e;">9</div>
+        <div class="step-content">
+          <div class="step-title">
+            Publish Schedule
+            <span id="completion-publish" class="completion-badge hidden">✓ Complete</span>
+          </div>
+          <div class="step-description">Sync schedule to public volunteer view spreadsheet</div>
+          <button id="btn-publish" class="btn btn-outline" disabled>
+            Publish Schedule
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -573,6 +587,7 @@
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
     const btnPrint = document.getElementById('btn-print');
+    const btnPublish = document.getElementById('btn-publish');
     const statusMessage = document.getElementById('status-message');
     
     // Phase elements
@@ -596,6 +611,7 @@
     const completionTimeoffs = document.getElementById('completion-timeoffs');
     const completionAssignment = document.getElementById('completion-assignment');
     const completionPrint = document.getElementById('completion-print');
+    const completionPublish = document.getElementById('completion-publish');
 
     let allButtons;
     let currentPhase = 'setup';
@@ -676,6 +692,7 @@
 
       // Completion phase buttons (enable after assignment)
       btnPrint.disabled = !hasCalendar || !hasMonthSelected;
+      btnPublish.disabled = !hasCalendar || !hasMonthSelected;
 
       updatePhaseStates();
       updateBadges();
@@ -711,7 +728,7 @@
     
     // Initialization
     window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnPrint];
+      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnPrint, btnPublish];
       updatePhaseProgress('setup');
       
       google.script.run
@@ -867,11 +884,11 @@
     btnPrint.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
-      
+
       const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
       const msg = `Generating printable schedule for ${selectedText}...`;
       showLoading(msg);
-      
+
       google.script.run
         .withSuccessHandler((message) => {
           const friendlyMessage = message.replace(selectedMonth, selectedText);
@@ -880,6 +897,24 @@
         })
         .withFailureHandler((error) => showError(error, 'print'))
         .generatePrintableSchedule(selectedMonth);
+    });
+
+    btnPublish.addEventListener('click', () => {
+      const selectedMonth = monthSelect.value;
+      if (!selectedMonth) return;
+
+      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
+      const msg = `Publishing schedule for ${selectedText}...`;
+      showLoading(msg);
+
+      google.script.run
+        .withSuccessHandler((message) => {
+          const friendlyMessage = message.replace(selectedMonth, selectedText);
+          showSuccess(friendlyMessage);
+          markStepComplete('publish');
+        })
+        .withFailureHandler((error) => showError(error, 'publish'))
+        .PUBLISH_syncMonthlyViewToPublic(selectedMonth);
     });
 
     // Archive button event listeners
