@@ -88,7 +88,7 @@ function onOpen(e) {
           .addItem('Clear Old Data', 'ARCHIVE_promptClearOldData')
           .addSeparator()
           .addSubMenu(SpreadsheetApp.getUi().createMenu('Public Schedule')
-              .addItem('Publish Current Month', 'publishCurrentMonthSchedule')
+              .addItem('Publish Schedule...', 'publishCurrentMonthSchedule')
               .addItem('Get Public Schedule Link', 'getPublicScheduleLink'))
           .addSeparator()
           .addItem('Diagnose Assignment Issues', 'runAssignmentDiagnostic')
