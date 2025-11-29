@@ -260,18 +260,54 @@ function PUBLISH_copyMonthlyViewToPublic(monthString, publicSpreadsheet) {
 }
 
 /**
- * Menu/sidebar wrapper: Publishes current month schedule.
- * Uses current month from system date.
+ * Menu wrapper: Prompts user to select a month and publishes that month's schedule.
+ * Accessed via: Admin Tools > Public Schedule > Publish Current Month
  */
 function publishCurrentMonthSchedule() {
   try {
-    const now = new Date();
-    const monthString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    const ui = SpreadsheetApp.getUi();
 
-    const result = PUBLISH_syncMonthlyViewToPublic(monthString);
-    SpreadsheetApp.getUi().alert('✅ Schedule Published', result, SpreadsheetApp.getUi().ButtonSet.OK);
+    // Get available months from calendar
+    const months = getMonthsForSidebar();
+
+    if (months.length === 0) {
+      ui.alert('No Calendar Data',
+               'Please generate the liturgical calendar first (Show Sidebar > Generate Calendar)',
+               ui.ButtonSet.OK);
+      return;
+    }
+
+    // Build prompt with month options
+    let promptText = 'Select a month to publish:\n\n';
+    months.forEach((m, idx) => {
+      promptText += `${idx + 1}. ${m.display}\n`;
+    });
+    promptText += '\nEnter the number (1-' + months.length + '):';
+
+    const response = ui.prompt('Publish Schedule', promptText, ui.ButtonSet.OK_CANCEL);
+
+    if (response.getSelectedButton() !== ui.Button.OK) {
+      return; // User cancelled
+    }
+
+    const selection = parseInt(response.getResponseText());
+
+    if (isNaN(selection) || selection < 1 || selection > months.length) {
+      ui.alert('Invalid Selection', 'Please enter a number between 1 and ' + months.length, ui.ButtonSet.OK);
+      return;
+    }
+
+    const selectedMonth = months[selection - 1].value;
+    const selectedMonthName = months[selection - 1].display;
+
+    // Publish the selected month
+    const result = PUBLISH_syncMonthlyViewToPublic(selectedMonth);
+    ui.alert('✅ Schedule Published', result, ui.ButtonSet.OK);
+
   } catch (e) {
-    SpreadsheetApp.getUi().alert('❌ Error', `Could not publish schedule:\n\n${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
+    const ui = SpreadsheetApp.getUi();
+    ui.alert('❌ Error', `Could not publish schedule:\n\n${e.message}`, ui.ButtonSet.OK);
+    Logger.log(`ERROR in publishCurrentMonthSchedule: ${e.message}\n${e.stack}`);
   }
 }
 
