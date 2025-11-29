@@ -215,12 +215,6 @@ function PUBLISH_copyMonthlyViewToPublic(monthString, publicSpreadsheet) {
     // Rename the copied sheet to the month name
     copiedSheet.setName(displayName);
 
-    // Convert all formulas to values (formulas reference sheets that don't exist in public spreadsheet)
-    Logger.log('Converting formulas to values in copied sheet');
-    const dataRange = copiedSheet.getDataRange();
-    const values = dataRange.getValues();
-    dataRange.setValues(values);
-
     // Update timestamp in cell B3 to show when it was published
     try {
       const publishedText = `Published: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
