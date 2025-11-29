@@ -177,6 +177,7 @@ function PUBLISH_storePublicSpreadsheetId(spreadsheetId) {
 
 /**
  * Copies MonthlyView to public spreadsheet (exact clone with formatting).
+ * Uses sheet duplication for reliable copying of complex formatting.
  * @param {string} monthString The month to copy.
  * @param {Spreadsheet} publicSpreadsheet The public spreadsheet object.
  * @returns {string} URL to the public spreadsheet.
@@ -200,57 +201,31 @@ function PUBLISH_copyMonthlyViewToPublic(monthString, publicSpreadsheet) {
       throw new Error('MonthlyView appears empty. Please generate the print schedule first.');
     }
 
-    // Get or create target sheet with month name
-    let targetSheet = publicSpreadsheet.getSheetByName(displayName);
-    if (targetSheet) {
-      // Clear existing sheet
-      Logger.log(`Sheet "${displayName}" already exists, clearing it`);
-      targetSheet.clear();
-    } else {
-      // Create new sheet
-      Logger.log(`Creating new sheet: ${displayName}`);
-      targetSheet = publicSpreadsheet.insertSheet(displayName);
+    // Delete existing sheet with same name if it exists
+    const existingSheet = publicSpreadsheet.getSheetByName(displayName);
+    if (existingSheet) {
+      Logger.log(`Sheet "${displayName}" already exists, deleting it`);
+      publicSpreadsheet.deleteSheet(existingSheet);
     }
 
-    // Copy all content (values, formats, colors, etc.)
-    const lastRow = sourceSheet.getLastRow();
-    const lastCol = sourceSheet.getLastColumn();
+    // Copy the entire sheet to public spreadsheet (this preserves all formatting)
+    Logger.log(`Duplicating MonthlyView sheet to public spreadsheet`);
+    const copiedSheet = sourceSheet.copyTo(publicSpreadsheet);
 
-    if (lastRow > 0 && lastCol > 0) {
-      // Copy values
-      const sourceRange = sourceSheet.getRange(1, 1, lastRow, lastCol);
-      const targetRange = targetSheet.getRange(1, 1, lastRow, lastCol);
-
-      targetRange.setValues(sourceRange.getValues());
-
-      // Copy formatting (backgrounds, fonts, borders, etc.)
-      sourceRange.copyFormatToRange(targetSheet, 1, lastCol, 1, lastRow);
-
-      // Copy column widths
-      for (let col = 1; col <= lastCol; col++) {
-        const width = sourceSheet.getColumnWidth(col);
-        targetSheet.setColumnWidth(col, width);
-      }
-
-      // Copy row heights
-      for (let row = 1; row <= lastRow; row++) {
-        const height = sourceSheet.getRowHeight(row);
-        targetSheet.setRowHeight(row, height);
-      }
-
-      Logger.log(`Copied ${lastRow} rows and ${lastCol} columns with full formatting`);
-    }
+    // Rename the copied sheet to the month name
+    copiedSheet.setName(displayName);
 
     // Update timestamp in cell B3 to show when it was published
     try {
       const publishedText = `Published: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-      targetSheet.getRange(3, 2).setValue(publishedText);
+      copiedSheet.getRange(3, 2).setValue(publishedText);
       Logger.log('Updated published timestamp in B3');
     } catch (e) {
       Logger.log(`Could not update timestamp: ${e.message}`);
       // Non-fatal
     }
 
+    Logger.log(`Successfully copied MonthlyView to "${displayName}" sheet in public spreadsheet`);
     return publicSpreadsheet.getUrl();
 
   } catch (e) {
