@@ -323,9 +323,10 @@ Base score: 100
 **Monthly Workflow**:
 1. **Admin: Update Form** (before volunteers submit)
    - Sidebar: Select month → "Update Timeoff Form"
-   - System populates form with all mass dates for the month
-   - Date checkboxes show liturgical context: "Sunday 2/8/2026 - 5th Sunday in Ordinary Time"
-   - Vigil masses separated: "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil)"
+   - System populates form with all mass dates for the month in chronological order
+   - **Weekends grouped**: "Weekend of 2/7-2/8/2026 - 5th Sunday in Ordinary Time" (combines Saturday vigil + Sunday masses)
+   - **Special liturgical days**: "Wednesday 2/18/2026 - Ash Wednesday" (individual dates)
+   - Volunteers can specify mass time restrictions in "Additional Details" field if needed
 
 2. **Volunteers: Submit Requests**
    - Open Google Form (share link via email/bulletin)
@@ -386,15 +387,23 @@ The system supports two types for managing temporary availability:
 
 #### Special Cases
 
-**Scenario: Vigil vs. Non-Vigil Mass Distinctions**
-- Form separates Saturday vigil from Sunday mass
+**Scenario: Weekend Unavailability (Most Common)**
+- Weekends are grouped: "Weekend of 2/7-2/8/2026 - 5th Sunday in Ordinary Time"
 - Example: Unavailable for entire weekend
-  - Check "Saturday 2/7/2026 - 5th Sunday (Vigil)"
-  - AND check "Sunday 2/8/2026 - 5th Sunday"
+  - Check the weekend checkbox
+  - Leave "Additional Details" blank
+  - **Result**: Blocked from ALL masses that weekend (Saturday vigil + all Sunday masses)
+
+**Scenario: Specific Mass Time Restrictions on Weekends**
+- Example: "I can only do Saturday vigil, not Sunday" OR "I can only do Sunday 10am"
+- Solution:
+  - Check the weekend checkbox
+  - In "Additional Details" field: "Weekend 2/7: Saturday vigil only" OR "Weekend 2/7: Sunday 10am only"
+  - Admin reviews and can manually adjust if needed
 
 **Scenario: Temporary Mass Time Preferences**
 - Example: "I can only serve evening masses this month"
-- Solution: Use "I can ONLY serve" type + check all dates + add note "Evening masses only"
+- Solution: Use "I can ONLY serve" type + check all applicable weekends/dates + add note "Evening masses only"
 - Admin reviews note and can manually adjust if needed
 
 **Scenario: Holy Days with Multiple Mass Times**
@@ -1090,11 +1099,20 @@ The system includes comprehensive documentation to support deployment and testin
 
 ---
 
-**Last Updated**: 2025-11-18
+**Last Updated**: 2025-11-30
 
-**Codebase Version**: Production-ready with real-time assignment validation
+**Codebase Version**: Production-ready with weekend-grouped timeoff forms
 
 **Recent Changes**:
+- **Weekend Grouping for Timeoff Forms** (4_timeoff-form.gs):
+  - Saturday vigil and Sunday masses now grouped into single "Weekend of M/D-M/D/YYYY" checkbox
+  - Chronological order for all dates (weekends and special liturgical days)
+  - Simplified form reduces checkbox count while maintaining granularity via "Additional Details" field
+  - Volunteers can specify mass time restrictions (e.g., "Saturday vigil only", "Sunday 10am only") in optional text field
+  - System automatically expands weekend selections to both Saturday vigil and Sunday dates
+  - Backward compatible with legacy format for existing timeoff data
+  - Updated form help text to clarify weekend blocking behavior and mass time restriction options
+  - Added TEST_weekendGroupingLogic() function for verifying date extraction logic
 - **Real-Time Assignment Validation System** (0d_onedit.gs, 0_code.gs):
   - Added onEdit trigger for automatic validation when manually assigning volunteers
   - Validates volunteer status (must be Active), ministry roles/skills, and timeoff conflicts

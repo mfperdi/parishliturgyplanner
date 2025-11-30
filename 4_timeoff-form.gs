@@ -227,10 +227,12 @@ function TIMEOFFS_bulkApprovePending() {
 
 /**
  * Gets all unique dates with masses for a specific month.
- * Groups masses by date and separates vigil masses from non-vigil masses.
+ * Groups Saturday vigils with Sunday masses into weekend checkboxes.
+ * Keeps standalone liturgical days as individual checkboxes.
+ * Returns all options in chronological order.
  * Used to populate the Google Form with date checkbox options.
  * @param {string} monthString Month in format "2026-01"
- * @returns {Array<object>} Array of date objects with date, display, isVigil
+ * @returns {Array<object>} Array of date objects with date, display, isWeekend, saturdayDate, sundayDate
  */
 function TIMEOFFS_getDatesForMonth(monthString) {
   try {
@@ -290,59 +292,78 @@ function TIMEOFFS_getDatesForMonth(monthString) {
       }
     }
 
-    // Build checkbox options
-    const result = [];
-
     // Sort dates chronologically
     const sortedDates = Array.from(dateMap.entries()).sort((a, b) => {
       return a[1].date.getTime() - b[1].date.getTime();
     });
 
-    for (const [dateKey, dateInfo] of sortedDates) {
-      const date = dateInfo.date;
-      const dayOfWeek = date.toLocaleString('en-US', { weekday: 'long' });
-      const dateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+    // Build checkbox options with weekend grouping
+    const result = [];
+    let i = 0;
 
-      // If both vigil and non-vigil masses exist, create two checkboxes
-      if (dateInfo.hasVigil && dateInfo.hasNonVigil) {
-        // Non-vigil masses (use regular day's liturgy)
-        const regularLiturgy = dateInfo.liturgyRegular || "Sunday";
-        result.push({
-          dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} - ${regularLiturgy}`,
-          isVigil: false,
-          date: date
-        });
-        // Vigil mass (use next day's liturgy)
-        const vigilLiturgy = dateInfo.liturgyVigil || "Sunday";
-        result.push({
-          dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} - ${vigilLiturgy} (Vigil)`,
-          isVigil: true,
-          date: date
-        });
-      } else if (dateInfo.hasVigil) {
-        // Only vigil mass (use next day's liturgy)
-        const vigilLiturgy = dateInfo.liturgyVigil || "Sunday";
-        result.push({
-          dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} - ${vigilLiturgy} (Vigil)`,
-          isVigil: true,
-          date: date
-        });
-      } else {
-        // Only non-vigil masses (use regular day's liturgy)
-        const regularLiturgy = dateInfo.liturgyRegular || "Sunday";
-        result.push({
-          dateKey: dateKey,
-          display: `${dayOfWeek} ${dateStr} - ${regularLiturgy}`,
-          isVigil: false,
-          date: date
-        });
+    while (i < sortedDates.length) {
+      const [dateKey, dateInfo] = sortedDates[i];
+      const date = dateInfo.date;
+      const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+
+      // Check if this is Saturday with vigil AND next entry is Sunday
+      const isSaturday = dayOfWeek === 6;
+      const hasNextDay = i + 1 < sortedDates.length;
+
+      if (isSaturday && dateInfo.hasVigil && hasNextDay) {
+        const [nextDateKey, nextDateInfo] = sortedDates[i + 1];
+        const nextDate = nextDateInfo.date;
+        const nextDayOfWeek = nextDate.getDay();
+
+        // Check if next day is Sunday (day after Saturday)
+        const isSundayAfterSaturday = nextDayOfWeek === 0 &&
+          (nextDate.getTime() - date.getTime()) === 24 * 60 * 60 * 1000;
+
+        if (isSundayAfterSaturday && nextDateInfo.hasNonVigil) {
+          // Create weekend checkbox
+          const satDateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+          const sunDateStr = nextDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+          const liturgy = nextDateInfo.liturgyRegular || "Sunday";
+
+          result.push({
+            dateKey: dateKey,
+            display: `Weekend of ${satDateStr}-${sunDateStr} - ${liturgy}`,
+            isWeekend: true,
+            saturdayDate: date,
+            sundayDate: nextDate
+          });
+
+          // Skip the Sunday entry since we combined it
+          i += 2;
+          continue;
+        }
       }
+
+      // Not a weekend grouping - create individual checkbox
+      const dateStr = date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' });
+      const dayOfWeekName = date.toLocaleString('en-US', { weekday: 'long' });
+
+      // Use appropriate liturgy
+      let liturgy;
+      if (dateInfo.hasVigil && !dateInfo.hasNonVigil) {
+        // Only vigil (Saturday with no Sunday following, or other vigil)
+        liturgy = dateInfo.liturgyVigil || dateInfo.liturgyRegular || "";
+      } else {
+        // Regular day or non-vigil masses
+        liturgy = dateInfo.liturgyRegular || "";
+      }
+
+      result.push({
+        dateKey: dateKey,
+        display: `${dayOfWeekName} ${dateStr} - ${liturgy}`,
+        isWeekend: false,
+        date: date
+      });
+
+      i++;
     }
 
-    Logger.log(`Found ${result.length} date options for ${monthString}`);
+    Logger.log(`Found ${result.length} date options for ${monthString} (weekends grouped)`);
     return result;
 
   } catch (e) {
@@ -483,14 +504,14 @@ Thank you for serving our parish community! 🙏`;
       // 3. Create date checkbox question
       form.addCheckboxItem()
         .setTitle('Select the dates that apply to your request')
-        .setHelpText('Check ALL dates that apply:\n\n• For "I CANNOT serve": Check every date you are unavailable\n  (For a vacation week, check each individual date in that week)\n\n• For "I can ONLY serve": Check ONLY the dates you can serve\n  (Do not check dates you\'re unavailable - only check the ones you CAN do)\n\n📝 VIGIL MASSES: Saturday evening vigil masses are listed separately from Sunday masses. If you\'re unavailable for an entire weekend, check both Saturday vigil AND Sunday.')
+        .setHelpText('Check ALL dates that apply (listed in chronological order):\n\n• WEEKENDS: Checking a weekend blocks you from ALL masses that weekend (Saturday vigil + all Sunday masses) unless you specify otherwise in "Additional Details" below\n\n• SPECIAL LITURGICAL DAYS: Checking these blocks you from all masses that day\n\n• For "I CANNOT serve": Check every date/weekend you are unavailable\n\n• For "I can ONLY serve": Check ONLY the dates/weekends you can serve')
         .setRequired(true)
         .setChoiceValues(dateOptions);
 
       // 4. Create Notes question
       form.addParagraphTextItem()
         .setTitle('Additional details or restrictions (Optional)')
-        .setHelpText('Use this field for:\n\n• Mass time restrictions: "Can only serve evening masses" or "Available only after 6pm"\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n• Context: "Family wedding" or "Surgery recovery"\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward.')
+        .setHelpText('Use this field for:\n\n• MASS TIME RESTRICTIONS for weekends: "Weekend 2/7: Saturday vigil only" or "Weekend 2/14: Sunday 10am only"\n\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n\n• Context: "Family wedding" or "Surgery recovery"\n\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward (unavailable for all masses on the dates you checked).')
         .setRequired(false);
 
       Logger.log('Created fresh form structure with 4 questions');
@@ -545,7 +566,10 @@ Thank you for serving our parish community! 🙏`;
 
 /**
  * Extract dates from Google Forms checkbox response text.
- * Input: "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil), Sunday 2/8/2026 - 5th Sunday in Ordinary Time, Wednesday 2/18/2026 - Ash Wednesday"
+ * Supports both weekend format and individual date format.
+ * Input examples:
+ *   - "Weekend of 2/7-2/8/2026 - 5th Sunday in Ordinary Time, Wednesday 2/18/2026 - Ash Wednesday"
+ *   - "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil), Sunday 2/8/2026 - 5th Sunday in Ordinary Time" (legacy)
  * Output: ["2/7/2026 (Vigil)", "2/8/2026", "2/18/2026"]
  * @param {string} text Checkbox response text
  * @returns {Array<string>} Array of date strings with optional (Vigil) marker
@@ -561,9 +585,30 @@ function HELPER_extractDatesFromCheckboxes(text) {
   for (const part of parts) {
     if (!part) continue;
 
-    // Extract date portion
-    // NEW Format: "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil)"
-    // OLD Format: "Sunday 1/5/2026" or "Saturday 1/4/2026 (Vigil)"
+    // Check for weekend format: "Weekend of 2/7-2/8/2026 - Liturgical Celebration"
+    const weekendMatch = part.match(/Weekend of (\d{1,2}\/\d{1,2})-(\d{1,2}\/\d{1,2}\/\d{4})/i);
+
+    if (weekendMatch) {
+      // Extract Saturday and Sunday dates
+      const satDatePart = weekendMatch[1]; // e.g., "2/7"
+      const sunDateFull = weekendMatch[2];  // e.g., "2/8/2026"
+
+      // Extract year from Sunday date
+      const yearMatch = sunDateFull.match(/\/(\d{4})$/);
+      const year = yearMatch ? yearMatch[1] : '';
+
+      // Build full Saturday date
+      const satDateFull = `${satDatePart}/${year}`;
+
+      // Add Saturday vigil and Sunday
+      dates.push(`${satDateFull} (Vigil)`);
+      dates.push(sunDateFull);
+
+      continue;
+    }
+
+    // Regular date format: "Wednesday 2/18/2026 - Ash Wednesday"
+    // Also handles legacy format: "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil)"
     const dateMatch = part.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
 
     if (dateMatch) {
@@ -582,6 +627,56 @@ function HELPER_extractDatesFromCheckboxes(text) {
   }
 
   return dates;
+}
+
+/**
+ * TEST FUNCTION: Test weekend grouping and date extraction logic
+ * Run this to verify the new weekend checkbox format works correctly
+ * @returns {string} Test results
+ */
+function TEST_weekendGroupingLogic() {
+  Logger.log('=== Testing Weekend Grouping Logic ===');
+
+  // Test 1: Extract weekend format
+  const weekendInput = "Weekend of 2/7-2/8/2026 - 5th Sunday in Ordinary Time, Wednesday 2/18/2026 - Ash Wednesday";
+  const weekendResult = HELPER_extractDatesFromCheckboxes(weekendInput);
+  Logger.log(`Test 1 - Weekend format:`);
+  Logger.log(`  Input: ${weekendInput}`);
+  Logger.log(`  Output: ${JSON.stringify(weekendResult)}`);
+  Logger.log(`  Expected: ["2/7/2026 (Vigil)", "2/8/2026", "2/18/2026"]`);
+  Logger.log(`  Pass: ${JSON.stringify(weekendResult) === JSON.stringify(["2/7/2026 (Vigil)", "2/8/2026", "2/18/2026"])}`);
+
+  // Test 2: Extract legacy format (for backward compatibility)
+  const legacyInput = "Saturday 2/7/2026 - 5th Sunday in Ordinary Time (Vigil), Sunday 2/8/2026 - 5th Sunday in Ordinary Time";
+  const legacyResult = HELPER_extractDatesFromCheckboxes(legacyInput);
+  Logger.log(`\nTest 2 - Legacy format:`);
+  Logger.log(`  Input: ${legacyInput}`);
+  Logger.log(`  Output: ${JSON.stringify(legacyResult)}`);
+  Logger.log(`  Expected: ["2/7/2026 (Vigil)", "2/8/2026"]`);
+  Logger.log(`  Pass: ${JSON.stringify(legacyResult) === JSON.stringify(["2/7/2026 (Vigil)", "2/8/2026"])}`);
+
+  // Test 3: Multiple weekends
+  const multiWeekendInput = "Weekend of 2/7-2/8/2026 - 5th Sunday in Ordinary Time, Weekend of 2/14-2/15/2026 - 6th Sunday in Ordinary Time";
+  const multiWeekendResult = HELPER_extractDatesFromCheckboxes(multiWeekendInput);
+  Logger.log(`\nTest 3 - Multiple weekends:`);
+  Logger.log(`  Input: ${multiWeekendInput}`);
+  Logger.log(`  Output: ${JSON.stringify(multiWeekendResult)}`);
+  Logger.log(`  Expected: ["2/7/2026 (Vigil)", "2/8/2026", "2/14/2026 (Vigil)", "2/15/2026"]`);
+  Logger.log(`  Pass: ${JSON.stringify(multiWeekendResult) === JSON.stringify(["2/7/2026 (Vigil)", "2/8/2026", "2/14/2026 (Vigil)", "2/15/2026"])}`);
+
+  // Test 4: Individual weekday
+  const weekdayInput = "Wednesday 2/18/2026 - Ash Wednesday";
+  const weekdayResult = HELPER_extractDatesFromCheckboxes(weekdayInput);
+  Logger.log(`\nTest 4 - Individual weekday:`);
+  Logger.log(`  Input: ${weekdayInput}`);
+  Logger.log(`  Output: ${JSON.stringify(weekdayResult)}`);
+  Logger.log(`  Expected: ["2/18/2026"]`);
+  Logger.log(`  Pass: ${JSON.stringify(weekdayResult) === JSON.stringify(["2/18/2026"])}`);
+
+  Logger.log('\n=== Test Complete ===');
+  Logger.log('Check the logs above to verify all tests passed');
+
+  return 'Test complete - check execution logs for results';
 }
 
 /**
