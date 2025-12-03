@@ -183,3 +183,117 @@ function DEBUG_testMonthBoundaries() {
 
   return "Month boundary test complete - check execution logs";
 }
+
+/**
+ * CRITICAL DEBUG: Trace through actual filterCandidates logic
+ * This simulates what happens during auto-assignment
+ */
+function DEBUG_traceFilterLogic() {
+  Logger.log(`\n=== TRACING FILTER CANDIDATES LOGIC ===\n`);
+
+  const monthString = "2026-01";
+  const { year, month } = HELPER_validateMonthString(monthString);
+
+  // Build same data structures as auto-assignment
+  const volunteerData = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
+  const timeoffData = HELPER_readSheetData(CONSTANTS.SHEETS.TIMEOFFS);
+  const volunteers = buildVolunteerMapOptimized(volunteerData);
+  const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, year);
+
+  Logger.log(`Volunteers map size: ${volunteers.size}`);
+  Logger.log(`Blacklist map size: ${timeoffMaps.blacklist.size}`);
+
+  // Test case: Margie Weiner on 1/3/2026 SAT-1700 (vigil)
+  Logger.log(`\n--- SIMULATING FILTER FOR: Margie Weiner, 1/3/2026, SAT-1700 (vigil) ---`);
+
+  // Create roleInfo exactly as it would be in production
+  const roleInfo = {
+    date: new Date("1/3/2026"),  // This mimics what comes from Assignments sheet
+    role: "2nd Reading",
+    eventId: "SAT-1700",
+    isAnticipated: true
+  };
+
+  Logger.log(`roleInfo.date: ${roleInfo.date}`);
+  Logger.log(`roleInfo.date.toDateString(): ${roleInfo.date.toDateString()}`);
+  Logger.log(`roleInfo.isAnticipated: ${roleInfo.isAnticipated}`);
+
+  const massDateString = roleInfo.date.toDateString();
+  const massType = roleInfo.isAnticipated ? 'vigil' : 'non-vigil';
+
+  Logger.log(`massDateString: "${massDateString}"`);
+  Logger.log(`massType: "${massType}"`);
+
+  // Now trace through each step of filterCandidates for Margie Weiner
+  const margie = Array.from(volunteers.values()).find(v => v.name === "Margie Weiner");
+
+  if (!margie) {
+    Logger.log(`ERROR: Margie Weiner not found in volunteers map!`);
+    return "ERROR - volunteer not found";
+  }
+
+  Logger.log(`\nFound volunteer: ${margie.name}`);
+  Logger.log(`  Status: ${margie.status}`);
+  Logger.log(`  Ministries: ${margie.ministries.join(', ')}`);
+  Logger.log(`  Role prefs: ${margie.rolePrefs.join(', ')}`);
+
+  // Check blacklist (line 506-519 in filterCandidates)
+  Logger.log(`\n--- BLACKLIST CHECK ---`);
+  Logger.log(`Step 1: timeoffMaps.blacklist.has("${margie.name}"): ${timeoffMaps.blacklist.has(margie.name)}`);
+
+  if (timeoffMaps.blacklist.has(margie.name)) {
+    const blacklistMap = timeoffMaps.blacklist.get(margie.name);
+    Logger.log(`Step 2: Got blacklistMap with ${blacklistMap.size} dates`);
+
+    Logger.log(`Step 3: blacklistMap.has("${massDateString}"): ${blacklistMap.has(massDateString)}`);
+
+    if (blacklistMap.has(massDateString)) {
+      const blacklistTypes = blacklistMap.get(massDateString);
+      Logger.log(`Step 4: Got blacklistTypes: ${Array.from(blacklistTypes).join(', ')}`);
+      Logger.log(`Step 5: blacklistTypes.has("${massType}"): ${blacklistTypes.has(massType)}`);
+
+      if (blacklistTypes.has(massType)) {
+        Logger.log(`\n✅ RESULT: Should CONTINUE (skip this volunteer)`);
+      } else {
+        Logger.log(`\n⚠️ RESULT: Mass type doesn't match - volunteer NOT excluded`);
+      }
+    } else {
+      Logger.log(`\n⚠️ RESULT: Date not in blacklist - volunteer NOT excluded`);
+      Logger.log(`Available dates in blacklist:`);
+      for (const [dateStr, types] of blacklistMap.entries()) {
+        Logger.log(`  - "${dateStr}": ${Array.from(types).join(', ')}`);
+      }
+    }
+  } else {
+    Logger.log(`\n⚠️ RESULT: Volunteer not in blacklist - NOT excluded`);
+  }
+
+  // Now check the actual Assignments sheet to see what date format it uses
+  Logger.log(`\n--- CHECKING ACTUAL ASSIGNMENTS SHEET DATE FORMAT ---`);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const assignSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+  const assignData = assignSheet.getDataRange().getValues();
+  const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
+
+  // Find Margie's 1/3 assignment
+  for (let i = 1; i < assignData.length; i++) {
+    const row = assignData[i];
+    const volName = row[assignCols.ASSIGNED_VOLUNTEER_NAME - 1];
+    const date = row[assignCols.DATE - 1];
+
+    if (volName === "Margie Weiner" && date) {
+      const dateObj = new Date(date);
+      if (dateObj.getMonth() === 0 && dateObj.getDate() === 3) {
+        Logger.log(`\nFound Margie's 1/3 assignment in sheet:`);
+        Logger.log(`  Raw date from sheet: ${date}`);
+        Logger.log(`  Type: ${typeof date}`);
+        Logger.log(`  Date object: ${dateObj}`);
+        Logger.log(`  toDateString(): ${dateObj.toDateString()}`);
+        Logger.log(`  IsAnticipated value: ${row[assignCols.IS_ANTICIPATED - 1]}`);
+        break;
+      }
+    }
+  }
+
+  return "Filter trace complete - check execution logs";
+}
