@@ -10,6 +10,19 @@ The assignment logic now automatically **rotates volunteers between their multip
 
 ## How It Works
 
+### Mass Preference Enforcement (NEW!)
+
+**IMPORTANT**: Mass preferences are now **hard filters**, not just scoring bonuses!
+
+- **If a volunteer HAS preferred mass times**: They can ONLY be assigned to those masses
+- **If a volunteer has NO preferred mass times**: They are flexible (eligible for all masses)
+
+**Example**:
+- Melissa Guba prefers only SAT-1700 → Can ONLY be assigned to Saturday vigil
+- Terry Quan has no preferences → Can be assigned to any mass (flexible)
+
+This ensures volunteers are only assigned to masses they can actually attend. The rotation logic then distributes them across their preferred masses.
+
 ### Tracking System
 
 The system now tracks **two levels of assignment frequency**:
@@ -109,11 +122,14 @@ If you want to make rotation optional or adjust the penalty, you could add to `C
 ### Run Test Functions
 
 ```javascript
-// Demonstrates scoring logic with different scenarios
-TEST_rotationLogic()
+// TEST MASS PREFERENCE FILTERING:
+TEST_massPreferenceFiltering()      // Shows which volunteers are eligible for which masses
+TEST_analyzePreferenceFiltering()   // Analyzes actual volunteer eligibility in your data
+TEST_beforeAfterComparison()        // Shows before/after difference
 
-// Analyzes actual rotation patterns in your data
-TEST_analyzeRotationPatterns()
+// TEST ROTATION LOGIC:
+TEST_rotationLogic()                // Demonstrates scoring logic with different scenarios
+TEST_analyzeRotationPatterns()      // Analyzes actual rotation patterns in your data
 ```
 
 ### Expected Results
@@ -175,6 +191,7 @@ Result: Ming wins (family bonus outweighs rotation)
 
 **Files Modified**:
 1. `3_assignmentlogic.gs`:
+   - `filterCandidates()` - **NEW: Hard filter for mass preferences**
    - `buildAssignmentContext()` - Tracks `byEventId` in assignment counts
    - `updateAssignmentCounts()` - Accepts and tracks Event ID parameter
    - `processAssignments()` - Passes Event ID when updating counts
@@ -183,7 +200,10 @@ Result: Ming wins (family bonus outweighs rotation)
    - `HELPER_calculateVolunteerScore()` - Implements rotation penalty logic
 
 3. `TEST_rotation_logic.gs` (NEW):
-   - Test and demonstration functions
+   - Test and demonstration functions for rotation
+
+4. `TEST_mass_preference_filter.gs` (NEW):
+   - Test and demonstration functions for preference filtering
 
 ### Data Structure
 
@@ -206,6 +226,14 @@ Map {
 
 ## FAQ
 
+### Q: Are volunteers only assigned to their preferred masses?
+**A**: YES! As of the latest update, mass preferences are **hard filters**, not just scoring bonuses. If a volunteer specifies preferred masses, they will ONLY be assigned to those masses. If a volunteer has NO preferences, they're flexible and can be assigned to any mass.
+
+### Q: What if I want a volunteer to be assigned to a mass they didn't prefer?
+**A**: You have two options:
+1. **Update their preferences**: Add the new mass to their PreferredMassTime column
+2. **Manual override**: Assign them manually in the Assignments sheet (override validation if needed)
+
 ### Q: Will rotation make it harder to fill masses?
 **A**: No. The rotation penalty is small (-3 per assignment) compared to other factors. Volunteers still get bonus points for ALL their preferred masses, just slightly reduced if they've served there before.
 
@@ -224,6 +252,21 @@ Map {
 ---
 
 ## Troubleshooting
+
+### Issue: Volunteers not being assigned at all
+
+**Possible causes**:
+1. **Mass preference mismatch** - Volunteer has preferences but the mass isn't one of them
+2. **No preferences set** - Actually not an issue! Volunteers without preferences are flexible
+3. **Other filtering** - Check timeoffs, role qualifications, status
+
+**Debug**:
+```javascript
+TEST_massPreferenceFiltering()      // Check which masses they're eligible for
+TEST_analyzePreferenceFiltering()   // Analyze all volunteers' eligibility
+```
+
+**Solution**: Update PreferredMassTime column to include the masses you want them assigned to
 
 ### Issue: Volunteers still getting same mass repeatedly
 
