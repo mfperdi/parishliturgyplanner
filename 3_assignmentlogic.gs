@@ -501,8 +501,11 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
 
 /**
  * Extracted candidate filtering
- * Filters volunteers based on timeoff blacklist/whitelist
- * NOW INCLUDES: Strict role matching - volunteers only assigned to their specified roles
+ * Filters volunteers based on:
+ * - Strict role matching (volunteers only assigned to their specified roles)
+ * - Mass preference matching (volunteers only assigned to their preferred masses if specified)
+ * - Timeoff blacklist/whitelist enforcement
+ * - Already assigned checks
  */
 function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap) {
   const candidates = [];
@@ -538,7 +541,17 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       continue;
     }
 
-    // 3. Check Whitelist (if exists, must match date AND vigil type)
+    // 3. Check Mass Preference (if volunteer has preferences, must match Event ID)
+    if (volunteer.massPrefs && volunteer.massPrefs.length > 0) {
+      // Volunteer has preferred mass times - MUST match Event ID
+      if (!eventId || !volunteer.massPrefs.includes(eventId)) {
+        // This mass is not in their preferences - exclude
+        continue;
+      }
+    }
+    // If volunteer has NO mass preferences, they are flexible (eligible for all masses)
+
+    // 4. Check Whitelist (if exists, must match date AND vigil type)
     if (timeoffMaps.whitelist.has(volunteer.name)) {
       const whitelistMap = timeoffMaps.whitelist.get(volunteer.name);
 
@@ -558,7 +571,7 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       }
     }
 
-    // 4. Check Blacklist (date AND vigil type must match)
+    // 5. Check Blacklist (date AND vigil type must match)
     if (timeoffMaps.blacklist.has(volunteer.name)) {
       const blacklistMap = timeoffMaps.blacklist.get(volunteer.name);
 
@@ -574,13 +587,13 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       }
     }
 
-    // 5. Check if already assigned today
+    // 6. Check if already assigned today
     const counts = assignmentCounts.get(volunteer.id);
     if (counts && counts.recent.toDateString() === massDateString) {
       continue;
     }
 
-    // 6. Check if already assigned to this mass
+    // 7. Check if already assigned to this mass
     if (massAssignments.has(volunteer.id)) {
       continue;
     }
