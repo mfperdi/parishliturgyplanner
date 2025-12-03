@@ -253,16 +253,26 @@ function HELPER_readPrintScheduleConfig() {
  */
 function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignmentCounts, massAssignments, volunteers) {
   let score = 100; // Base score
-  const counts = assignmentCounts.get(volunteer.id) || { total: 0, recent: new Date(0) };
+  const counts = assignmentCounts.get(volunteer.id) || { total: 0, recent: new Date(0), byEventId: {} };
   const roleLower = roleToFill.toLowerCase();
 
   // Frequency penalty: -5 points per previous assignment
   const frequencyPenalty = counts.total * 5;
   score -= frequencyPenalty;
 
-  // Mass preference bonus: +20 points if volunteer prefers this Event ID
+  // Mass preference bonus with rotation: favor least-used preferred masses
   if (eventId && volunteer.massPrefs.includes(eventId)) {
-    score += 20;
+    // Base bonus for preferred mass
+    let massBonus = 20;
+
+    // Rotation logic: reduce bonus for frequently-used preferred masses
+    if (counts.byEventId && counts.byEventId[eventId]) {
+      const timesAtThisMass = counts.byEventId[eventId];
+      const rotationPenalty = timesAtThisMass * 3; // -3 per previous assignment to this mass
+      massBonus = Math.max(5, massBonus - rotationPenalty); // Min 5 points, max 20
+    }
+
+    score += massBonus;
   }
 
   // Role preference bonus: +15 points if volunteer prefers this role

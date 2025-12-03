@@ -346,15 +346,29 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
     const assignedVolunteerId = HELPER_safeArrayAccess(row, assignCols.ASSIGNED_VOLUNTEER_ID - 1);
     const assignedGroup = HELPER_safeArrayAccess(row, assignCols.ASSIGNED_GROUP - 1);
     
-    // Build assignment counts for all data (for frequency calculation)
+    // Build assignment counts for all data (for frequency calculation AND rotation)
     if (assignedVolunteerId) {
       const assignDate = new Date(date);
+      const eventId = HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1);
+
       if (!context.assignmentCounts.has(assignedVolunteerId)) {
-        context.assignmentCounts.set(assignedVolunteerId, { total: 0, recent: new Date(0) });
+        context.assignmentCounts.set(assignedVolunteerId, {
+          total: 0,
+          recent: new Date(0),
+          byEventId: {} // NEW: Track assignments per Event ID for rotation
+        });
       }
-      context.assignmentCounts.get(assignedVolunteerId).total++;
-      if (assignDate > context.assignmentCounts.get(assignedVolunteerId).recent) {
-        context.assignmentCounts.get(assignedVolunteerId).recent = assignDate;
+
+      const counts = context.assignmentCounts.get(assignedVolunteerId);
+      counts.total++;
+
+      if (assignDate > counts.recent) {
+        counts.recent = assignDate;
+      }
+
+      // Track count for this specific Event ID (for rotation)
+      if (eventId) {
+        counts.byEventId[eventId] = (counts.byEventId[eventId] || 0) + 1;
       }
     }
     
@@ -433,8 +447,8 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
           status: "Assigned"
         });
 
-        // Update tracking
-        updateAssignmentCounts(context.assignmentCounts, volunteer.id, roleInfo.date);
+        // Update tracking (including Event ID for rotation)
+        updateAssignmentCounts(context.assignmentCounts, volunteer.id, roleInfo.date, roleInfo.eventId);
         massAssignments.set(volunteer.id, roleInfo.role);
 
         results.individualAssignments++;
@@ -602,13 +616,22 @@ function groupAssignmentsByMass(unassignedRoles) {
   return massesByDateTime;
 }
 
-function updateAssignmentCounts(assignmentCounts, volunteerId, date) {
+function updateAssignmentCounts(assignmentCounts, volunteerId, date, eventId = null) {
   if (!assignmentCounts.has(volunteerId)) {
-    assignmentCounts.set(volunteerId, { total: 0, recent: new Date(0) });
+    assignmentCounts.set(volunteerId, {
+      total: 0,
+      recent: new Date(0),
+      byEventId: {}
+    });
   }
   const counts = assignmentCounts.get(volunteerId);
   counts.total++;
   counts.recent = date;
+
+  // Track count for this specific Event ID (for rotation)
+  if (eventId) {
+    counts.byEventId[eventId] = (counts.byEventId[eventId] || 0) + 1;
+  }
 }
 
 /**
