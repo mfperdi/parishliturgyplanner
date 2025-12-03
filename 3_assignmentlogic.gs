@@ -53,7 +53,8 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
 
   // Build optimized data structures
   const volunteers = buildVolunteerMapOptimized(volunteerData);
-  const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, scheduleYear);
+  // Pass monthString to enable spillover date detection
+  const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, scheduleYear, monthString);
 
   // CRITICAL: Build skill-to-ministry mapping from MassTemplates
   const skillToMinistryMap = buildSkillToMinistryMap();
@@ -191,8 +192,16 @@ function parseListField(fieldValue, toLowerCase = true) {
  * Optimized timeoff map building (DATE-BASED SYSTEM)
  * Returns object with two maps: blacklist, whitelist
  * NEW: Uses date checkboxes from form - no more Event IDs
+ *
+ * FIXED: Month boundary comparison (Jan 31 bug fixed)
+ * FIXED: Spillover date handling (Feb 1 in January assignments)
+ *
+ * @param {Array} timeoffData Raw timeoff sheet data
+ * @param {number} month 0-indexed month (0=January)
+ * @param {number} year Year (e.g., 2026)
+ * @param {string} monthString Optional month string (e.g., "2026-01") for spillover detection
  */
-function buildTimeoffMapOptimized(timeoffData, month, year) {
+function buildTimeoffMapOptimized(timeoffData, month, year, monthString = null) {
   const result = {
     blacklist: new Map(),        // Not Available: volunteer => Map<dateString, Set<{vigil|non-vigil}>>
     whitelist: new Map()         // Only Available: volunteer => Map<dateString, Set<{vigil|non-vigil}>>
@@ -200,9 +209,36 @@ function buildTimeoffMapOptimized(timeoffData, month, year) {
 
   const cols = CONSTANTS.COLS.TIMEOFFS;
 
-  // Pre-calculate month boundaries for faster comparison
-  const monthStart = new Date(year, month, 1);
-  const monthEnd = new Date(year, month + 1, 0); // Last day of month
+  // FIX #1: Set monthEnd to END of day instead of beginning (fixes Jan 31 bug)
+  const monthStart = new Date(year, month, 1, 0, 0, 0);
+  const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999); // ← FIXED: End of last day
+
+  // FIX #2: Include spillover dates (e.g., Feb 1 in January assignments)
+  let spilloverDates = new Set();
+  if (monthString) {
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+      if (assignmentsSheet) {
+        const assignData = assignmentsSheet.getDataRange().getValues();
+        const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
+
+        // Find all dates in this month's assignments (including spillovers)
+        for (let i = 1; i < assignData.length; i++) {
+          const rowMonthYear = assignData[i][assignCols.MONTH_YEAR - 1];
+          if (rowMonthYear === monthString) {
+            const assignDate = new Date(assignData[i][assignCols.DATE - 1]);
+            if (!isNaN(assignDate.getTime())) {
+              spilloverDates.add(assignDate.toDateString());
+            }
+          }
+        }
+        Logger.log(`Found ${spilloverDates.size} unique dates in assignments (including spillovers)`);
+      }
+    } catch (e) {
+      Logger.log(`WARNING: Could not detect spillover dates: ${e.message}`);
+    }
+  }
 
   for (const row of timeoffData) {
     const name = HELPER_safeArrayAccess(row, cols.VOLUNTEER_NAME - 1);
@@ -228,8 +264,11 @@ function buildTimeoffMapOptimized(timeoffData, month, year) {
           const blacklistMap = result.blacklist.get(name);
 
           for (const dateInfo of blacklistDates) {
-            // Only include dates in current month
-            if (dateInfo.date >= monthStart && dateInfo.date <= monthEnd) {
+            // Include if in month range OR in spillover dates
+            const inMonthRange = dateInfo.date >= monthStart && dateInfo.date <= monthEnd;
+            const inSpillover = spilloverDates.has(dateInfo.dateString);
+
+            if (inMonthRange || inSpillover) {
               if (!blacklistMap.has(dateInfo.dateString)) {
                 blacklistMap.set(dateInfo.dateString, new Set());
               }
@@ -253,8 +292,11 @@ function buildTimeoffMapOptimized(timeoffData, month, year) {
           const whitelistMap = result.whitelist.get(name);
 
           for (const dateInfo of whitelistDates) {
-            // Only include dates in current month
-            if (dateInfo.date >= monthStart && dateInfo.date <= monthEnd) {
+            // Include if in month range OR in spillover dates
+            const inMonthRange = dateInfo.date >= monthStart && dateInfo.date <= monthEnd;
+            const inSpillover = spilloverDates.has(dateInfo.dateString);
+
+            if (inMonthRange || inSpillover) {
               if (!whitelistMap.has(dateInfo.dateString)) {
                 whitelistMap.set(dateInfo.dateString, new Set());
               }
@@ -709,6 +751,6 @@ function ASSIGNMENT_buildVolunteerMap(volunteerData) {
 /**
  * Legacy function to build timeoff map
  */
-function ASSIGNMENT_buildTimeoffMap(timeoffData, month, year) {
-  return buildTimeoffMapOptimized(timeoffData, month, year);
+function ASSIGNMENT_buildTimeoffMap(timeoffData, month, year, monthString = null) {
+  return buildTimeoffMapOptimized(timeoffData, month, year, monthString);
 }

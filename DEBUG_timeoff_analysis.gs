@@ -297,3 +297,67 @@ function DEBUG_traceFilterLogic() {
 
   return "Filter trace complete - check execution logs";
 }
+
+/**
+ * TEST: Verify the month boundary fix works for Jan 31
+ */
+function DEBUG_testMonthBoundaryFix() {
+  Logger.log(`\n=== TESTING MONTH BOUNDARY FIX (Jan 31) ===\n`);
+
+  const monthString = "2026-01";
+  const { year, month } = HELPER_validateMonthString(monthString);
+
+  // Build timeoff map with the FIXED function
+  const timeoffData = HELPER_readSheetData(CONSTANTS.SHEETS.TIMEOFFS);
+  const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, year, monthString);
+
+  Logger.log(`\n--- Testing Jan 31 Blacklist for Melissa Guba ---`);
+
+  if (timeoffMaps.blacklist.has("Melissa Guba")) {
+    const blacklistMap = timeoffMaps.blacklist.get("Melissa Guba");
+    Logger.log(`Melissa's blacklist has ${blacklistMap.size} dates:`);
+
+    for (const [dateStr, types] of blacklistMap.entries()) {
+      Logger.log(`  - ${dateStr}: ${Array.from(types).join(', ')}`);
+    }
+
+    // Check specifically for Jan 31
+    const jan31 = new Date(2026, 0, 31, 12, 0, 0);
+    const jan31Str = jan31.toDateString();
+
+    if (blacklistMap.has(jan31Str)) {
+      Logger.log(`\n✅ SUCCESS: Jan 31 is now in the blacklist!`);
+      const types = blacklistMap.get(jan31Str);
+      Logger.log(`   Mass types: ${Array.from(types).join(', ')}`);
+    } else {
+      Logger.log(`\n❌ FAIL: Jan 31 still not in blacklist`);
+    }
+  } else {
+    Logger.log(`ERROR: Melissa Guba not found in blacklist`);
+  }
+
+  Logger.log(`\n--- Testing Jan 31 Whitelist for Mark Perdiguerra ---`);
+
+  if (timeoffMaps.whitelist.has("Mark Perdiguerra")) {
+    const whitelistMap = timeoffMaps.whitelist.get("Mark Perdiguerra");
+    Logger.log(`Mark's whitelist has ${whitelistMap.size} dates:`);
+
+    for (const [dateStr, types] of whitelistMap.entries()) {
+      Logger.log(`  - ${dateStr}: ${Array.from(types).join(', ')}`);
+    }
+
+    // Check for Jan 31 (should NOT be there since it's a whitelist)
+    const jan31 = new Date(2026, 0, 31, 12, 0, 0);
+    const jan31Str = jan31.toDateString();
+
+    if (!whitelistMap.has(jan31Str)) {
+      Logger.log(`\n✅ CORRECT: Jan 31 is NOT in Mark's whitelist (he can only serve 1/10-11, 1/24-25)`);
+    } else {
+      Logger.log(`\n❌ ERROR: Jan 31 should not be in Mark's whitelist`);
+    }
+  } else {
+    Logger.log(`ERROR: Mark Perdiguerra not found in whitelist`);
+  }
+
+  return "Month boundary fix test complete - check execution logs";
+}
