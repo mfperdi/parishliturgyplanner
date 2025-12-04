@@ -327,25 +327,26 @@ function buildTimeoffMapOptimized(timeoffData, month, year, monthString = null) 
 function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
   const data = assignmentsSheet.getDataRange().getValues();
   data.shift(); // Remove header
-  
+
   const context = {
     unassignedRoles: [],
     groupAssignments: [],
     allAssignments: [],
-    assignmentCounts: new Map()
+    assignmentCounts: new Map(),
+    liturgicalAssignments: new Map() // NEW: Track assignments by liturgical celebration
   };
-  
+
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
-  
+
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
     const date = row[assignCols.DATE - 1];
     if (!date) continue;
-    
+
     const rowMonthYear = HELPER_safeArrayAccess(row, assignCols.MONTH_YEAR - 1);
     const assignedVolunteerId = HELPER_safeArrayAccess(row, assignCols.ASSIGNED_VOLUNTEER_ID - 1);
     const assignedGroup = HELPER_safeArrayAccess(row, assignCols.ASSIGNED_GROUP - 1);
-    
+
     // Build assignment counts for all data (for frequency calculation AND rotation)
     if (assignedVolunteerId) {
       const assignDate = new Date(date);
@@ -370,8 +371,19 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
       if (eventId) {
         counts.byEventId[eventId] = (counts.byEventId[eventId] || 0) + 1;
       }
+
+      // Track liturgical celebration assignments for current month
+      if (rowMonthYear === monthString) {
+        const liturgicalCelebration = HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1);
+        if (liturgicalCelebration) {
+          if (!context.liturgicalAssignments.has(liturgicalCelebration)) {
+            context.liturgicalAssignments.set(liturgicalCelebration, new Set());
+          }
+          context.liturgicalAssignments.get(liturgicalCelebration).add(assignedVolunteerId);
+        }
+      }
     }
-    
+
     // Process roles for our target month
     if (rowMonthYear === monthString) {
       const roleData = {
@@ -382,7 +394,8 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
         eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1),
         massName: HELPER_safeArrayAccess(row, assignCols.DESCRIPTION - 1),
         time: HELPER_safeArrayAccess(row, assignCols.TIME - 1),
-        isAnticipated: HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1, false) // NEW: Vigil flag
+        isAnticipated: HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1, false), // Vigil flag
+        liturgicalCelebration: HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1) // NEW: For liturgical day filtering
       };
       
       if (assignedGroup && !assignedVolunteerId) {
@@ -435,7 +448,8 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         timeoffMaps,
         context.assignmentCounts,
         massAssignments,
-        skillToMinistryMap
+        skillToMinistryMap,
+        context.liturgicalAssignments
       );
 
       if (volunteer) {
@@ -450,6 +464,14 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         // Update tracking (including Event ID for rotation)
         updateAssignmentCounts(context.assignmentCounts, volunteer.id, roleInfo.date, roleInfo.eventId);
         massAssignments.set(volunteer.id, roleInfo.role);
+
+        // Update liturgical celebration tracking
+        if (roleInfo.liturgicalCelebration) {
+          if (!context.liturgicalAssignments.has(roleInfo.liturgicalCelebration)) {
+            context.liturgicalAssignments.set(roleInfo.liturgicalCelebration, new Set());
+          }
+          context.liturgicalAssignments.get(roleInfo.liturgicalCelebration).add(volunteer.id);
+        }
 
         results.individualAssignments++;
         // Reduced logging for performance - only log summary
@@ -473,8 +495,8 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
  * Simplified volunteer finding with extracted scoring logic
  * PERFORMANCE: Reduced logging to prevent slowdowns
  */
-function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap) {
-  const candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap);
+function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments) {
+  const candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments);
 
   if (candidates.length === 0) {
     // Only log failures to reduce noise
@@ -507,9 +529,9 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
  * - Strict role matching (volunteers only assigned to their specified roles)
  * - Mass preference matching (volunteers only assigned to their preferred masses if specified)
  * - Timeoff blacklist/whitelist enforcement
- * - Already assigned checks
+ * - Already assigned checks (same day and same liturgical celebration)
  */
-function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap) {
+function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments) {
   const candidates = [];
   const roleLower = roleInfo.role.toLowerCase();
   const massDateString = roleInfo.date.toDateString();
@@ -598,6 +620,16 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
     // 7. Check if already assigned to this mass
     if (massAssignments.has(volunteer.id)) {
       continue;
+    }
+
+    // 8. Check if already assigned to this liturgical celebration
+    // Prevents volunteer from serving multiple masses on same liturgical day
+    // (e.g., Saturday vigil + Sunday morning for same celebration)
+    if (liturgicalAssignments && roleInfo.liturgicalCelebration) {
+      const celebrationVolunteers = liturgicalAssignments.get(roleInfo.liturgicalCelebration);
+      if (celebrationVolunteers && celebrationVolunteers.has(volunteer.id)) {
+        continue; // Already assigned to a mass for this liturgical celebration
+      }
     }
 
     // Passed all checks - eligible
