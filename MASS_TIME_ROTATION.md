@@ -23,6 +23,21 @@ The assignment logic now automatically **rotates volunteers between their multip
 
 This ensures volunteers are only assigned to masses they can actually attend. The rotation logic then distributes them across their preferred masses.
 
+### Limited Availability Bonus (NEW!)
+
+**IMPORTANT**: Volunteers with "Only Available" timeoffs now receive a **+15 scoring bonus** when being assigned to their available dates!
+
+**Why this matters**:
+- If someone says "I can ONLY serve Feb 8, 15, 22", they're unavailable ALL other dates
+- We should USE them when they're available, or we might not get them at all
+- This prioritizes volunteers with limited availability windows
+
+**Example**:
+- Regular volunteer (3 assignments): Score = 100 - 15 + 20 = **105**
+- Limited volunteer (3 assignments, on whitelist for this date): Score = 100 - 15 + 20 + 15 = **120** ✅
+
+The +15 bonus is moderate - it can overcome ~3 assignment difference but doesn't ignore workload balancing entirely.
+
 ### Tracking System
 
 The system now tracks **two levels of assignment frequency**:
@@ -45,7 +60,7 @@ Base: 100
 = Final score
 ```
 
-**With Rotation** (new system):
+**With Rotation + Limited Availability** (current system):
 ```
 Base: 100
 - Frequency penalty: -5 per total assignment
@@ -55,6 +70,10 @@ Base: 100
   - Third time: +14 (-6)
   - Fourth time: +11 (-9)
   - Minimum: +5 (never goes below)
++ Limited availability: +15 (if volunteer has "Only Available" whitelist for this date)
++ Role preference: +15 (if volunteer prefers this specific role)
++ Family team: +25 (if family member already assigned to this mass)
++ Flexibility: +3 (if volunteer has no preferences at all)
 = Final score
 ```
 
@@ -130,6 +149,12 @@ TEST_beforeAfterComparison()        // Shows before/after difference
 // TEST ROTATION LOGIC:
 TEST_rotationLogic()                // Demonstrates scoring logic with different scenarios
 TEST_analyzeRotationPatterns()      // Analyzes actual rotation patterns in your data
+
+// TEST LIMITED AVAILABILITY BONUS:
+TEST_whitelistBonus()               // Demonstrates +15 bonus for whitelist volunteers
+TEST_whitelistBonusScenarios()      // Shows multiple scoring scenarios
+TEST_analyzeWhitelistVolunteers()   // Analyzes actual whitelist volunteers in your data
+TEST_beforeAfterWhitelistBonus()    // Shows before/after difference
 ```
 
 ### Expected Results
@@ -194,16 +219,21 @@ Result: Ming wins (family bonus outweighs rotation)
    - `filterCandidates()` - **NEW: Hard filter for mass preferences**
    - `buildAssignmentContext()` - Tracks `byEventId` in assignment counts
    - `updateAssignmentCounts()` - Accepts and tracks Event ID parameter
-   - `processAssignments()` - Passes Event ID when updating counts
+   - `findOptimalVolunteer()` - Passes date and timeoffMaps to scoring function
 
 2. `0b_helper.gs`:
-   - `HELPER_calculateVolunteerScore()` - Implements rotation penalty logic
+   - `HELPER_calculateVolunteerScore()` - Implements:
+     * Rotation penalty logic (mass time rotation)
+     * **NEW: Limited availability bonus (+15 for whitelists)**
 
 3. `TEST_rotation_logic.gs` (NEW):
    - Test and demonstration functions for rotation
 
 4. `TEST_mass_preference_filter.gs` (NEW):
    - Test and demonstration functions for preference filtering
+
+5. `TEST_whitelist_bonus.gs` (NEW):
+   - Test and demonstration functions for limited availability bonus
 
 ### Data Structure
 
@@ -233,6 +263,12 @@ Map {
 **A**: You have two options:
 1. **Update their preferences**: Add the new mass to their PreferredMassTime column
 2. **Manual override**: Assign them manually in the Assignments sheet (override validation if needed)
+
+### Q: How does the limited availability bonus work?
+**A**: Volunteers who submit "Only Available" timeoffs (whitelists) get a +15 bonus when being assigned to their available dates. This prioritizes them during their narrow availability windows. Example: If someone can only serve 3 Sundays this month, we want to use them on those Sundays rather than more flexible volunteers.
+
+### Q: Can the whitelist bonus override frequency balancing?
+**A**: Partially. The +15 bonus can overcome about 3 assignment difference (~15 points). So a whitelist volunteer with 3 assignments (score: ~120) will beat a regular volunteer with 0 assignments (score: ~120). But a huge workload imbalance still matters - we won't over-assign whitelist volunteers.
 
 ### Q: Will rotation make it harder to fill masses?
 **A**: No. The rotation penalty is small (-3 per assignment) compared to other factors. Volunteers still get bonus points for ALL their preferred masses, just slightly reduced if they've served there before.
