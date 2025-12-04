@@ -251,7 +251,7 @@ function HELPER_readPrintScheduleConfig() {
  * Consolidated volunteer scoring (extracted from assignment logic)
  * PERFORMANCE: Removed verbose logging (was generating thousands of log lines)
  */
-function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignmentCounts, massAssignments, volunteers) {
+function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignmentCounts, massAssignments, volunteers, date, timeoffMaps) {
   let score = 100; // Base score
   const counts = assignmentCounts.get(volunteer.id) || { total: 0, recent: new Date(0), byEventId: {} };
   const roleLower = roleToFill.toLowerCase();
@@ -287,6 +287,19 @@ function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignme
       if (assignedVol && assignedVol.familyTeam === volunteer.familyTeam) {
         score += 25;
         break;
+      }
+    }
+  }
+
+  // Limited availability bonus: +15 points if volunteer is on whitelist for this date
+  // This prioritizes volunteers who said "I can ONLY serve these dates"
+  // Rationale: If they have limited availability, use them when they're available!
+  if (timeoffMaps && timeoffMaps.whitelist && date) {
+    if (timeoffMaps.whitelist.has(volunteer.name)) {
+      const whitelistMap = timeoffMaps.whitelist.get(volunteer.name);
+      const dateString = date.toDateString();
+      if (whitelistMap.has(dateString)) {
+        score += 15;
       }
     }
   }

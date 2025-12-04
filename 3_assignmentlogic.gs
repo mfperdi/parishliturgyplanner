@@ -490,7 +490,9 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
       roleInfo.eventId,
       assignmentCounts,
       massAssignments,
-      volunteers
+      volunteers,
+      roleInfo.date,
+      timeoffMaps
     );
   }
 
