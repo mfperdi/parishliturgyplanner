@@ -373,13 +373,16 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
       }
 
       // Track liturgical celebration assignments for current month
+      // Map<liturgicalCelebration, Map<volunteerId, massKey>>
       if (rowMonthYear === monthString) {
         const liturgicalCelebration = HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1);
+        const time = HELPER_safeArrayAccess(row, assignCols.TIME - 1);
         if (liturgicalCelebration) {
           if (!context.liturgicalAssignments.has(liturgicalCelebration)) {
-            context.liturgicalAssignments.set(liturgicalCelebration, new Set());
+            context.liturgicalAssignments.set(liturgicalCelebration, new Map());
           }
-          context.liturgicalAssignments.get(liturgicalCelebration).add(assignedVolunteerId);
+          const massKey = `${assignDate.toDateString()}_${time}`;
+          context.liturgicalAssignments.get(liturgicalCelebration).set(assignedVolunteerId, massKey);
         }
       }
     }
@@ -468,9 +471,10 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         // Update liturgical celebration tracking
         if (roleInfo.liturgicalCelebration) {
           if (!context.liturgicalAssignments.has(roleInfo.liturgicalCelebration)) {
-            context.liturgicalAssignments.set(roleInfo.liturgicalCelebration, new Set());
+            context.liturgicalAssignments.set(roleInfo.liturgicalCelebration, new Map());
           }
-          context.liturgicalAssignments.get(roleInfo.liturgicalCelebration).add(volunteer.id);
+          const massKey = `${roleInfo.date.toDateString()}_${roleInfo.time}`;
+          context.liturgicalAssignments.get(roleInfo.liturgicalCelebration).set(volunteer.id, massKey);
         }
 
         results.individualAssignments++;
@@ -626,9 +630,36 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
     // Prevents volunteer from serving multiple masses on same liturgical day
     // (e.g., Saturday vigil + Sunday morning for same celebration)
     if (liturgicalAssignments && roleInfo.liturgicalCelebration) {
-      const celebrationVolunteers = liturgicalAssignments.get(roleInfo.liturgicalCelebration);
-      if (celebrationVolunteers && celebrationVolunteers.has(volunteer.id)) {
+      const celebrationMap = liturgicalAssignments.get(roleInfo.liturgicalCelebration);
+      if (celebrationMap && celebrationMap.has(volunteer.id)) {
         continue; // Already assigned to a mass for this liturgical celebration
+      }
+    }
+
+    // 9. Check family team constraint - family members MUST serve together at same mass
+    // If volunteer has family team AND a family member is already assigned to this liturgical
+    // celebration, ensure they're assigned to the SAME mass (same date+time), not a different one.
+    if (volunteer.familyTeam && liturgicalAssignments && roleInfo.liturgicalCelebration) {
+      const celebrationMap = liturgicalAssignments.get(roleInfo.liturgicalCelebration);
+      if (celebrationMap) {
+        const currentMassKey = `${roleInfo.date.toDateString()}_${roleInfo.time}`;
+        let familyMemberAtDifferentMass = false;
+
+        // Check if any family member is assigned to this liturgical celebration
+        for (const [otherVolId, otherVol] of volunteers) {
+          if (otherVol.familyTeam === volunteer.familyTeam && otherVolId !== volunteer.id) {
+            const familyMemberMassKey = celebrationMap.get(otherVolId);
+            if (familyMemberMassKey && familyMemberMassKey !== currentMassKey) {
+              // Family member is assigned to a DIFFERENT mass on this liturgical day
+              familyMemberAtDifferentMass = true;
+              break;
+            }
+          }
+        }
+
+        if (familyMemberAtDifferentMass) {
+          continue; // Exclude this volunteer (families must serve together at same mass)
+        }
       }
     }
 
