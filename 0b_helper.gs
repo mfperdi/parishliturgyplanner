@@ -323,6 +323,14 @@ function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignme
     // No penalty for 14+ days (2+ weeks gap) - preferred spacing
   }
 
+  // Random tiebreaker: ±3 points to introduce variety between runs
+  // Ensures similar volunteers rotate naturally without overriding strong preferences
+  // Range is small enough to not override:
+  //   - Family bonus (+25), Mass preference (+20), Role preference (+15)
+  //   - But large enough to create natural rotation among similarly-qualified volunteers
+  const randomTiebreaker = (Math.random() * 6) - 3; // Range: -3 to +3
+  score += randomTiebreaker;
+
   return score;
 }
 
