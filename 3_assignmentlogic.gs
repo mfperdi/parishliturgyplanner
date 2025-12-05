@@ -568,8 +568,28 @@ function assignFamilyTeamsToMass(massInfo, volunteers, timeoffMaps, context, ass
       }
     }
 
-    // If ALL family members can be assigned to different roles, assign them
+    // If ALL family members can be assigned to different roles, check spacing before assigning
     if (eligibleAssignments.length === members.length && eligibleAssignments.length >= 2) {
+      // SPACING CHECK: Skip family if any member was assigned within last 7 days
+      // This ensures families are spread across weeks, not consecutive
+      let hasRecentAssignment = false;
+      for (const { volunteer, roleInfo } of eligibleAssignments) {
+        const counts = assignmentCounts.get(volunteer.id);
+        if (counts && counts.recent && counts.recent.getTime() > 0) {
+          const daysSinceLastAssignment = Math.floor((roleInfo.date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
+
+          if (daysSinceLastAssignment < 7) {
+            hasRecentAssignment = true;
+            Logger.log(`⚠️ FAMILY SPACING: Skipping ${familyTeam} (${volunteer.name} served ${daysSinceLastAssignment} days ago, min spacing is 7 days)`);
+            break;
+          }
+        }
+      }
+
+      if (hasRecentAssignment) {
+        continue; // Skip this family due to spacing, let other families or individuals fill these roles
+      }
+
       Logger.log(`✅ FAMILY TEAM: Assigning ${familyTeam} together (${members.length} members)`);
 
       for (const { volunteer, roleInfo } of eligibleAssignments) {
