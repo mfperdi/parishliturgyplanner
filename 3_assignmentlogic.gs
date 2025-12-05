@@ -568,24 +568,8 @@ function assignFamilyTeamsToMass(massInfo, volunteers, timeoffMaps, context, ass
       }
     }
 
-    // If ALL family members can be assigned to different roles, check rotation limit first
+    // If ALL family members can be assigned to different roles, assign them
     if (eligibleAssignments.length === members.length && eligibleAssignments.length >= 2) {
-      // ROTATION CHECK: Skip if any family member has 2+ assignments this month
-      // This prevents families from dominating the schedule
-      let anyOverLimit = false;
-      for (const { volunteer } of eligibleAssignments) {
-        const counts = assignmentCounts.get(volunteer.id);
-        if (counts && counts.total >= 2) {
-          anyOverLimit = true;
-          Logger.log(`⚠️ FAMILY ROTATION: Skipping ${familyTeam} (${volunteer.name} has ${counts.total} assignments, limit is 2)`);
-          break;
-        }
-      }
-
-      if (anyOverLimit) {
-        continue; // Skip this family, let other families or individuals fill these roles
-      }
-
       Logger.log(`✅ FAMILY TEAM: Assigning ${familyTeam} together (${members.length} members)`);
 
       for (const { volunteer, roleInfo } of eligibleAssignments) {
