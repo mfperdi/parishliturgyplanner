@@ -829,12 +829,21 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       continue;
     }
 
-    // 7. Check if already assigned to this mass
+    // 7. Check spacing (must have at least 7 days since last assignment)
+    // This ensures volunteers are spread across weeks, not consecutive
+    if (counts && counts.recent && counts.recent.getTime() > 0) {
+      const daysSinceLastAssignment = Math.floor((roleInfo.date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSinceLastAssignment < 7) {
+        continue; // Skip - too recent
+      }
+    }
+
+    // 8. Check if already assigned to this mass
     if (massAssignments.has(volunteer.id)) {
       continue;
     }
 
-    // 8. Check if already assigned to this liturgical celebration
+    // 9. Check if already assigned to this liturgical celebration
     // Prevents volunteer from serving multiple masses on same liturgical day
     // (e.g., Saturday vigil + Sunday morning for same celebration)
     if (liturgicalAssignments && roleInfo.liturgicalCelebration) {
@@ -844,7 +853,7 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       }
     }
 
-    // 9. Check family team constraint - family members MUST serve together at same mass
+    // 10. Check family team constraint - family members MUST serve together at same mass
     // If volunteer has family team AND a family member is already assigned to this liturgical
     // celebration, ensure they're assigned to the SAME mass (same date+time), not a different one.
     if (volunteer.familyTeam && liturgicalAssignments && roleInfo.liturgicalCelebration) {
