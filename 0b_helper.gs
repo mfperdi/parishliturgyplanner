@@ -256,9 +256,9 @@ function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignme
   const counts = assignmentCounts.get(volunteer.id) || { total: 0, recent: new Date(0), byEventId: {} };
   const roleLower = roleToFill.toLowerCase();
 
-  // Frequency penalty: -15 points per previous assignment
-  // Stronger penalty ensures better rotation (max 2-3 assignments per volunteer per month)
-  const frequencyPenalty = counts.total * 15;
+  // Frequency penalty: -25 points per previous assignment
+  // Stronger penalty ensures better rotation (max 2 assignments per volunteer per month)
+  const frequencyPenalty = counts.total * 25;
   score -= frequencyPenalty;
 
   // Mass preference bonus with rotation: favor least-used preferred masses
@@ -308,6 +308,19 @@ function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignme
   // Flexibility bonus: +3 points for volunteers with no preferences (easy to schedule)
   if (volunteer.massPrefs.length === 0 && volunteer.rolePrefs.length === 0) {
     score += 3;
+  }
+
+  // Spacing penalty: discourage consecutive week assignments
+  // Prefer volunteers who haven't served recently for better temporal distribution
+  if (date && counts.recent && counts.recent.getTime() > 0) {
+    const daysSinceLastAssignment = Math.floor((date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysSinceLastAssignment < 7) {
+      score -= 30; // Strong penalty for same/next week (0-6 days)
+    } else if (daysSinceLastAssignment < 14) {
+      score -= 15; // Mild penalty for 1-2 weeks (7-13 days)
+    }
+    // No penalty for 14+ days (2+ weeks gap) - preferred spacing
   }
 
   return score;
