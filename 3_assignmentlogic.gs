@@ -578,9 +578,9 @@ function assignFamilyTeamsToMass(massInfo, volunteers, timeoffMaps, context, ass
         if (counts && counts.recent && counts.recent.getTime() > 0) {
           const daysSinceLastAssignment = Math.floor((roleInfo.date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
 
-          if (daysSinceLastAssignment < 7) {
+          if (daysSinceLastAssignment <= 7) {
             hasRecentAssignment = true;
-            Logger.log(`⚠️ FAMILY SPACING: Skipping ${familyTeam} (${volunteer.name} served ${daysSinceLastAssignment} days ago, min spacing is 7 days)`);
+            Logger.log(`⚠️ FAMILY SPACING: Skipping ${familyTeam} (${volunteer.name} served ${daysSinceLastAssignment} days ago, min spacing is 8 days)`);
             break;
           }
         }
@@ -829,12 +829,12 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       continue;
     }
 
-    // 7. Check spacing (must have at least 7 days since last assignment)
+    // 7. Check spacing (must have at least 8 days since last assignment)
     // This ensures volunteers are spread across weeks, not consecutive
     if (counts && counts.recent && counts.recent.getTime() > 0) {
       const daysSinceLastAssignment = Math.floor((roleInfo.date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysSinceLastAssignment < 7) {
-        continue; // Skip - too recent
+      if (daysSinceLastAssignment <= 7) {
+        continue; // Skip - too recent (blocks same week and next week)
       }
     }
 
