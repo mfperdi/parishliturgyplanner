@@ -256,9 +256,9 @@ function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignme
   const counts = assignmentCounts.get(volunteer.id) || { total: 0, recent: new Date(0), byEventId: {} };
   const roleLower = roleToFill.toLowerCase();
 
-  // Frequency penalty: -15 points per previous assignment
-  // Stronger penalty ensures better rotation (max 2-3 assignments per volunteer per month)
-  const frequencyPenalty = counts.total * 15;
+  // Frequency penalty: -25 points per previous assignment
+  // Stronger penalty ensures better rotation (max 2 assignments per volunteer per month)
+  const frequencyPenalty = counts.total * 25;
   score -= frequencyPenalty;
 
   // Mass preference bonus with rotation: favor least-used preferred masses
