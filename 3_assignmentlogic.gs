@@ -458,7 +458,8 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
   const results = {
     groupAssignments: 0,
     individualAssignments: 0,
-    skipped: 0
+    skipped: 0,
+    fallbackWarnings: []  // Track assignments that required fallback passes
   };
 
   const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
@@ -506,7 +507,7 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         continue;
       }
 
-      const volunteer = findOptimalVolunteer(
+      const result = findOptimalVolunteer(
         roleInfo,
         volunteers,
         timeoffMaps,
@@ -517,18 +518,31 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         context
       );
 
-      if (volunteer) {
+      if (result.volunteer) {
+        // Track warnings for fallback passes 2 and 3
+        if (result.fallbackLevel >= 2) {
+          const warningType = result.fallbackLevel === 2 ? 'No spacing constraints' : 'Ignored mass preferences';
+          results.fallbackWarnings.push({
+            date: HELPER_formatDate(roleInfo.date, 'default'),
+            time: roleInfo.time,
+            role: roleInfo.role,
+            volunteer: result.volunteer.name,
+            level: result.fallbackLevel,
+            type: warningType
+          });
+        }
+
         // Collect the assignment update (don't write yet)
         batchUpdates.push({
           rowIndex: roleInfo.rowIndex,
-          volunteerId: volunteer.id,
-          volunteerName: volunteer.name,
+          volunteerId: result.volunteer.id,
+          volunteerName: result.volunteer.name,
           status: "Assigned"
         });
 
         // Update tracking (including Event ID for rotation)
-        updateAssignmentCounts(context.assignmentCounts, volunteer.id, roleInfo.date, roleInfo.eventId);
-        massAssignments.set(volunteer.id, roleInfo.role);
+        updateAssignmentCounts(context.assignmentCounts, result.volunteer.id, roleInfo.date, roleInfo.eventId);
+        massAssignments.set(result.volunteer.id, roleInfo.role);
 
         // Update liturgical celebration tracking
         if (roleInfo.liturgicalCelebration) {
@@ -536,7 +550,7 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
             context.liturgicalAssignments.set(roleInfo.liturgicalCelebration, new Map());
           }
           const massKey = `${roleInfo.date.toDateString()}_${roleInfo.time}`;
-          context.liturgicalAssignments.get(roleInfo.liturgicalCelebration).set(volunteer.id, massKey);
+          context.liturgicalAssignments.get(roleInfo.liturgicalCelebration).set(result.volunteer.id, massKey);
         }
 
         results.individualAssignments++;
@@ -756,32 +770,40 @@ function isVolunteerEligibleForRole(volunteer, roleInfo, timeoffMaps, assignment
  * Simplified volunteer finding with extracted scoring logic
  * PERFORMANCE: Reduced logging to prevent slowdowns
  * FALLBACK LOGIC: Progressively relaxes constraints to ensure all slots are filled
+ *
+ * @returns {Object} { volunteer, fallbackLevel } where fallbackLevel indicates which pass succeeded:
+ *   0 = full constraints, 1 = relaxed spacing, 2 = no spacing, 3 = no mass preference, null = failed
  */
 function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context) {
+  let fallbackLevel = 0;
+
   // Try with full constraints first
   let candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context, 1.0);
 
   // FALLBACK PASS 1: Relax spacing by 50% if no candidates found
   if (candidates.length === 0) {
+    fallbackLevel = 1;
     Logger.log(`⚠️ No volunteers with full constraints for ${roleInfo.role} on ${roleInfo.date.toDateString()}, trying relaxed spacing (50%)...`);
     candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context, 0.5);
   }
 
   // FALLBACK PASS 2: Remove spacing constraints entirely if still no candidates
   if (candidates.length === 0) {
+    fallbackLevel = 2;
     Logger.log(`⚠️ No volunteers with relaxed spacing, trying without spacing constraints...`);
     candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context, 0);
   }
 
   // FALLBACK PASS 3: Remove mass preference requirement if still no candidates
   if (candidates.length === 0) {
+    fallbackLevel = 3;
     Logger.log(`⚠️ No volunteers without spacing, trying without mass preference filter...`);
     candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context, 0, true);
   }
 
   if (candidates.length === 0) {
     Logger.log(`❌ CRITICAL: No eligible volunteers found even with all fallbacks for ${roleInfo.role} on ${roleInfo.date.toDateString()}`);
-    return null;
+    return { volunteer: null, fallbackLevel: null };
   }
 
   // Score and sort candidates
@@ -800,7 +822,7 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
 
   candidates.sort((a, b) => b.score - a.score);
 
-  return candidates[0].volunteer;
+  return { volunteer: candidates[0].volunteer, fallbackLevel: fallbackLevel };
 }
 
 /**
@@ -1133,10 +1155,42 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap) {
 
 function formatAssignmentResults(results, monthString) {
   const total = results.groupAssignments + results.individualAssignments;
-  return `Assignment complete for ${monthString}! ` +
-         `Group assignments: ${results.groupAssignments}, ` +
-         `Individual assignments: ${results.individualAssignments}, ` +
-         `Unassigned: ${results.skipped}`;
+  let message = `Assignment complete for ${monthString}! ` +
+                `Group assignments: ${results.groupAssignments}, ` +
+                `Individual assignments: ${results.individualAssignments}, ` +
+                `Unassigned: ${results.skipped}`;
+
+  // Add warnings if fallback passes were used
+  if (results.fallbackWarnings && results.fallbackWarnings.length > 0) {
+    message += '\n\n⚠️ FALLBACK WARNINGS:\n';
+    message += `${results.fallbackWarnings.length} assignment(s) required relaxed constraints:\n\n`;
+
+    // Group by type
+    const noSpacing = results.fallbackWarnings.filter(w => w.level === 2);
+    const ignoredPrefs = results.fallbackWarnings.filter(w => w.level === 3);
+
+    if (noSpacing.length > 0) {
+      message += `🔶 NO SPACING CONSTRAINTS (${noSpacing.length}):\n`;
+      message += 'These volunteers were assigned without spacing requirements:\n';
+      noSpacing.forEach(w => {
+        message += `  • ${w.date} ${w.time} - ${w.role}: ${w.volunteer}\n`;
+      });
+      message += '\n';
+    }
+
+    if (ignoredPrefs.length > 0) {
+      message += `🔶 IGNORED MASS PREFERENCES (${ignoredPrefs.length}):\n`;
+      message += 'These volunteers were assigned outside their preferred mass times:\n';
+      ignoredPrefs.forEach(w => {
+        message += `  • ${w.date} ${w.time} - ${w.role}: ${w.volunteer}\n`;
+      });
+      message += '\n';
+    }
+
+    message += '💡 These assignments will carry higher frequency penalties for future months.';
+  }
+
+  return message;
 }
 
 /**
