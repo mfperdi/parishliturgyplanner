@@ -450,7 +450,7 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         volunteers,
         timeoffMaps,
         context,
-        assignmentCounts,
+        context.assignmentCounts,
         skillToMinistryMap,
         batchUpdates,
         results
