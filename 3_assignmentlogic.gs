@@ -440,11 +440,34 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
   // Group individual assignments by mass for family team processing
   const massesByDateTime = groupAssignmentsByMass(context.unassignedRoles);
 
-  // Process each mass
+  // NEW: PROACTIVE FAMILY TEAM ASSIGNMENT
+  // Assign family teams together BEFORE individual processing
+  // This ensures families serve at the same mass (hard requirement)
+  for (const [massKey, massInfo] of massesByDateTime) {
+    if (massInfo.roles.length >= 2) {
+      assignFamilyTeamsToMass(
+        massInfo,
+        volunteers,
+        timeoffMaps,
+        context,
+        assignmentCounts,
+        skillToMinistryMap,
+        batchUpdates,
+        results
+      );
+    }
+  }
+
+  // Process each mass for remaining individual assignments
   for (const [massKey, massInfo] of massesByDateTime) {
     const massAssignments = new Map(); // Track assignments for this specific mass
 
     for (const roleInfo of massInfo.roles) {
+      // Skip roles already assigned by family team pass
+      if (roleInfo.familyAssigned) {
+        continue;
+      }
+
       const volunteer = findOptimalVolunteer(
         roleInfo,
         volunteers,
@@ -493,6 +516,171 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
   }
 
   return results;
+}
+
+/**
+ * PROACTIVE FAMILY TEAM ASSIGNMENT
+ * Assigns family teams together BEFORE individual processing
+ * This ensures families serve at the same mass (hard requirement)
+ */
+function assignFamilyTeamsToMass(massInfo, volunteers, timeoffMaps, context, assignmentCounts, skillToMinistryMap, batchUpdates, results) {
+  // Build family team map (only from eligible volunteers)
+  const familyTeams = new Map(); // familyTeam => Array<volunteer>
+
+  for (const volunteer of volunteers.values()) {
+    if (volunteer.familyTeam && volunteer.status === 'active') {
+      if (!familyTeams.has(volunteer.familyTeam)) {
+        familyTeams.set(volunteer.familyTeam, []);
+      }
+      familyTeams.get(volunteer.familyTeam).push(volunteer);
+    }
+  }
+
+  // Filter to only teams with 2+ members
+  const multiMemberTeams = Array.from(familyTeams.entries())
+    .filter(([_, members]) => members.length >= 2);
+
+  if (multiMemberTeams.length === 0) return; // No family teams to assign
+
+  // Get unassigned roles for this mass
+  const unassignedRoles = massInfo.roles.filter(role => !role.familyAssigned);
+
+  if (unassignedRoles.length < 2) return; // Need at least 2 roles for family assignment
+
+  // Try to assign each family team
+  for (const [familyTeam, members] of multiMemberTeams) {
+    // Find roles that family members can fill
+    const eligibleAssignments = []; // Array<{volunteer, roleInfo}>
+
+    for (const member of members) {
+      // Find a role this family member can fill
+      for (const roleInfo of unassignedRoles) {
+        // Skip roles already claimed by this family
+        if (eligibleAssignments.some(ea => ea.roleInfo === roleInfo)) {
+          continue;
+        }
+
+        // Check if member is eligible for this role
+        if (isVolunteerEligibleForRole(member, roleInfo, timeoffMaps, assignmentCounts, skillToMinistryMap, context)) {
+          eligibleAssignments.push({ volunteer: member, roleInfo: roleInfo });
+          break; // Found a role for this member, move to next member
+        }
+      }
+    }
+
+    // If ALL family members can be assigned to different roles, assign them
+    if (eligibleAssignments.length === members.length && eligibleAssignments.length >= 2) {
+      Logger.log(`✅ FAMILY TEAM: Assigning ${familyTeam} together (${members.length} members)`);
+
+      for (const { volunteer, roleInfo } of eligibleAssignments) {
+        // Create batch update
+        batchUpdates.push({
+          rowIndex: roleInfo.rowIndex,
+          volunteerId: volunteer.id,
+          volunteerName: volunteer.name,
+          status: "Assigned"
+        });
+
+        // Update tracking
+        updateAssignmentCounts(assignmentCounts, volunteer.id, roleInfo.date, roleInfo.eventId);
+
+        // Mark role as assigned
+        roleInfo.familyAssigned = true;
+
+        // Update liturgical tracking
+        if (roleInfo.liturgicalCelebration) {
+          if (!context.liturgicalAssignments.has(roleInfo.liturgicalCelebration)) {
+            context.liturgicalAssignments.set(roleInfo.liturgicalCelebration, new Map());
+          }
+          const massKey = `${roleInfo.date.toDateString()}_${roleInfo.time}`;
+          context.liturgicalAssignments.get(roleInfo.liturgicalCelebration).set(volunteer.id, massKey);
+        }
+
+        results.individualAssignments++;
+      }
+
+      // Don't try to assign this family again at this mass
+      // (they've been assigned)
+      break;
+    }
+  }
+}
+
+/**
+ * Helper: Check if volunteer is eligible for a specific role
+ * Uses same logic as filterCandidates but for a single volunteer
+ */
+function isVolunteerEligibleForRole(volunteer, roleInfo, timeoffMaps, assignmentCounts, skillToMinistryMap, context) {
+  const roleLower = roleInfo.role.toLowerCase();
+  const massDateString = roleInfo.date.toDateString();
+  const eventId = roleInfo.eventId;
+
+  // Map skill to ministry
+  const requiredMinistry = skillToMinistryMap.get(roleLower) || roleLower;
+
+  // 1. Check role match
+  if (volunteer.rolePrefs && volunteer.rolePrefs.length > 0) {
+    if (!volunteer.rolePrefs.includes(roleLower)) {
+      return false;
+    }
+  } else {
+    if (!volunteer.ministries.includes(requiredMinistry.toLowerCase())) {
+      return false;
+    }
+  }
+
+  // 2. Must be Active
+  if (volunteer.status && volunteer.status.toLowerCase() !== 'active') {
+    return false;
+  }
+
+  // 3. Check mass preference
+  if (volunteer.massPrefs && volunteer.massPrefs.length > 0) {
+    if (!eventId || !volunteer.massPrefs.includes(eventId)) {
+      return false;
+    }
+  }
+
+  // 4. Check whitelist
+  if (timeoffMaps.whitelist.has(volunteer.name)) {
+    const whitelistMap = timeoffMaps.whitelist.get(volunteer.name);
+    if (!whitelistMap.has(massDateString)) {
+      return false;
+    }
+    const whitelistTypes = whitelistMap.get(massDateString);
+    const massType = roleInfo.isAnticipated ? 'vigil' : 'non-vigil';
+    if (!whitelistTypes.has(massType)) {
+      return false;
+    }
+  }
+
+  // 5. Check blacklist
+  if (timeoffMaps.blacklist.has(volunteer.name)) {
+    const blacklistMap = timeoffMaps.blacklist.get(volunteer.name);
+    if (blacklistMap.has(massDateString)) {
+      const blacklistTypes = blacklistMap.get(massDateString);
+      const massType = roleInfo.isAnticipated ? 'vigil' : 'non-vigil';
+      if (blacklistTypes.has(massType)) {
+        return false;
+      }
+    }
+  }
+
+  // 6. Check if already assigned today
+  const counts = assignmentCounts.get(volunteer.id);
+  if (counts && counts.recent.toDateString() === massDateString) {
+    return false;
+  }
+
+  // 7. Check if already assigned to this liturgical celebration
+  if (context.liturgicalAssignments && roleInfo.liturgicalCelebration) {
+    const celebrationMap = context.liturgicalAssignments.get(roleInfo.liturgicalCelebration);
+    if (celebrationMap && celebrationMap.has(volunteer.id)) {
+      return false;
+    }
+  }
+
+  return true; // Eligible!
 }
 
 /**
