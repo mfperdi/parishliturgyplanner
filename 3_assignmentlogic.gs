@@ -69,6 +69,9 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
 
   Logger.log(`Found ${assignmentContext.unassignedRoles.length} unassigned roles and ${assignmentContext.groupAssignments.length} group assignments`);
 
+  // Determine spacing thresholds based on month workload
+  assignmentContext.spacingThresholds = calculateSpacingThresholds(assignmentContext.unassignedRoles);
+
   // Process assignments
   const results = processAssignments(assignmentContext, volunteers, timeoffMaps, assignmentsSheet, skillToMinistryMap);
 
@@ -322,6 +325,41 @@ function buildTimeoffMapOptimized(timeoffData, month, year, monthString = null) 
 }
 
 /**
+ * Calculate spacing thresholds based on month workload
+ * Busy months (6+ liturgical days) get relaxed spacing to ensure coverage
+ */
+function calculateSpacingThresholds(unassignedRoles) {
+  // Count unique liturgical dates in this month
+  const uniqueDates = new Set();
+  for (const roleInfo of unassignedRoles) {
+    uniqueDates.add(roleInfo.date.toDateString());
+  }
+
+  const liturgicalDays = uniqueDates.size;
+  const isBusyMonth = liturgicalDays >= 6;
+
+  if (isBusyMonth) {
+    // Relaxed spacing for busy months (Christmas, Easter, etc.)
+    Logger.log(`📅 BUSY MONTH: ${liturgicalDays} liturgical days detected, using relaxed spacing`);
+    return {
+      afterZero: 7,    // 8+ days (same as normal)
+      afterOne: 10,    // 11+ days (relaxed from 14+)
+      afterTwo: 14,    // 15+ days (relaxed from 21+)
+      isBusy: true
+    };
+  } else {
+    // Normal spacing for typical months
+    Logger.log(`📅 Normal month: ${liturgicalDays} liturgical days, using standard spacing`);
+    return {
+      afterZero: 7,    // 8+ days
+      afterOne: 13,    // 14+ days
+      afterTwo: 20,    // 21+ days
+      isBusy: false
+    };
+  }
+}
+
+/**
  * Build assignment context with better data organization
  */
 function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
@@ -475,7 +513,8 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         context.assignmentCounts,
         massAssignments,
         skillToMinistryMap,
-        context.liturgicalAssignments
+        context.liturgicalAssignments,
+        context
       );
 
       if (volunteer) {
@@ -572,9 +611,7 @@ function assignFamilyTeamsToMass(massInfo, volunteers, timeoffMaps, context, ass
     if (eligibleAssignments.length === members.length && eligibleAssignments.length >= 2) {
       // SPACING CHECK: Skip family if any member was assigned within required spacing
       // Dynamic spacing: becomes stricter with more assignments
-      // - After 0 assignments: 8+ days required (skip 1 week)
-      // - After 1 assignment: 14+ days required (skip 2 weeks)
-      // - After 2+ assignments: 21+ days required (skip 3 weeks)
+      // Thresholds automatically relax during busy months (6+ liturgical days)
       let hasRecentAssignment = false;
       for (const { volunteer, roleInfo } of eligibleAssignments) {
         const counts = assignmentCounts.get(volunteer.id);
@@ -582,11 +619,12 @@ function assignFamilyTeamsToMass(massInfo, volunteers, timeoffMaps, context, ass
           const daysSinceLastAssignment = Math.floor((roleInfo.date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
 
           // Determine minimum spacing based on assignment count
-          let minSpacing = 7; // Base: 8+ days
+          // Uses context.spacingThresholds which adjusts for busy months
+          let minSpacing = context.spacingThresholds.afterZero;
           if (counts.total >= 2) {
-            minSpacing = 20; // After 2 assignments: 21+ days
+            minSpacing = context.spacingThresholds.afterTwo;
           } else if (counts.total >= 1) {
-            minSpacing = 13; // After 1 assignment: 14+ days
+            minSpacing = context.spacingThresholds.afterOne;
           }
 
           if (daysSinceLastAssignment <= minSpacing) {
@@ -718,8 +756,8 @@ function isVolunteerEligibleForRole(volunteer, roleInfo, timeoffMaps, assignment
  * Simplified volunteer finding with extracted scoring logic
  * PERFORMANCE: Reduced logging to prevent slowdowns
  */
-function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments) {
-  const candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments);
+function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context) {
+  const candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context);
 
   if (candidates.length === 0) {
     // Only log failures to reduce noise
@@ -754,7 +792,7 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
  * - Timeoff blacklist/whitelist enforcement
  * - Already assigned checks (same day and same liturgical celebration)
  */
-function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments) {
+function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context) {
   const candidates = [];
   const roleLower = roleInfo.role.toLowerCase();
   const massDateString = roleInfo.date.toDateString();
@@ -842,18 +880,17 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
 
     // 7. Check spacing (dynamic based on assignment count)
     // Dynamic spacing: becomes stricter with more assignments
-    // - After 0 assignments: 8+ days required (skip 1 week)
-    // - After 1 assignment: 14+ days required (skip 2 weeks)
-    // - After 2+ assignments: 21+ days required (skip 3 weeks)
+    // Thresholds automatically relax during busy months (6+ liturgical days)
     if (counts && counts.recent && counts.recent.getTime() > 0) {
       const daysSinceLastAssignment = Math.floor((roleInfo.date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
 
       // Determine minimum spacing based on assignment count
-      let minSpacing = 7; // Base: 8+ days
+      // Uses context.spacingThresholds which adjusts for busy months
+      let minSpacing = context.spacingThresholds.afterZero;
       if (counts.total >= 2) {
-        minSpacing = 20; // After 2 assignments: 21+ days
+        minSpacing = context.spacingThresholds.afterTwo;
       } else if (counts.total >= 1) {
-        minSpacing = 13; // After 1 assignment: 14+ days
+        minSpacing = context.spacingThresholds.afterOne;
       }
 
       if (daysSinceLastAssignment <= minSpacing) {
