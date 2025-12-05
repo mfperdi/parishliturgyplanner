@@ -570,17 +570,28 @@ function assignFamilyTeamsToMass(massInfo, volunteers, timeoffMaps, context, ass
 
     // If ALL family members can be assigned to different roles, check spacing before assigning
     if (eligibleAssignments.length === members.length && eligibleAssignments.length >= 2) {
-      // SPACING CHECK: Skip family if any member was assigned within last 7 days
-      // This ensures families are spread across weeks, not consecutive
+      // SPACING CHECK: Skip family if any member was assigned within required spacing
+      // Dynamic spacing: becomes stricter with more assignments
+      // - After 0 assignments: 8+ days required (skip 1 week)
+      // - After 1 assignment: 14+ days required (skip 2 weeks)
+      // - After 2+ assignments: 21+ days required (skip 3 weeks)
       let hasRecentAssignment = false;
       for (const { volunteer, roleInfo } of eligibleAssignments) {
         const counts = assignmentCounts.get(volunteer.id);
         if (counts && counts.recent && counts.recent.getTime() > 0) {
           const daysSinceLastAssignment = Math.floor((roleInfo.date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
 
-          if (daysSinceLastAssignment <= 7) {
+          // Determine minimum spacing based on assignment count
+          let minSpacing = 7; // Base: 8+ days
+          if (counts.total >= 2) {
+            minSpacing = 20; // After 2 assignments: 21+ days
+          } else if (counts.total >= 1) {
+            minSpacing = 13; // After 1 assignment: 14+ days
+          }
+
+          if (daysSinceLastAssignment <= minSpacing) {
             hasRecentAssignment = true;
-            Logger.log(`⚠️ FAMILY SPACING: Skipping ${familyTeam} (${volunteer.name} served ${daysSinceLastAssignment} days ago, min spacing is 8 days)`);
+            Logger.log(`⚠️ FAMILY SPACING: Skipping ${familyTeam} (${volunteer.name} served ${daysSinceLastAssignment} days ago, needs ${minSpacing + 1}+ days with ${counts.total} prior assignments)`);
             break;
           }
         }
@@ -829,12 +840,24 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
       continue;
     }
 
-    // 7. Check spacing (must have at least 8 days since last assignment)
-    // This ensures volunteers are spread across weeks, not consecutive
+    // 7. Check spacing (dynamic based on assignment count)
+    // Dynamic spacing: becomes stricter with more assignments
+    // - After 0 assignments: 8+ days required (skip 1 week)
+    // - After 1 assignment: 14+ days required (skip 2 weeks)
+    // - After 2+ assignments: 21+ days required (skip 3 weeks)
     if (counts && counts.recent && counts.recent.getTime() > 0) {
       const daysSinceLastAssignment = Math.floor((roleInfo.date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysSinceLastAssignment <= 7) {
-        continue; // Skip - too recent (blocks same week and next week)
+
+      // Determine minimum spacing based on assignment count
+      let minSpacing = 7; // Base: 8+ days
+      if (counts.total >= 2) {
+        minSpacing = 20; // After 2 assignments: 21+ days
+      } else if (counts.total >= 1) {
+        minSpacing = 13; // After 1 assignment: 14+ days
+      }
+
+      if (daysSinceLastAssignment <= minSpacing) {
+        continue; // Skip - insufficient spacing for assignment count
       }
     }
 
