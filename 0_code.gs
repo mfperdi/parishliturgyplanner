@@ -79,6 +79,7 @@ function onOpen(e) {
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
           .addItem('Setup Assignment Validation', 'ONEDIT_setupConditionalFormatting')
+          .addItem('Fix Assignment Status Validation', 'fixAssignmentStatusValidation')
           .addItem('Format Assignment Checkboxes', 'setupAssignmentCheckboxes')
           .addSeparator()
           .addItem('Update Timeoff Form', 'promptUpdateTimeoffForm')
@@ -658,6 +659,54 @@ function showDataValidation() {
     SpreadsheetApp.getUi().alert('Data Validation', message, SpreadsheetApp.getUi().ButtonSet.OK);
   } catch (e) {
     SpreadsheetApp.getUi().alert('Validation Error', `Could not run validation: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+}
+
+/**
+ * Fixes the data validation rule on the STATUS column in the Assignments sheet.
+ * Sets valid values to: "Unassigned", "Assigned", "Substitute Needed"
+ * Accessed via: Admin Tools > Fix Assignment Status Validation
+ */
+function fixAssignmentStatusValidation() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+
+    if (!assignmentsSheet) {
+      throw new Error('Assignments sheet not found');
+    }
+
+    const statusCol = CONSTANTS.COLS.ASSIGNMENTS.STATUS;
+    const validValues = CONSTANTS.STATUS.ASSIGNMENT; // ['Unassigned', 'Assigned', 'Substitute Needed']
+
+    // Get the entire STATUS column (starting from row 2 to skip header)
+    // Use a large range to cover all possible rows (1000 rows should be sufficient)
+    const maxRows = 1000;
+    const statusRange = assignmentsSheet.getRange(2, statusCol, maxRows, 1);
+
+    // Clear any existing validation
+    statusRange.clearDataValidations();
+
+    // Create new validation rule with dropdown
+    const validationRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(validValues, true) // true = show dropdown
+      .setAllowInvalid(false) // Reject invalid values
+      .build();
+
+    // Apply validation to the entire column
+    statusRange.setDataValidation(validationRule);
+
+    const message = `Successfully fixed STATUS column data validation in Assignments sheet.\n\n` +
+                    `Valid values: ${validValues.join(', ')}\n\n` +
+                    `Applied to ${maxRows} rows starting from row 2.`;
+
+    SpreadsheetApp.getUi().alert('Success', message, SpreadsheetApp.getUi().ButtonSet.OK);
+
+    Logger.log(`Fixed STATUS column validation with values: ${validValues.join(', ')}`);
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert('Error', 'Could not fix validation: ' + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+    Logger.log(`ERROR in fixAssignmentStatusValidation: ${e.message}\n${e.stack}`);
   }
 }
 
