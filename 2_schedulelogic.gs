@@ -186,6 +186,7 @@ function SCHEDULE_clearOldAssignments(sheet, monthString) {
 
 /**
  * Reads 'MassTemplates' and builds a Map for fast lookups.
+ * UPDATED: Now reads comma-separated roles from single column
  */
 function SCHEDULE_buildTemplateMap() {
   const templateData = HELPER_readSheetData(CONSTANTS.SHEETS.TEMPLATES);
@@ -200,11 +201,26 @@ function SCHEDULE_buildTemplateMap() {
       templateMap.set(templateName, []);
     }
 
-    templateMap.get(templateName).push({
-      roleName: row[templateCols.MINISTRY_NAME - 1],
-      skill: row[templateCols.ROLE_NAME - 1]
-    });
+    // Parse comma-separated roles
+    const rolesRaw = row[templateCols.ROLES - 1];
+    if (!rolesRaw) {
+      Logger.log(`WARNING: Template '${templateName}' has no roles defined`);
+      continue;
+    }
+
+    const roles = String(rolesRaw)
+      .split(',')
+      .map(r => r.trim())
+      .filter(r => r !== '');
+
+    // Add each role to the template
+    for (const role of roles) {
+      templateMap.get(templateName).push({
+        skill: role
+      });
+    }
   }
+
   Logger.log(`> Built template map with ${templateMap.size} templates.`);
   return templateMap;
 }

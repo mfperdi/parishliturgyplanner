@@ -126,8 +126,8 @@ const CONSTANTS = {
     // 'MassTemplates' sheet (3 columns)
     TEMPLATES: {
       TEMPLATE_NAME: 1,
-      MINISTRY_NAME: 2,    // General ministry category
-      ROLE_NAME: 3         // Specific role/skill within ministry
+      DESCRIPTION: 2,      // Template description (e.g., "Regular Sunday morning Mass with full participation")
+      ROLES: 3             // Comma-separated list of role names (e.g., "1st reading, 2nd reading, Psalm, Bread, Chalice")
     },
     
     // 'Assignments' sheet (12 columns + 3 formula helper columns)
