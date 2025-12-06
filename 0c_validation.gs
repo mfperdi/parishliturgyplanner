@@ -298,39 +298,40 @@ function VALIDATE_templates() {
     const templateData = HELPER_readSheetData(CONSTANTS.SHEETS.TEMPLATES);
     const cols = CONSTANTS.COLS.TEMPLATES;
 
-    const templates = new Map();
+    const templates = new Set();
 
     for (let i = 0; i < templateData.length; i++) {
       const row = templateData[i];
       const rowNum = i + 2;
 
       const templateName = HELPER_safeArrayAccess(row, cols.TEMPLATE_NAME - 1);
-      const ministryName = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1);
+      const rolesRaw = HELPER_safeArrayAccess(row, cols.ROLES - 1);
 
       // Template Name: Required
-      if (!templateName || templateName.trim() === "") {
+      if (!templateName || String(templateName).trim() === "") {
         results.errors.push(`Templates row ${rowNum}: Template Name is required`);
         continue;
       }
 
-      // Ministry Name: Required
-      if (!ministryName || ministryName.trim() === "") {
-        results.errors.push(`Templates row ${rowNum}: Ministry Name is required for template '${templateName}'`);
+      // Roles: Required
+      if (!rolesRaw || String(rolesRaw).trim() === "") {
+        results.errors.push(`Templates row ${rowNum}: Roles are required for template '${templateName}'`);
         continue;
       }
 
-      // Track templates and their ministries
-      if (!templates.has(templateName)) {
-        templates.set(templateName, []);
-      }
-      templates.get(templateName).push(ministryName);
-    }
+      // Parse roles to ensure valid format
+      const roles = String(rolesRaw)
+        .split(',')
+        .map(r => r.trim())
+        .filter(r => r !== '');
 
-    // Check for templates with no roles
-    for (const [templateName, roles] of templates) {
       if (roles.length === 0) {
-        results.warnings.push(`Templates: '${templateName}' has no ministry roles defined`);
+        results.errors.push(`Templates row ${rowNum}: Template '${templateName}' has no valid roles (check for empty commas)`);
+        continue;
       }
+
+      // Track templates
+      templates.add(templateName);
     }
 
     if (templates.size === 0) {
@@ -636,39 +637,45 @@ function VALIDATE_consistency() {
     const templatesSheet = ss.getSheetByName(CONSTANTS.SHEETS.TEMPLATES);
 
     if (ministriesSheet && ministriesSheet.getLastRow() > 1 && templatesSheet && templatesSheet.getLastRow() > 1) {
-      // Build set of valid ministry-role combinations from Ministries sheet
+      // Build set of valid role names from Ministries sheet
       const ministryData = HELPER_readSheetData(CONSTANTS.SHEETS.MINISTRIES);
       const minCols = CONSTANTS.COLS.MINISTRIES;
-      const validMinistryRoles = new Set();
+      const validRoles = new Set();
 
       for (const row of ministryData) {
-        const ministryName = HELPER_safeArrayAccess(row, minCols.MINISTRY_NAME - 1);
         const roleName = HELPER_safeArrayAccess(row, minCols.ROLE_NAME - 1);
         const isActive = HELPER_safeArrayAccess(row, minCols.IS_ACTIVE - 1, true);
 
-        if (ministryName && roleName && isActive) {
-          const comboKey = `${String(ministryName).toLowerCase()}|${String(roleName).toLowerCase()}`;
-          validMinistryRoles.add(comboKey);
+        if (roleName && isActive) {
+          validRoles.add(String(roleName).toLowerCase());
         }
       }
 
-      // Check MassTemplates references
+      // Check MassTemplates references (comma-separated roles)
       const templateData = HELPER_readSheetData(CONSTANTS.SHEETS.TEMPLATES);
       const tempCols = CONSTANTS.COLS.TEMPLATES;
       const invalidRefs = new Set(); // Track unique invalid references
 
       for (let i = 0; i < templateData.length; i++) {
         const row = templateData[i];
-        const ministryName = HELPER_safeArrayAccess(row, tempCols.MINISTRY_NAME - 1);
-        const roleName = HELPER_safeArrayAccess(row, tempCols.ROLE_NAME - 1);
+        const templateName = HELPER_safeArrayAccess(row, tempCols.TEMPLATE_NAME - 1);
+        const rolesRaw = HELPER_safeArrayAccess(row, tempCols.ROLES - 1);
 
-        if (ministryName && roleName) {
-          const comboKey = `${String(ministryName).toLowerCase()}|${String(roleName).toLowerCase()}`;
-          if (!validMinistryRoles.has(comboKey)) {
-            const displayKey = `${ministryName}|${roleName}`;
-            if (!invalidRefs.has(displayKey)) {
-              results.errors.push(`MassTemplates: Ministry-Role '${ministryName} | ${roleName}' not found in Ministries sheet (row ${i + 2})`);
-              invalidRefs.add(displayKey);
+        if (rolesRaw) {
+          // Parse comma-separated roles
+          const roles = String(rolesRaw)
+            .split(',')
+            .map(r => r.trim())
+            .filter(r => r !== '');
+
+          // Check each role exists in Ministries
+          for (const role of roles) {
+            const roleLower = role.toLowerCase();
+            if (!validRoles.has(roleLower)) {
+              if (!invalidRefs.has(roleLower)) {
+                results.errors.push(`MassTemplates: Role '${role}' in template '${templateName}' not found in Ministries sheet (row ${i + 2})`);
+                invalidRefs.add(roleLower);
+              }
             }
           }
         }

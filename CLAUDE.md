@@ -92,10 +92,11 @@ The system uses multiple interconnected sheets within a single spreadsheet:
 - Is Active flag allows retiring roles without deleting data
 
 **MassTemplates** - Ministry role definitions for Mass types
-- Columns: Template Name, Ministry Name, Role Name
+- Columns: Template Name, Description, Roles
 - Defines which roles are needed for each type of Mass
-- Example: "Sunday Family Mass" template includes: Lector|1st reading, Lector|2nd reading, etc.
-- Ministry Name and Role Name must exist in Ministries sheet
+- Roles: Comma-separated list of role names (e.g., "1st reading, 2nd reading, Psalm, Bread, Chalice")
+- Example: "Sunday Family Mass" with description "Regular Sunday morning Mass with full participation"
+- All role names must exist in Ministries sheet (validated)
 
 **WeeklyMasses** - Recurring weekly Masses (Layer 1)
 - Columns: Event ID, Day of Week, Time, Start Date, End Date, Is Active, Is Anticipated, Description, Template Name, Assigned Group, Notes
@@ -1127,7 +1128,7 @@ The system includes comprehensive documentation to support deployment and testin
 **Codebase Version**: Production-ready with weekend-grouped timeoff forms
 
 **Recent Changes**:
-- **Ministries Sheet - Master Reference System** (0a_constants.gs, 3_assignmentlogic.gs, 0c_validation.gs):
+- **Ministries Sheet - Master Reference System** (0a_constants.gs, 2_schedulelogic.gs, 3_assignmentlogic.gs, 0c_validation.gs):
   - Added centralized Ministries sheet as master reference for all ministry roles
   - 4 columns: Ministry Name, Role Name, Description, Is Active
   - Serves as single source of truth for what ministries/roles exist in the parish
@@ -1136,7 +1137,9 @@ The system includes comprehensive documentation to support deployment and testin
   - Added comprehensive validation: no duplicate ministry-role combinations
   - Cross-reference validation: MassTemplates and Volunteers must reference valid Ministries entries
   - Supports future multi-ministry expansion (Music, Hospitality, etc.)
-  - User manually populates sheet from existing MassTemplates data
+  - **MassTemplates simplified to 3 columns**: Template Name, Description, Roles (comma-separated)
+  - Removed redundant Ministry Name column from MassTemplates
+  - Templates now much more compact (one row per template instead of many)
 - **Weekend Grouping for Timeoff Forms** (4_timeoff-form.gs):
   - Saturday vigil and Sunday masses now grouped into single "Weekend of M/D-M/D/YYYY" checkbox
   - Chronological order for all dates (weekends and special liturgical days)
