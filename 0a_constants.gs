@@ -8,12 +8,13 @@ const CONSTANTS = {
   // 1. Sheet Names
   SHEETS: {
     CONFIG: "Config",
-    VOLUNTEERS: "Volunteers", 
+    VOLUNTEERS: "Volunteers",
     TIMEOFFS: "Timeoffs",
+    MINISTRIES: "Ministries",
     TEMPLATES: "MassTemplates",
-    WEEKLY_MASSES: "WeeklyMasses",       
-    MONTHLY_MASSES: "MonthlyMasses",     
-    YEARLY_MASSES: "YearlyMasses",       
+    WEEKLY_MASSES: "WeeklyMasses",
+    MONTHLY_MASSES: "MonthlyMasses",
+    YEARLY_MASSES: "YearlyMasses",
     SAINTS_CALENDAR: "SaintsCalendar",
     OVERRIDES: "CalendarOverrides",
     LITURGICAL_NOTES: "LiturgicalNotes",
@@ -113,7 +114,15 @@ const CONSTANTS = {
       ASSIGNED_GROUP: 10,
       NOTES: 11
     },
-    
+
+    // 'Ministries' sheet (4 columns)
+    MINISTRIES: {
+      MINISTRY_NAME: 1,    // General ministry category (e.g., "Lector")
+      ROLE_NAME: 2,        // Specific role/skill within ministry (e.g., "1st reading")
+      DESCRIPTION: 3,      // Role description for training/reference
+      IS_ACTIVE: 4         // TRUE/FALSE - whether this role is currently active
+    },
+
     // 'MassTemplates' sheet (3 columns)
     TEMPLATES: {
       TEMPLATE_NAME: 1,
@@ -150,8 +159,8 @@ const CONSTANTS = {
       PARENT_GUARDIAN_NAME: 7,
       FAMILY_TEAM: 8,
       STATUS: 9,
-      MINISTRIES: 10,              // General ministry categories (dropdown from MassTemplates MinistryName)
-      ROLES: 11,                   // Specific role preferences
+      MINISTRIES: 10,              // General ministry categories (dropdown from Ministries sheet)
+      ROLES: 11,                   // Specific role preferences (dropdown from Ministries sheet)
       PREFERRED_MASS_TIME: 12,     // Event IDs for preferred masses
       DATE_CLEARED: 13,
       DATE_TRAINED: 14
