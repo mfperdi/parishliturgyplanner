@@ -1167,6 +1167,11 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupA
   // Build list of eligible volunteers with their role flexibility
   const eligible = [];
 
+  // DEBUG: Log what we're looking for
+  Logger.log(`🔍 Finding volunteer for group "${assignment.assignedGroup}" role "${assignment.role}" (lowercase: "${roleLower}")`);
+  Logger.log(`   Required ministry: "${requiredMinistry}"`);
+  Logger.log(`   Already assigned this mass: ${Array.from(massGroupAssignments.keys()).join(', ') || 'none'}`);
+
   // Note: No status check here - allows both Active and Ministry Sponsor
   // volunteers to be assigned to their designated group masses
   for (const vol of volunteers.values()) {
@@ -1174,8 +1179,12 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupA
       continue;
     }
 
+    // DEBUG: Found a family team member
+    Logger.log(`   Checking ${vol.name} (ID ${vol.id}): familyTeam="${vol.familyTeam}", status="${vol.status}"`);
+
     // CRITICAL: Check if this volunteer is already assigned to another role in this mass
     if (massGroupAssignments.has(vol.id)) {
+      Logger.log(`      ❌ Already assigned to this mass`);
       continue; // Skip - already assigned to this mass
     }
 
@@ -1185,15 +1194,23 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupA
     // STRICT ROLE MATCHING: Same logic as filterCandidates
     if (vol.rolePrefs && vol.rolePrefs.length > 0) {
       // Volunteer has specific role preferences - MUST match exactly
+      Logger.log(`      Role prefs: [${vol.rolePrefs.join(', ')}]`);
       if (vol.rolePrefs.includes(roleLower)) {
         matches = true;
         roleCount = vol.rolePrefs.length; // Count how many roles they can do
+        Logger.log(`      ✅ MATCHES! roleCount=${roleCount}`);
+      } else {
+        Logger.log(`      ❌ Role "${roleLower}" not in preferences`);
       }
     } else {
       // Volunteer has NO role preferences - check if they have the general ministry
+      Logger.log(`      No role prefs, checking ministries: [${vol.ministries.join(', ')}]`);
       if (vol.ministries.includes(requiredMinistry.toLowerCase())) {
         matches = true;
         roleCount = 999; // High number = very flexible (can do many roles)
+        Logger.log(`      ✅ MATCHES ministry! roleCount=${roleCount}`);
+      } else {
+        Logger.log(`      ❌ Ministry "${requiredMinistry}" not found`);
       }
     }
 
@@ -1203,6 +1220,7 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupA
   }
 
   if (eligible.length === 0) {
+    Logger.log(`   ❌ NO ELIGIBLE VOLUNTEERS FOUND for "${assignment.role}"`);
     return null;
   }
 
@@ -1210,7 +1228,13 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupA
   // This ensures specialists (1 role) get their role before generalists (multiple roles)
   eligible.sort((a, b) => a.roleCount - b.roleCount);
 
+  Logger.log(`   ✅ Found ${eligible.length} eligible volunteers, sorted by roleCount:`);
+  eligible.forEach((e, i) => {
+    Logger.log(`      ${i + 1}. ${e.volunteer.name} (roleCount=${e.roleCount})`);
+  });
+
   // Return the volunteer with the fewest role options (most specialized)
+  Logger.log(`   → SELECTED: ${eligible[0].volunteer.name}`);
   return eligible[0].volunteer;
 }
 
