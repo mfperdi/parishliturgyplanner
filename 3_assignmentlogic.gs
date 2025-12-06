@@ -470,12 +470,23 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
   // Collect all updates to write in batches
   const batchUpdates = [];
 
-  // Process group assignments first
-  for (const assignment of context.groupAssignments) {
-    const update = processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap);
-    if (update) {
-      batchUpdates.push(update);
-      results.groupAssignments++;
+  // Process group assignments first - GROUP BY MASS to prevent double-assignment
+  const groupAssignmentsByMass = groupAssignmentsByMassKey(context.groupAssignments);
+
+  for (const [massKey, assignments] of groupAssignmentsByMass) {
+    const massGroupAssignments = new Map(); // Track volunteers assigned to THIS mass
+
+    for (const assignment of assignments) {
+      const update = processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap, massGroupAssignments);
+      if (update) {
+        batchUpdates.push(update);
+        results.groupAssignments++;
+
+        // Track this volunteer as assigned to this mass (if a specific volunteer was assigned)
+        if (update.volunteerId) {
+          massGroupAssignments.set(update.volunteerId, assignment.role);
+        }
+      }
     }
   }
 
@@ -1004,10 +1015,10 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
  */
 function groupAssignmentsByMass(unassignedRoles) {
   const massesByDateTime = new Map();
-  
+
   for (const roleInfo of unassignedRoles) {
     const massKey = `${roleInfo.date.toDateString()}_${roleInfo.time}`;
-    
+
     if (!massesByDateTime.has(massKey)) {
       massesByDateTime.set(massKey, {
         date: roleInfo.date,
@@ -1016,10 +1027,30 @@ function groupAssignmentsByMass(unassignedRoles) {
         roles: []
       });
     }
-    
+
     massesByDateTime.get(massKey).roles.push(roleInfo);
   }
-  
+
+  return massesByDateTime;
+}
+
+/**
+ * Group group assignments by mass (date+time)
+ * This prevents the same volunteer from being assigned to multiple roles in the same mass
+ */
+function groupAssignmentsByMassKey(groupAssignments) {
+  const massesByDateTime = new Map();
+
+  for (const assignment of groupAssignments) {
+    const massKey = `${assignment.date.toDateString()}_${assignment.time}`;
+
+    if (!massesByDateTime.has(massKey)) {
+      massesByDateTime.set(massKey, []);
+    }
+
+    massesByDateTime.get(massKey).push(assignment);
+  }
+
   return massesByDateTime;
 }
 
@@ -1108,9 +1139,9 @@ function writeBatchAssignments(assignmentsSheet, batchUpdates, assignCols) {
   }
 }
 
-function processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap) {
+function processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap, massGroupAssignments = new Map()) {
   // Simplified group assignment logic - returns update object for batch writing
-  const familyMember = findFamilyMember(assignment, volunteers, skillToMinistryMap);
+  const familyMember = findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupAssignments);
 
   if (familyMember) {
     return {
@@ -1129,9 +1160,12 @@ function processGroupAssignment(assignment, volunteers, assignCols, skillToMinis
   }
 }
 
-function findFamilyMember(assignment, volunteers, skillToMinistryMap) {
+function findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupAssignments = new Map()) {
   const roleLower = assignment.role.toLowerCase();
   const requiredMinistry = skillToMinistryMap.get(roleLower) || roleLower;
+
+  // Build list of eligible volunteers with their role flexibility
+  const eligible = [];
 
   // Note: No status check here - allows both Active and Ministry Sponsor
   // volunteers to be assigned to their designated group masses
@@ -1140,20 +1174,44 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap) {
       continue;
     }
 
+    // CRITICAL: Check if this volunteer is already assigned to another role in this mass
+    if (massGroupAssignments.has(vol.id)) {
+      continue; // Skip - already assigned to this mass
+    }
+
+    let matches = false;
+    let roleCount = 0;
+
     // STRICT ROLE MATCHING: Same logic as filterCandidates
     if (vol.rolePrefs && vol.rolePrefs.length > 0) {
       // Volunteer has specific role preferences - MUST match exactly
       if (vol.rolePrefs.includes(roleLower)) {
-        return vol;
+        matches = true;
+        roleCount = vol.rolePrefs.length; // Count how many roles they can do
       }
     } else {
       // Volunteer has NO role preferences - check if they have the general ministry
       if (vol.ministries.includes(requiredMinistry.toLowerCase())) {
-        return vol;
+        matches = true;
+        roleCount = 999; // High number = very flexible (can do many roles)
       }
     }
+
+    if (matches) {
+      eligible.push({ volunteer: vol, roleCount: roleCount });
+    }
   }
-  return null;
+
+  if (eligible.length === 0) {
+    return null;
+  }
+
+  // PRIORITY: Sort by role count (ascending) - volunteers with fewer role options get priority
+  // This ensures specialists (1 role) get their role before generalists (multiple roles)
+  eligible.sort((a, b) => a.roleCount - b.roleCount);
+
+  // Return the volunteer with the fewest role options (most specialized)
+  return eligible[0].volunteer;
 }
 
 function formatAssignmentResults(results, monthString) {
