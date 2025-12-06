@@ -471,9 +471,9 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
   const batchUpdates = [];
 
   // Process group assignments first - GROUP BY MASS to prevent double-assignment
-  const groupAssignmentsByMass = groupAssignmentsByMassKey(context.groupAssignments);
+  const groupedGroupAssignments = groupAssignmentsByMassKey(context.groupAssignments);
 
-  for (const [massKey, assignments] of groupAssignmentsByMass) {
+  for (const [massKey, assignments] of groupedGroupAssignments) {
     const massGroupAssignments = new Map(); // Track volunteers assigned to THIS mass
 
     for (const assignment of assignments) {
