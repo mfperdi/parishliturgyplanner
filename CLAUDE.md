@@ -81,9 +81,21 @@ The system uses multiple interconnected sheets within a single spreadsheet:
 
 #### Mass Configuration Sheets
 
-**MassTemplates** - Ministry role definitions
-- Columns: Template Name, Ministry Role, Ministry Skill
+**Ministries** - Master reference for all ministry roles
+- Columns: Ministry Name, Role Name, Description, Is Active
+- Central registry of all ministry roles available in the parish
+- Example rows:
+  - Lector, 1st reading, "First reading from Scripture", TRUE
+  - Lector, 2nd reading, "Second reading from Scripture", TRUE
+  - Eucharistic Minister, Bread, "Distribute communion bread", TRUE
+- Referenced by MassTemplates and Volunteers sheets for validation
+- Is Active flag allows retiring roles without deleting data
+
+**MassTemplates** - Ministry role definitions for Mass types
+- Columns: Template Name, Ministry Name, Role Name
 - Defines which roles are needed for each type of Mass
+- Example: "Sunday Family Mass" template includes: Lector|1st reading, Lector|2nd reading, etc.
+- Ministry Name and Role Name must exist in Ministries sheet
 
 **WeeklyMasses** - Recurring weekly Masses (Layer 1)
 - Columns: Event ID, Day of Week, Time, Start Date, End Date, Is Active, Is Anticipated, Description, Template Name, Assigned Group, Notes
@@ -109,9 +121,9 @@ The system uses multiple interconnected sheets within a single spreadsheet:
   - **Substitute Only**: Backup volunteers (manual assignment only)
   - **Ministry Sponsor**: Ministry coordinators (auto-assigned to designated group masses, excluded from individual auto-assignment)
   - **Parent/Guardian**: Adults accompanying youth (manual assignment only)
-- Ministry Role: Comma-separated list (e.g., "Lector, Eucharistic Minister")
+- Ministry Role: Comma-separated list (e.g., "Lector, Eucharistic Minister") - must exist in Ministries sheet
 - Preferred Mass Time: Event IDs (e.g., "SUN-1000, SAT-1700")
-- Ministry Role Preference: Specific roles (e.g., "1st reading, psalm")
+- Ministry Role Preference: Specific roles (e.g., "1st reading, psalm") - must exist in Ministries sheet
 
 **Timeoffs** - Timeoff request tracking via Google Form with blacklist and whitelist support
 - Columns: Timestamp, Volunteer Name, Type, Selected Dates, Volunteer Notes, Status, Reviewed Date, Review Notes
@@ -216,16 +228,20 @@ Layer 3 (Yearly):
 
 **Process** (`ASSIGNMENT_autoAssignRolesForMonthOptimized()`):
 1. Read volunteers with ministry qualifications (Active and Ministry Sponsor status)
-2. **Build timeoff maps** (approved timeoffs only):
+2. **Build skill-to-ministry mapping** from Ministries sheet:
+   - Maps specific skills (e.g., "1st reading") to general ministry categories (e.g., "Lector")
+   - Only includes active roles (Is Active = TRUE)
+   - Allows volunteers with "Lector" ministry to be matched to "1st reading" assignments
+3. **Build timeoff maps** (approved timeoffs only):
    - **Blacklist** map: Not Available dates
    - **Whitelist** map: Only Available dates/Event IDs
    - **Special Availability** map: Override dates/Event IDs
-3. Process group assignments first (family teams)
+4. Process group assignments first (family teams)
    - **Group assignments** (e.g., "Knights of Columbus"): Finds volunteers with matching Family Team
    - Allows both **Active** and **Ministry Sponsor** status for group assignments
    - If matching volunteer found, assigns specific volunteer name; otherwise assigns group name
-4. Group individual assignments by Mass
-5. For each Mass, for each role:
+5. Group individual assignments by Mass
+6. For each Mass, for each role:
    - **Find eligible volunteers** using enhanced logic:
      1. Must have required ministry skill
      2. Must be Active status (Ministry Sponsors excluded from individual auto-assignment)
@@ -241,7 +257,7 @@ Layer 3 (Yearly):
      - Flexibility bonus (+3 points for no preferences)
    - Assign highest-scoring volunteer
    - Update assignment counts
-6. Mark assignments with status "Assigned"
+7. Mark assignments with status "Assigned"
 
 **Timeoff Logic**:
 - **Whitelist** (Only Available): If a volunteer has a whitelist, they can ONLY be assigned to specified Event IDs or dates during the specified period
@@ -285,24 +301,31 @@ Base score: 100
    - Year to Schedule (must be 2020-2050)
    - Parish Name (required)
    - Calendar Region (recommended)
-2. Validate Volunteers sheet:
+2. Validate Ministries sheet:
+   - Ministry Name and Role Name required
+   - No duplicate Ministry-Role combinations
+   - Is Active field is TRUE/FALSE
+   - Sheet exists and has data
+3. Validate Volunteers sheet:
    - Unique Volunteer IDs
    - Valid email formats
    - Valid status values (Active, Inactive, Substitute Only, Ministry Sponsor, Parent/Guardian)
    - Valid date formats and logical date ordering
    - No duplicate emails
-3. Validate Mass Templates:
+4. Validate Mass Templates:
    - Template Name and Ministry Role required
    - No empty templates
-4. Validate Mass Configuration:
+5. Validate Mass Configuration:
    - Event IDs unique across all three sheets
    - Valid day of week, time formats
    - Templates referenced actually exist
    - Date ranges logical
-5. Cross-sheet consistency:
+6. Cross-sheet consistency:
    - Event IDs in preferences exist
    - Volunteer names in timeoffs exist
    - Templates referenced in mass configs exist
+   - **MassTemplates ministry-role combinations exist in Ministries sheet**
+   - **Volunteers ministries and roles exist in Ministries sheet**
 
 **Validation Results**:
 - **Errors (❌)**: Critical issues that will cause failures
@@ -1104,6 +1127,16 @@ The system includes comprehensive documentation to support deployment and testin
 **Codebase Version**: Production-ready with weekend-grouped timeoff forms
 
 **Recent Changes**:
+- **Ministries Sheet - Master Reference System** (0a_constants.gs, 3_assignmentlogic.gs, 0c_validation.gs):
+  - Added centralized Ministries sheet as master reference for all ministry roles
+  - 4 columns: Ministry Name, Role Name, Description, Is Active
+  - Serves as single source of truth for what ministries/roles exist in the parish
+  - Assignment logic updated to build skill-to-ministry mapping from Ministries sheet
+  - Only active roles (Is Active = TRUE) are used in auto-assignment
+  - Added comprehensive validation: no duplicate ministry-role combinations
+  - Cross-reference validation: MassTemplates and Volunteers must reference valid Ministries entries
+  - Supports future multi-ministry expansion (Music, Hospitality, etc.)
+  - User manually populates sheet from existing MassTemplates data
 - **Weekend Grouping for Timeoff Forms** (4_timeoff-form.gs):
   - Saturday vigil and Sunday masses now grouped into single "Weekend of M/D-M/D/YYYY" checkbox
   - Chronological order for all dates (weekends and special liturgical days)

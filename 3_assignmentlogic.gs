@@ -79,22 +79,25 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
 }
 
 /**
- * Build skill-to-ministry mapping from MassTemplates sheet
+ * Build skill-to-ministry mapping from Ministries sheet
  * Maps specific skills (e.g., "1st reading") to general ministry categories (e.g., "Lector")
  * This allows volunteers with "Lector" to be matched to "1st reading" assignments
+ * UPDATED: Now reads from Ministries sheet instead of MassTemplates for centralized role definitions
  */
 function buildSkillToMinistryMap() {
   const map = new Map();
 
   try {
-    const templateData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.TEMPLATES);
-    const cols = CONSTANTS.COLS.TEMPLATES;
+    const ministryData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MINISTRIES);
+    const cols = CONSTANTS.COLS.MINISTRIES;
 
-    for (const row of templateData) {
+    for (const row of ministryData) {
       const ministryName = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1);
       const roleName = HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1);
+      const isActive = HELPER_safeArrayAccess(row, cols.IS_ACTIVE - 1, true); // Default to active if missing
 
-      if (ministryName && roleName) {
+      // Only include active roles
+      if (ministryName && roleName && isActive) {
         // Map: "1st reading" → "Lector"
         // Map: "2nd reading" → "Lector"
         // Map: "chalice" → "Eucharistic Minister"
@@ -108,7 +111,7 @@ function buildSkillToMinistryMap() {
       }
     }
 
-    Logger.log(`Built skill-to-ministry map with ${map.size} mappings`);
+    Logger.log(`Built skill-to-ministry map with ${map.size} mappings from Ministries sheet`);
 
   } catch (e) {
     Logger.log(`WARNING: Could not build skill-to-ministry map: ${e.message}`);
