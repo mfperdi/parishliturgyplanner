@@ -7,6 +7,7 @@
  * - Clones MonthlyView exactly (formatting, colors, unassigned slots)
  * - Manual trigger only (admin controls when to publish)
  * - Access managed manually via Google Sheets sharing
+ * - No automatic Instructions sheet (admin can create manually if desired)
  */
 
 /**
@@ -85,42 +86,8 @@ function PUBLISH_getOrCreatePublicSpreadsheet() {
     const ministryName = config['Ministry Name'] || 'Ministry';
     const spreadsheetName = `${parishName} ${ministryName} Schedule`;
 
-    // Create spreadsheet
+    // Create spreadsheet (will have default "Sheet1")
     const publicSpreadsheet = SpreadsheetApp.create(spreadsheetName);
-
-    // Add instructions sheet first (before deleting Sheet1)
-    const instructionsSheet = publicSpreadsheet.insertSheet('Instructions', 0);
-
-    // Delete default "Sheet1" (now safe because Instructions sheet exists)
-    const defaultSheet = publicSpreadsheet.getSheetByName('Sheet1');
-    if (defaultSheet) {
-      publicSpreadsheet.deleteSheet(defaultSheet);
-    }
-    const instructions = [
-      ['📅 Parish Ministry Schedule - Volunteer View'],
-      [''],
-      ['Welcome! This spreadsheet contains your ministry assignments.'],
-      [''],
-      ['How to use this schedule:'],
-      ['1. Each tab represents a different month (e.g., "February 2026", "March 2026")'],
-      ['2. Find your name in the "Assigned Volunteer" column to see your assignments'],
-      ['3. Check the date, time, and role for each assignment'],
-      ['4. Liturgical celebrations are color-coded by liturgical season'],
-      ['5. If you see "UNASSIGNED", that role still needs to be filled'],
-      [''],
-      ['Questions or unable to serve?'],
-      [`Contact the ${config['Ministry Coordinator'] || 'Ministry Coordinator'}`],
-      [''],
-      ['This schedule is updated periodically by the parish administrator.'],
-      [`Last updated: ${HELPER_formatDate(new Date(), 'long')} at ${HELPER_formatTime(new Date())}`]
-    ];
-
-    instructionsSheet.getRange(1, 1, instructions.length, 1).setValues(instructions);
-    instructionsSheet.getRange(1, 1).setFontSize(14).setFontWeight('bold').setBackground('#4a86e8').setFontColor('#ffffff');
-    instructionsSheet.getRange(3, 1).setFontStyle('italic');
-    instructionsSheet.getRange(5, 1).setFontWeight('bold');
-    instructionsSheet.getRange(13, 1).setFontWeight('bold');
-    instructionsSheet.setColumnWidth(1, 600);
 
     Logger.log(`Created new public spreadsheet: ${spreadsheetName}`);
 
@@ -201,18 +168,23 @@ function PUBLISH_copyMonthlyViewToPublic(monthString, publicSpreadsheet) {
       throw new Error('MonthlyView appears empty. Please generate the print schedule first.');
     }
 
-    // Delete existing sheet with same name if it exists
+    // Copy the entire sheet to public spreadsheet (this preserves all formatting)
+    // Creates "Copy of MonthlyView" automatically
+    Logger.log(`Duplicating MonthlyView sheet to public spreadsheet`);
+    const copiedSheet = sourceSheet.copyTo(publicSpreadsheet);
+
+    // Rename to temporary unique name to avoid conflicts
+    const tempName = `${displayName}_${Date.now()}`;
+    copiedSheet.setName(tempName);
+
+    // NOW safe to delete existing sheet (we have at least 2 sheets)
     const existingSheet = publicSpreadsheet.getSheetByName(displayName);
     if (existingSheet) {
       Logger.log(`Sheet "${displayName}" already exists, deleting it`);
       publicSpreadsheet.deleteSheet(existingSheet);
     }
 
-    // Copy the entire sheet to public spreadsheet (this preserves all formatting)
-    Logger.log(`Duplicating MonthlyView sheet to public spreadsheet`);
-    const copiedSheet = sourceSheet.copyTo(publicSpreadsheet);
-
-    // Rename the copied sheet to the month name
+    // Rename to final name
     copiedSheet.setName(displayName);
 
     // Update timestamp in cell B3 to show when it was published
