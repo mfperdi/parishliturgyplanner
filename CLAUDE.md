@@ -26,12 +26,14 @@
 Files use a numeric prefix system to indicate loading order and functional grouping:
 
 ```
-0_*.gs        - Core infrastructure (entry point, constants, helpers, debug)
+0_*.gs        - Core infrastructure (entry point, constants, helpers, debug, diagnostics)
 1_*.gs        - Liturgical calendar generation
 2_*.gs        - Schedule generation
 3_*.gs        - Assignment logic
 4_*.gs        - Timeoff management
 5_*.gs        - Print/export functionality
+6_*.gs        - Archive and public schedule features
+7_*.gs        - Test functions (run from Script Editor)
 Sidebar.html  - User interface
 ```
 
@@ -45,7 +47,8 @@ Sidebar.html  - User interface
 | `0b_helper.gs` | Reusable utility functions, liturgical helpers | `HELPER_*()`, `PRECEDENCE` |
 | `0c_validation.gs` | Comprehensive data validation system | `VALIDATE_all()`, `VALIDATE_*()`, `runDataValidation()` |
 | `0d_onedit.gs` | Real-time assignment validation with onEdit trigger | `onEdit()`, `ONEDIT_*()` functions |
-| `0_debug.gs` | Debugging and diagnostic tools | Debug functions |
+| `0_debug.gs` | Debugging and diagnostic tools | `DEBUG_*()` functions |
+| `0_diagnostic.gs` | Assignment troubleshooting diagnostics | `DIAGNOSTIC_checkAssignmentReadiness()` |
 | `1_calendarlogic.gs` | Liturgical calendar generation orchestration | `CALENDAR_generateLiturgicalCalendar()` |
 | `1a_calendardates.gs` | Moveable feast date calculations | `CALENDAR_calculateLiturgicalDates()` |
 | `1b_calendarseasons.gs` | Seasonal celebration logic | `CALENDAR_getSeasonalCelebration()` |
@@ -53,6 +56,9 @@ Sidebar.html  - User interface
 | `3_assignmentlogic.gs` | Volunteer auto-assignment algorithm | `ASSIGNMENT_autoAssignRolesForMonthOptimized()` |
 | `4_timeoff-form.gs` | Timeoff request handling | `TIMEOFFS_*()` functions |
 | `5_printschedule.gs` | Print schedule generation | `generatePrintableSchedule()` |
+| `6_archivelogic.gs` | Archive completed schedules | Archive functions |
+| `6_publicschedule.gs` | Public schedule generation | Public schedule functions |
+| `7_tests.gs` | Consolidated test functions | `TEST_*()` functions |
 | `Sidebar.html` | HTML/CSS/JavaScript UI | Sidebar interface |
 
 ## Data Model
@@ -1123,11 +1129,18 @@ The system includes comprehensive documentation to support deployment and testin
 
 ---
 
-**Last Updated**: 2025-11-30
+**Last Updated**: 2025-12-06
 
-**Codebase Version**: Production-ready with weekend-grouped timeoff forms
+**Codebase Version**: Production-ready with reorganized code structure
 
 **Recent Changes**:
+- **Code Structure Reorganization** (7_tests.gs, 0_debug.gs):
+  - Consolidated all TEST_*.gs files into single `7_tests.gs` file
+  - Merged DEBUG functions from `DEBUG_timeoff_analysis.gs` into `0_debug.gs`
+  - Deleted obsolete FIX_timeoff_logic.gs (fixes already applied to main code)
+  - Added `0_diagnostic.gs` and `6_*.gs` files to file inventory
+  - Updated file naming convention to include prefixes 6_ and 7_
+  - Reduced file count while maintaining all functionality
 - **Ministries Sheet - Master Reference System** (0a_constants.gs, 2_schedulelogic.gs, 3_assignmentlogic.gs, 0c_validation.gs):
   - Added centralized Ministries sheet as master reference for all ministry roles
   - 4 columns: Ministry Name, Role Name, Description, Is Active
