@@ -477,7 +477,7 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
     const massGroupAssignments = new Map(); // Track volunteers assigned to THIS mass
 
     for (const assignment of assignments) {
-      const update = processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap, massGroupAssignments);
+      const update = processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap, massGroupAssignments, context.liturgicalAssignments);
       if (update) {
         batchUpdates.push(update);
         results.groupAssignments++;
@@ -485,6 +485,17 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
         // Track this volunteer as assigned to this mass (if a specific volunteer was assigned)
         if (update.volunteerId) {
           massGroupAssignments.set(update.volunteerId, assignment.role);
+
+          // CRITICAL FIX: Update liturgical celebration tracking for group assignments
+          // This prevents the same volunteer from being assigned to individual roles
+          // at a different mass on the same liturgical day
+          if (assignment.liturgicalCelebration) {
+            if (!context.liturgicalAssignments.has(assignment.liturgicalCelebration)) {
+              context.liturgicalAssignments.set(assignment.liturgicalCelebration, new Map());
+            }
+            const liturgicalMassKey = `${assignment.date.toDateString()}_${assignment.time}`;
+            context.liturgicalAssignments.get(assignment.liturgicalCelebration).set(update.volunteerId, liturgicalMassKey);
+          }
         }
       }
     }
@@ -1139,9 +1150,9 @@ function writeBatchAssignments(assignmentsSheet, batchUpdates, assignCols) {
   }
 }
 
-function processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap, massGroupAssignments = new Map()) {
+function processGroupAssignment(assignment, volunteers, assignCols, skillToMinistryMap, massGroupAssignments = new Map(), liturgicalAssignments = new Map()) {
   // Simplified group assignment logic - returns update object for batch writing
-  const familyMember = findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupAssignments);
+  const familyMember = findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupAssignments, liturgicalAssignments);
 
   if (familyMember) {
     return {
@@ -1160,7 +1171,7 @@ function processGroupAssignment(assignment, volunteers, assignCols, skillToMinis
   }
 }
 
-function findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupAssignments = new Map()) {
+function findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupAssignments = new Map(), liturgicalAssignments = new Map()) {
   const roleLower = assignment.role.toLowerCase();
   const requiredMinistry = skillToMinistryMap.get(roleLower) || roleLower;
 
@@ -1177,6 +1188,20 @@ function findFamilyMember(assignment, volunteers, skillToMinistryMap, massGroupA
     // CRITICAL: Check if this volunteer is already assigned to another role in this mass
     if (massGroupAssignments.has(vol.id)) {
       continue; // Skip - already assigned to this mass
+    }
+
+    // CRITICAL FIX: Check if this volunteer is already assigned to another mass
+    // for this liturgical celebration (prevents duplicate assignments on same liturgical day)
+    if (assignment.liturgicalCelebration && liturgicalAssignments.has(assignment.liturgicalCelebration)) {
+      const celebrationMap = liturgicalAssignments.get(assignment.liturgicalCelebration);
+      if (celebrationMap.has(vol.id)) {
+        const existingMassKey = celebrationMap.get(vol.id);
+        const currentMassKey = `${assignment.date.toDateString()}_${assignment.time}`;
+        if (existingMassKey !== currentMassKey) {
+          // Volunteer is already assigned to a DIFFERENT mass on this liturgical day
+          continue;
+        }
+      }
     }
 
     let matches = false;
