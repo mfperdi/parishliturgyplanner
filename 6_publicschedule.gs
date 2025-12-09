@@ -307,3 +307,372 @@ function getPublicScheduleLink() {
     );
   }
 }
+
+/**
+ * ====================================================================
+ * AUTO-PUBLISH FUNCTIONALITY
+ * ====================================================================
+ * Automatically publishes current and next month's schedules to public
+ * spreadsheet on a timer. Designed for mobile workflow where admin
+ * can't manually run scripts.
+ */
+
+/**
+ * Auto-publish function that runs on a timer.
+ * Publishes current month and next month (if available).
+ * Safe to run repeatedly - only publishes if MonthlyView exists.
+ * This is the function that gets triggered automatically.
+ */
+function AUTOPUBLISH_runScheduledPublish() {
+  try {
+    Logger.log('=== Auto-Publish Starting ===');
+
+    // Check if auto-publish is enabled
+    const config = HELPER_readConfigSafe();
+    const autoPublishEnabled = config['Auto-Publish Enabled'];
+
+    if (autoPublishEnabled !== true && autoPublishEnabled !== 'TRUE' && autoPublishEnabled !== 'Yes') {
+      Logger.log('Auto-publish is disabled in Config. Skipping.');
+      return 'Auto-publish disabled';
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const monthlyViewSheet = ss.getSheetByName('MonthlyView');
+
+    if (!monthlyViewSheet) {
+      Logger.log('MonthlyView sheet not found. Nothing to publish.');
+      return 'No MonthlyView found';
+    }
+
+    if (monthlyViewSheet.getLastRow() < 5) {
+      Logger.log('MonthlyView appears empty. Nothing to publish.');
+      return 'MonthlyView is empty';
+    }
+
+    // Get the month that MonthlyView represents
+    // Check cell B2 which typically contains the month name
+    let monthString = null;
+    try {
+      const titleCell = monthlyViewSheet.getRange(2, 2).getValue();
+      monthString = AUTOPUBLISH_extractMonthFromTitle(titleCell);
+    } catch (e) {
+      Logger.log(`Could not determine month from MonthlyView: ${e.message}`);
+    }
+
+    if (!monthString) {
+      // Fallback: use current month
+      const now = new Date();
+      monthString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      Logger.log(`Using current month as fallback: ${monthString}`);
+    }
+
+    // Publish the month
+    Logger.log(`Auto-publishing ${monthString}...`);
+    const result = PUBLISH_syncMonthlyViewToPublic(monthString);
+
+    Logger.log('=== Auto-Publish Complete ===');
+    return result;
+
+  } catch (e) {
+    Logger.log(`ERROR in AUTOPUBLISH_runScheduledPublish: ${e.message}`);
+    Logger.log(`Stack trace: ${e.stack}`);
+    // Don't throw - let trigger continue running
+    return `Error: ${e.message}`;
+  }
+}
+
+/**
+ * Extracts month string (YYYY-MM) from MonthlyView title.
+ * @param {string} titleText - The title text from MonthlyView (e.g., "February 2026")
+ * @returns {string|null} - Month string like "2026-02" or null if can't parse
+ */
+function AUTOPUBLISH_extractMonthFromTitle(titleText) {
+  try {
+    if (!titleText || typeof titleText !== 'string') {
+      return null;
+    }
+
+    // Try to parse "February 2026" format
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    for (let i = 0; i < monthNames.length; i++) {
+      if (titleText.includes(monthNames[i])) {
+        // Found month name, now find year
+        const yearMatch = titleText.match(/\b(20\d{2})\b/);
+        if (yearMatch) {
+          const year = yearMatch[1];
+          const month = String(i + 1).padStart(2, '0');
+          return `${year}-${month}`;
+        }
+      }
+    }
+
+    return null;
+  } catch (e) {
+    Logger.log(`Error extracting month from title: ${e.message}`);
+    return null;
+  }
+}
+
+/**
+ * Sets up the auto-publish time-based trigger.
+ * @param {number} intervalMinutes - How often to publish (15, 30, 60, etc.)
+ * @returns {string} Success message
+ */
+function AUTOPUBLISH_setupTrigger(intervalMinutes) {
+  try {
+    // First, remove any existing auto-publish triggers
+    AUTOPUBLISH_removeTrigger();
+
+    // Validate interval
+    const validIntervals = [15, 30, 60, 120, 180, 360];
+    if (!validIntervals.includes(intervalMinutes)) {
+      throw new Error(`Invalid interval. Choose from: ${validIntervals.join(', ')} minutes`);
+    }
+
+    // Create new trigger
+    ScriptApp.newTrigger('AUTOPUBLISH_runScheduledPublish')
+      .timeBased()
+      .everyMinutes(intervalMinutes)
+      .create();
+
+    Logger.log(`Auto-publish trigger created: every ${intervalMinutes} minutes`);
+
+    // Enable auto-publish in Config
+    AUTOPUBLISH_setConfigValue('Auto-Publish Enabled', true);
+    AUTOPUBLISH_setConfigValue('Auto-Publish Interval (Minutes)', intervalMinutes);
+
+    return `✅ Auto-publish enabled!\n\nSchedules will automatically publish every ${intervalMinutes} minutes.\n\nEdit on mobile and changes will appear in the public spreadsheet shortly.`;
+
+  } catch (e) {
+    Logger.log(`ERROR in AUTOPUBLISH_setupTrigger: ${e.message}`);
+    throw new Error(`Could not set up auto-publish: ${e.message}`);
+  }
+}
+
+/**
+ * Removes the auto-publish trigger.
+ * @returns {string} Success message
+ */
+function AUTOPUBLISH_removeTrigger() {
+  try {
+    const triggers = ScriptApp.getProjectTriggers();
+    let removedCount = 0;
+
+    for (let trigger of triggers) {
+      if (trigger.getHandlerFunction() === 'AUTOPUBLISH_runScheduledPublish') {
+        ScriptApp.deleteTrigger(trigger);
+        removedCount++;
+      }
+    }
+
+    Logger.log(`Removed ${removedCount} auto-publish trigger(s)`);
+
+    // Disable in Config
+    AUTOPUBLISH_setConfigValue('Auto-Publish Enabled', false);
+
+    if (removedCount > 0) {
+      return `✅ Auto-publish disabled.\n\nRemoved ${removedCount} trigger(s). You can now publish manually only.`;
+    } else {
+      return 'No auto-publish triggers found.';
+    }
+
+  } catch (e) {
+    Logger.log(`ERROR in AUTOPUBLISH_removeTrigger: ${e.message}`);
+    throw new Error(`Could not remove auto-publish trigger: ${e.message}`);
+  }
+}
+
+/**
+ * Helper: Sets a config value.
+ * @param {string} settingName - The setting name
+ * @param {*} value - The value to set
+ */
+function AUTOPUBLISH_setConfigValue(settingName, value) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const configSheet = ss.getSheetByName(CONSTANTS.SHEETS.CONFIG);
+
+    if (!configSheet) {
+      Logger.log('Config sheet not found');
+      return;
+    }
+
+    const configData = configSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    // Find existing row
+    for (let i = 1; i < configData.length; i++) {
+      if (configData[i][0] === settingName) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    // Add new row if not found
+    if (rowIndex === -1) {
+      rowIndex = configData.length + 1;
+      configSheet.getRange(rowIndex, 1).setValue(settingName);
+    }
+
+    // Set value
+    configSheet.getRange(rowIndex, 2).setValue(value);
+    Logger.log(`Config updated: ${settingName} = ${value}`);
+
+  } catch (e) {
+    Logger.log(`WARNING: Could not update config: ${e.message}`);
+  }
+}
+
+/**
+ * Gets the current auto-publish status.
+ * @returns {Object} Status object with enabled flag and interval
+ */
+function AUTOPUBLISH_getStatus() {
+  try {
+    const config = HELPER_readConfigSafe();
+    const enabled = config['Auto-Publish Enabled'];
+    const interval = config['Auto-Publish Interval (Minutes)'] || 30;
+
+    // Check if trigger actually exists
+    const triggers = ScriptApp.getProjectTriggers();
+    let triggerExists = false;
+
+    for (let trigger of triggers) {
+      if (trigger.getHandlerFunction() === 'AUTOPUBLISH_runScheduledPublish') {
+        triggerExists = true;
+        break;
+      }
+    }
+
+    return {
+      enabled: enabled === true || enabled === 'TRUE' || enabled === 'Yes',
+      interval: interval,
+      triggerExists: triggerExists
+    };
+
+  } catch (e) {
+    Logger.log(`Error getting auto-publish status: ${e.message}`);
+    return {
+      enabled: false,
+      interval: 30,
+      triggerExists: false
+    };
+  }
+}
+
+/**
+ * Menu wrapper: Enable auto-publish with user-selected interval.
+ */
+function enableAutoPublish() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+
+    const response = ui.alert(
+      'Enable Auto-Publish',
+      'This will automatically publish your MonthlyView to the public spreadsheet on a timer.\n\n' +
+      'Perfect for mobile editing - make changes anytime and they\'ll appear in the public schedule automatically.\n\n' +
+      'Continue?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (response !== ui.Button.YES) {
+      return;
+    }
+
+    // Ask for interval
+    const intervalResponse = ui.prompt(
+      'Select Interval',
+      'How often should schedules auto-publish?\n\n' +
+      'Options: 15, 30, 60, 120, 180, 360 (minutes)\n' +
+      'Recommended: 30 minutes\n\n' +
+      'Enter number of minutes:',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (intervalResponse.getSelectedButton() !== ui.Button.OK) {
+      return;
+    }
+
+    const interval = parseInt(intervalResponse.getResponseText());
+
+    if (isNaN(interval)) {
+      ui.alert('Invalid Input', 'Please enter a number.', ui.ButtonSet.OK);
+      return;
+    }
+
+    // Set up trigger
+    const result = AUTOPUBLISH_setupTrigger(interval);
+    ui.alert('✅ Success', result, ui.ButtonSet.OK);
+
+  } catch (e) {
+    const ui = SpreadsheetApp.getUi();
+    ui.alert('❌ Error', `Could not enable auto-publish:\n\n${e.message}`, ui.ButtonSet.OK);
+    Logger.log(`ERROR in enableAutoPublish: ${e.message}\n${e.stack}`);
+  }
+}
+
+/**
+ * Menu wrapper: Disable auto-publish.
+ */
+function disableAutoPublish() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+
+    const response = ui.alert(
+      'Disable Auto-Publish',
+      'This will stop automatic publishing to the public spreadsheet.\n\n' +
+      'You\'ll need to manually publish schedules using "Publish Current Month".\n\n' +
+      'Continue?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (response !== ui.Button.YES) {
+      return;
+    }
+
+    const result = AUTOPUBLISH_removeTrigger();
+    ui.alert('✅ Success', result, ui.ButtonSet.OK);
+
+  } catch (e) {
+    const ui = SpreadsheetApp.getUi();
+    ui.alert('❌ Error', `Could not disable auto-publish:\n\n${e.message}`, ui.ButtonSet.OK);
+    Logger.log(`ERROR in disableAutoPublish: ${e.message}\n${e.stack}`);
+  }
+}
+
+/**
+ * Menu wrapper: Show auto-publish status.
+ */
+function showAutoPublishStatus() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    const status = AUTOPUBLISH_getStatus();
+
+    let message = '';
+    if (status.enabled && status.triggerExists) {
+      message = `✅ Auto-Publish is ENABLED\n\n` +
+                `Publishing every ${status.interval} minutes\n\n` +
+                `Your MonthlyView will automatically sync to the public spreadsheet. ` +
+                `Edit assignments on mobile and changes will appear shortly!`;
+    } else if (status.enabled && !status.triggerExists) {
+      message = `⚠️ Auto-Publish is PARTIALLY ENABLED\n\n` +
+                `Config says enabled, but no trigger found.\n\n` +
+                `Use "Enable Auto-Publish" to fix this.`;
+    } else {
+      message = `❌ Auto-Publish is DISABLED\n\n` +
+                `You must manually publish schedules using "Publish Current Month".\n\n` +
+                `Use "Enable Auto-Publish" to turn on automatic publishing.`;
+    }
+
+    ui.alert('Auto-Publish Status', message, ui.ButtonSet.OK);
+
+  } catch (e) {
+    const ui = SpreadsheetApp.getUi();
+    ui.alert('❌ Error', `Could not check status:\n\n${e.message}`, ui.ButtonSet.OK);
+    Logger.log(`ERROR in showAutoPublishStatus: ${e.message}\n${e.stack}`);
+  }
+}
