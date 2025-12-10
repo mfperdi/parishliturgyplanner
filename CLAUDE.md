@@ -645,6 +645,38 @@ Available colors: White, Red, Green, Violet, Rose, Black
 
 **Note**: The `HELPER_getLiturgicalColorHex()` function is defined in 0_liturgicalcolors.gs. A reference note exists in 0b_helper.gs for historical reasons.
 
+### Notification Standards
+
+The codebase uses a **standardized notification system** for consistent user experience.
+
+**Helper Functions** (in `0b_helper.gs` lines 824-1124):
+- `HELPER_showAlert(title, message, type)` - Informational alerts
+- `HELPER_showSuccess(title, message)` - Success confirmations
+- `HELPER_showError(title, error, context)` - Errors with troubleshooting hints
+- `HELPER_confirmAction(title, message, options)` - YES/NO confirmations
+- `HELPER_promptUser(title, message, options)` - User input with validation
+- `HELPER_showValidationReport(title, items, summary)` - Validation results
+
+**When to Use**:
+- **Sidebar operations**: Use `Sidebar.html` JavaScript functions (`showLoading`, `showSuccess`, `showError`)
+- **Menu operations**: Use HELPER notification functions
+- **Confirmations before destructive actions**: Use `HELPER_confirmAction()` with `type: 'danger'`
+- **Errors**: Always include `context` parameter for troubleshooting hints
+  - Contexts: `'calendar'`, `'validation'`, `'schedule'`, `'assignment'`, `'timeoffs'`, `'print'`, `'form'`, `'archive'`
+
+**Example**:
+```javascript
+try {
+  const result = ARCHIVE_createArchiveFile(year);
+  HELPER_showSuccess('Archive Complete', result.message);
+} catch (e) {
+  HELPER_showError('Archive Failed', e, 'archive');
+  throw e;
+}
+```
+
+**Full Documentation**: See `NOTIFICATION_STANDARDS.md` for complete usage guide, error message best practices, and migration patterns.
+
 ### Error Handling Pattern
 
 ```javascript
@@ -1134,6 +1166,16 @@ The system includes comprehensive documentation to support deployment and testin
 **Codebase Version**: Production-ready with reorganized code structure
 
 **Recent Changes**:
+- **Notification System Standardization** (0b_helper.gs, 6_archivelogic.gs, 6_publicschedule.gs, NOTIFICATION_STANDARDS.md):
+  - Created standardized notification helper functions in 0b_helper.gs (lines 824-1124)
+  - Six helper functions: `HELPER_showAlert()`, `HELPER_showSuccess()`, `HELPER_showError()`, `HELPER_confirmAction()`, `HELPER_promptUser()`, `HELPER_showValidationReport()`
+  - Context-aware error messages with automatic troubleshooting hints
+  - 8 error contexts supported: calendar, validation, schedule, assignment, timeoffs, print, form, archive
+  - Refactored 68 notification calls across high-notification files (6_archivelogic.gs, 6_publicschedule.gs)
+  - Consistent emoji usage, formatting, and tone across all user-facing messages
+  - Comprehensive documentation in NOTIFICATION_STANDARDS.md (decision trees, examples, migration guide)
+  - Hybrid notification architecture: Sidebar for workflows, dialogs for admin tools
+  - Added Notification Standards section to CLAUDE.md
 - **Code Structure Reorganization** (7_tests.gs, 0_debug.gs):
   - Consolidated all TEST_*.gs files into single `7_tests.gs` file
   - Merged DEBUG functions from `DEBUG_timeoff_analysis.gs` into `0_debug.gs`
