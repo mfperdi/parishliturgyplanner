@@ -218,9 +218,11 @@ function publishCurrentMonthSchedule() {
     const months = getMonthsForSidebar();
 
     if (months.length === 0) {
-      ui.alert('No Calendar Data',
-               'Please generate the liturgical calendar first (Show Sidebar > Generate Calendar)',
-               ui.ButtonSet.OK);
+      HELPER_showError(
+        'No Calendar Data',
+        'Please generate the liturgical calendar first.',
+        'calendar'
+      );
       return;
     }
 
@@ -231,29 +233,36 @@ function publishCurrentMonthSchedule() {
     });
     promptText += '\nEnter the number (1-' + months.length + '):';
 
-    const response = ui.prompt('Publish Schedule', promptText, ui.ButtonSet.OK_CANCEL);
+    const result = HELPER_promptUser(
+      'Publish Schedule',
+      promptText,
+      {
+        required: true,
+        validator: (value) => {
+          const selection = parseInt(value);
+          if (isNaN(selection) || selection < 1 || selection > months.length) {
+            return { valid: false, error: `Please enter a number between 1 and ${months.length}` };
+          }
+          return { valid: true };
+        }
+      }
+    );
 
-    if (response.getSelectedButton() !== ui.Button.OK) {
+    if (!result.success) {
       return; // User cancelled
     }
 
-    const selection = parseInt(response.getResponseText());
-
-    if (isNaN(selection) || selection < 1 || selection > months.length) {
-      ui.alert('Invalid Selection', 'Please enter a number between 1 and ' + months.length, ui.ButtonSet.OK);
-      return;
-    }
+    const selection = parseInt(result.value);
 
     const selectedMonth = months[selection - 1].value;
     const selectedMonthName = months[selection - 1].display;
 
     // Publish the selected month
-    const result = PUBLISH_syncMonthlyViewToPublic(selectedMonth);
-    ui.alert('✅ Schedule Published', result, ui.ButtonSet.OK);
+    const publishResult = PUBLISH_syncMonthlyViewToPublic(selectedMonth);
+    HELPER_showSuccess('Schedule Published', publishResult);
 
   } catch (e) {
-    const ui = SpreadsheetApp.getUi();
-    ui.alert('❌ Error', `Could not publish schedule:\n\n${e.message}`, ui.ButtonSet.OK);
+    HELPER_showError('Publish Failed', e, 'print');
     Logger.log(`ERROR in publishCurrentMonthSchedule: ${e.message}\n${e.stack}`);
   }
 }
@@ -282,10 +291,10 @@ function getPublicScheduleLink() {
     }
 
     if (!publicSpreadsheetId) {
-      SpreadsheetApp.getUi().alert(
+      HELPER_showAlert(
         'No Public Schedule Yet',
         'You haven\'t published any schedules yet.\n\nUse "Admin Tools > Public Schedule > Publish Current Month" to create your first public schedule.',
-        SpreadsheetApp.getUi().ButtonSet.OK
+        'info'
       );
       return;
     }
@@ -293,18 +302,14 @@ function getPublicScheduleLink() {
     const publicSpreadsheet = SpreadsheetApp.openById(publicSpreadsheetId);
     const url = publicSpreadsheet.getUrl();
 
-    SpreadsheetApp.getUi().alert(
-      '📋 Public Schedule Link',
+    HELPER_showAlert(
+      'Public Schedule Link',
       `Share this link with your volunteers:\n\n${url}\n\nYou can manage access via File > Share in the public spreadsheet.`,
-      SpreadsheetApp.getUi().ButtonSet.OK
+      'info'
     );
 
   } catch (e) {
-    SpreadsheetApp.getUi().alert(
-      '❌ Error',
-      `Could not get public schedule link:\n\n${e.message}`,
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
+    HELPER_showError('Get Link Failed', e, 'print');
   }
 }
 
@@ -569,48 +574,49 @@ function AUTOPUBLISH_getStatus() {
  */
 function enableAutoPublish() {
   try {
-    const ui = SpreadsheetApp.getUi();
-
-    const response = ui.alert(
+    const confirmed = HELPER_confirmAction(
       'Enable Auto-Publish',
       'This will automatically publish your MonthlyView to the public spreadsheet on a timer.\n\n' +
-      'Perfect for mobile editing - make changes anytime and they\'ll appear in the public schedule automatically.\n\n' +
-      'Continue?',
-      ui.ButtonSet.YES_NO
+      'Perfect for mobile editing - make changes anytime and they\'ll appear in the public schedule automatically.',
+      { type: 'info' }
     );
 
-    if (response !== ui.Button.YES) {
+    if (!confirmed) {
       return;
     }
 
     // Ask for interval
-    const intervalResponse = ui.prompt(
+    const intervalResult = HELPER_promptUser(
       'Select Interval',
       'How often should schedules auto-publish?\n\n' +
       'Options: 15, 30, 60, 120, 180, 360 (minutes)\n' +
       'Recommended: 30 minutes\n\n' +
       'Enter number of minutes:',
-      ui.ButtonSet.OK_CANCEL
+      {
+        required: true,
+        validator: (value) => {
+          const interval = parseInt(value);
+          const validIntervals = [15, 30, 60, 120, 180, 360];
+          if (isNaN(interval) || !validIntervals.includes(interval)) {
+            return { valid: false, error: `Please enter one of: ${validIntervals.join(', ')}` };
+          }
+          return { valid: true };
+        }
+      }
     );
 
-    if (intervalResponse.getSelectedButton() !== ui.Button.OK) {
+    if (!intervalResult.success) {
       return;
     }
 
-    const interval = parseInt(intervalResponse.getResponseText());
-
-    if (isNaN(interval)) {
-      ui.alert('Invalid Input', 'Please enter a number.', ui.ButtonSet.OK);
-      return;
-    }
+    const interval = parseInt(intervalResult.value);
 
     // Set up trigger
     const result = AUTOPUBLISH_setupTrigger(interval);
-    ui.alert('✅ Success', result, ui.ButtonSet.OK);
+    HELPER_showSuccess('Auto-Publish Enabled', result);
 
   } catch (e) {
-    const ui = SpreadsheetApp.getUi();
-    ui.alert('❌ Error', `Could not enable auto-publish:\n\n${e.message}`, ui.ButtonSet.OK);
+    HELPER_showError('Enable Auto-Publish Failed', e, 'form');
     Logger.log(`ERROR in enableAutoPublish: ${e.message}\n${e.stack}`);
   }
 }
@@ -620,26 +626,22 @@ function enableAutoPublish() {
  */
 function disableAutoPublish() {
   try {
-    const ui = SpreadsheetApp.getUi();
-
-    const response = ui.alert(
+    const confirmed = HELPER_confirmAction(
       'Disable Auto-Publish',
       'This will stop automatic publishing to the public spreadsheet.\n\n' +
-      'You\'ll need to manually publish schedules using "Publish Current Month".\n\n' +
-      'Continue?',
-      ui.ButtonSet.YES_NO
+      'You\'ll need to manually publish schedules using "Publish Current Month".',
+      { type: 'warning' }
     );
 
-    if (response !== ui.Button.YES) {
+    if (!confirmed) {
       return;
     }
 
     const result = AUTOPUBLISH_removeTrigger();
-    ui.alert('✅ Success', result, ui.ButtonSet.OK);
+    HELPER_showSuccess('Auto-Publish Disabled', result);
 
   } catch (e) {
-    const ui = SpreadsheetApp.getUi();
-    ui.alert('❌ Error', `Could not disable auto-publish:\n\n${e.message}`, ui.ButtonSet.OK);
+    HELPER_showError('Disable Auto-Publish Failed', e, 'form');
     Logger.log(`ERROR in disableAutoPublish: ${e.message}\n${e.stack}`);
   }
 }
@@ -649,30 +651,30 @@ function disableAutoPublish() {
  */
 function showAutoPublishStatus() {
   try {
-    const ui = SpreadsheetApp.getUi();
     const status = AUTOPUBLISH_getStatus();
 
     let message = '';
+    let type = 'info';
+
     if (status.enabled && status.triggerExists) {
-      message = `✅ Auto-Publish is ENABLED\n\n` +
-                `Publishing every ${status.interval} minutes\n\n` +
+      message = `Publishing every ${status.interval} minutes\n\n` +
                 `Your MonthlyView will automatically sync to the public spreadsheet. ` +
                 `Edit assignments on mobile and changes will appear shortly!`;
+      type = 'success';
     } else if (status.enabled && !status.triggerExists) {
-      message = `⚠️ Auto-Publish is PARTIALLY ENABLED\n\n` +
-                `Config says enabled, but no trigger found.\n\n` +
+      message = `Config says enabled, but no trigger found.\n\n` +
                 `Use "Enable Auto-Publish" to fix this.`;
+      type = 'warning';
     } else {
-      message = `❌ Auto-Publish is DISABLED\n\n` +
-                `You must manually publish schedules using "Publish Current Month".\n\n` +
+      message = `You must manually publish schedules using "Publish Current Month".\n\n` +
                 `Use "Enable Auto-Publish" to turn on automatic publishing.`;
+      type = 'info';
     }
 
-    ui.alert('Auto-Publish Status', message, ui.ButtonSet.OK);
+    HELPER_showAlert('Auto-Publish Status', message, type);
 
   } catch (e) {
-    const ui = SpreadsheetApp.getUi();
-    ui.alert('❌ Error', `Could not check status:\n\n${e.message}`, ui.ButtonSet.OK);
+    HELPER_showError('Status Check Failed', e, 'form');
     Logger.log(`ERROR in showAutoPublishStatus: ${e.message}\n${e.stack}`);
   }
 }

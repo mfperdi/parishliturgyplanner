@@ -509,28 +509,26 @@ function ARCHIVE_promptArchiveCurrentYear() {
     const currentYear = config["Year to Schedule"];
 
     if (!currentYear) {
-      SpreadsheetApp.getUi().alert(
-        'Error',
+      HELPER_showError(
+        'Configuration Error',
         'Cannot determine year to archive. Please set "Year to Schedule" in Config sheet.',
-        SpreadsheetApp.getUi().ButtonSet.OK
+        'archive'
       );
       return;
     }
 
     // Confirmation dialog
-    const ui = SpreadsheetApp.getUi();
-    const response = ui.alert(
+    const confirmed = HELPER_confirmAction(
       `Archive ${currentYear} Data?`,
       `This will:\n\n` +
       `✓ Create a new spreadsheet: "${config["Parish Name"] || "Parish"} - ${currentYear} Archive"\n` +
       `✓ Copy year-specific data (Assignments, Calendar, Timeoffs)\n` +
       `✓ Store in the same Google Drive folder\n\n` +
-      `Current sheets will NOT be cleared.\n\n` +
-      `Continue?`,
-      ui.ButtonSet.YES_NO
+      `Current sheets will NOT be cleared.`,
+      { type: 'info' }
     );
 
-    if (response !== ui.Button.YES) {
+    if (!confirmed) {
       return;
     }
 
@@ -544,8 +542,8 @@ function ARCHIVE_promptArchiveCurrentYear() {
     SpreadsheetApp.getActive().toast('', '', 1);
 
     if (result.success) {
-      ui.alert(
-        '✓ Archive Complete!',
+      HELPER_showSuccess(
+        'Archive Complete!',
         `Archive created: ${result.fileName}\n\n` +
         `Archived sheets:\n` +
         result.sheets.map(s => `  • ${s.name}: ${s.rows} rows`).join('\n') + '\n\n' +
@@ -553,23 +551,14 @@ function ARCHIVE_promptArchiveCurrentYear() {
         `Next steps:\n` +
         `  1. Update Config: "Year to Schedule" → ${currentYear + 1}\n` +
         `  2. Generate ${currentYear + 1} liturgical calendar\n` +
-        `  3. Optionally: Clear current data (Admin Tools → Clear Old Data)`,
-        ui.ButtonSet.OK
+        `  3. Optionally: Clear current data (Admin Tools → Clear Old Data)`
       );
     } else {
-      ui.alert(
-        'Archive Failed',
-        result.message,
-        ui.ButtonSet.OK
-      );
+      HELPER_showError('Archive Failed', result.message, 'archive');
     }
 
   } catch (e) {
-    SpreadsheetApp.getUi().alert(
-      'Error',
-      `Archive failed: ${e.message}`,
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
+    HELPER_showError('Archive Failed', e, 'archive');
   }
 }
 
@@ -581,10 +570,10 @@ function ARCHIVE_showArchiveList() {
     const archives = ARCHIVE_listArchives();
 
     if (archives.length === 0) {
-      SpreadsheetApp.getUi().alert(
+      HELPER_showAlert(
         'No Archives Found',
         'No archive files found in this folder.\n\nArchives will appear here after you create your first year-end archive.',
-        SpreadsheetApp.getUi().ButtonSet.OK
+        'info'
       );
       return;
     }
@@ -600,18 +589,10 @@ function ARCHIVE_showArchiveList() {
 
     message += `\nClick any URL above to open the archive file.`;
 
-    SpreadsheetApp.getUi().alert(
-      'Archive Files',
-      message,
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
+    HELPER_showAlert('Archive Files', message, 'info');
 
   } catch (e) {
-    SpreadsheetApp.getUi().alert(
-      'Error',
-      `Could not list archives: ${e.message}`,
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
+    HELPER_showError('List Archives Failed', e, 'archive');
   }
 }
 
@@ -620,34 +601,31 @@ function ARCHIVE_showArchiveList() {
  */
 function ARCHIVE_promptClearOldData() {
   try {
-    const ui = SpreadsheetApp.getUi();
-
     // Warning dialog
-    const response = ui.alert(
-      '⚠️ Clear Old Data?',
+    const confirmed = HELPER_confirmAction(
+      'Clear Old Data?',
       `This will permanently DELETE all data from:\n\n` +
       `  • LiturgicalCalendar\n` +
       `  • Assignments\n` +
       `  • Timeoffs\n\n` +
       `Only the header rows will remain.\n\n` +
       `⚠️ Make sure you archived the data first!\n\n` +
-      `This action cannot be undone (except via Version History).\n\n` +
-      `Continue?`,
-      ui.ButtonSet.YES_NO
+      `This action cannot be undone (except via Version History).`,
+      { type: 'danger' }
     );
 
-    if (response !== ui.Button.YES) {
+    if (!confirmed) {
       return;
     }
 
     // Second confirmation
-    const response2 = ui.alert(
+    const confirmed2 = HELPER_confirmAction(
       'Final Confirmation',
       'Are you absolutely sure you want to clear all data?',
-      ui.ButtonSet.YES_NO
+      { type: 'danger' }
     );
 
-    if (response2 !== ui.Button.YES) {
+    if (!confirmed2) {
       return;
     }
 
@@ -657,24 +635,15 @@ function ARCHIVE_promptClearOldData() {
     SpreadsheetApp.getActive().toast('', '', 1);
 
     if (result.success) {
-      ui.alert(
-        '✓ Data Cleared',
-        result.message + '\n\nYou can now generate a new calendar and schedule for the new year.',
-        ui.ButtonSet.OK
+      HELPER_showSuccess(
+        'Data Cleared',
+        result.message + '\n\nYou can now generate a new calendar and schedule for the new year.'
       );
     } else {
-      ui.alert(
-        'Error',
-        result.message,
-        ui.ButtonSet.OK
-      );
+      HELPER_showError('Clear Data Failed', result.message, 'archive');
     }
 
   } catch (e) {
-    SpreadsheetApp.getUi().alert(
-      'Error',
-      `Could not clear data: ${e.message}`,
-      SpreadsheetApp.getUi().ButtonSet.OK
-    );
+    HELPER_showError('Clear Data Failed', e, 'archive');
   }
 }
