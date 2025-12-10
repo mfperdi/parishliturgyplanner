@@ -690,9 +690,9 @@ function generateCurrentMonthSchedule() {
     const monthString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
     
     const result = generatePrintableSchedule(monthString);
-    SpreadsheetApp.getUi().alert('Success', result, SpreadsheetApp.getUi().ButtonSet.OK);
+    HELPER_showSuccess('Print Schedule Generated', result);
   } catch (e) {
-    SpreadsheetApp.getUi().alert('Error', `Could not generate schedule: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
+    HELPER_showError('Generate Print Schedule Failed', e, 'print');
   }
 }
 

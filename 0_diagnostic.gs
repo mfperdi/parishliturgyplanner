@@ -277,17 +277,28 @@ function formatDiagnostics(diagnostics) {
  * Quick menu function to run diagnostics for current month
  */
 function runAssignmentDiagnostic() {
-  const ui = SpreadsheetApp.getUi();
-  const response = ui.prompt('Assignment Diagnostic', 'Enter month to check (YYYY-MM format, e.g., 2026-01):', ui.ButtonSet.OK_CANCEL);
+  const promptResult = HELPER_promptUser(
+    'Assignment Diagnostic',
+    'Enter month to check (YYYY-MM format, e.g., 2026-01):',
+    {
+      required: true,
+      validator: (value) => {
+        if (!/^\d{4}-\d{2}$/.test(value)) {
+          return { valid: false, error: 'Please use format YYYY-MM (e.g., 2026-01)' };
+        }
+        return { valid: true };
+      }
+    }
+  );
 
-  if (response.getSelectedButton() === ui.Button.OK) {
-    const monthString = response.getResponseText().trim();
+  if (promptResult.success) {
+    const monthString = promptResult.value;
 
     try {
       const result = DIAGNOSTIC_checkAssignmentReadiness(monthString);
-      ui.alert('Diagnostic Results', result, ui.ButtonSet.OK);
+      HELPER_showAlert('Diagnostic Results', result, 'info');
     } catch (e) {
-      ui.alert('Error', `Diagnostic failed: ${e.message}`, ui.ButtonSet.OK);
+      HELPER_showError('Diagnostic Failed', e, 'assignment');
     }
   }
 }

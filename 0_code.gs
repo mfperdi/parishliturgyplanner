@@ -343,15 +343,18 @@ function reviewTimeoffs(monthString) {
     Logger.log(summary);
 
     // Ask user if they want to bulk approve clean timeoffs
-    const ui = SpreadsheetApp.getUi();
-    const promptMessage = summary + "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+    const promptMessage = summary + "\n\n" +
                           "Do you want to BULK APPROVE all clean timeoffs (without ⚠️ warnings)?\n\n" +
                           "• YES = Auto-approve " + cleanRequests.length + " clean request" + (cleanRequests.length !== 1 ? 's' : '') + "\n" +
                           "• NO = Open sheet for manual review";
 
-    const response = ui.alert('Review Timeoffs', promptMessage, ui.ButtonSet.YES_NO);
+    const confirmed = HELPER_confirmAction(
+      'Review Timeoffs',
+      promptMessage,
+      { type: 'info' }
+    );
 
-    if (response === ui.Button.YES) {
+    if (confirmed) {
       // Bulk approve clean requests
       const result = TIMEOFFS_bulkApprovePending();
       Logger.log(result);
@@ -415,9 +418,11 @@ function promptUpdateTimeoffForm() {
     const months = getMonthsForSidebar();
 
     if (months.length === 0) {
-      ui.alert('No Calendar Data',
-               'Please generate the liturgical calendar first (Show Sidebar > Generate Calendar)',
-               ui.ButtonSet.OK);
+      HELPER_showError(
+        'No Calendar Data',
+        'Please generate the liturgical calendar first.',
+        'calendar'
+      );
       return;
     }
 
@@ -428,28 +433,34 @@ function promptUpdateTimeoffForm() {
     });
     promptText += '\nEnter the number (1-' + months.length + '):';
 
-    const response = ui.prompt('Update Timeoff Form', promptText, ui.ButtonSet.OK_CANCEL);
+    const result = HELPER_promptUser(
+      'Update Timeoff Form',
+      promptText,
+      {
+        required: true,
+        validator: (value) => {
+          const selection = parseInt(value);
+          if (isNaN(selection) || selection < 1 || selection > months.length) {
+            return { valid: false, error: `Please enter a number between 1 and ${months.length}` };
+          }
+          return { valid: true };
+        }
+      }
+    );
 
-    if (response.getSelectedButton() !== ui.Button.OK) {
+    if (!result.success) {
       return; // User cancelled
     }
 
-    const selection = parseInt(response.getResponseText());
-
-    if (isNaN(selection) || selection < 1 || selection > months.length) {
-      ui.alert('Invalid Selection', 'Please enter a number between 1 and ' + months.length, ui.ButtonSet.OK);
-      return;
-    }
-
+    const selection = parseInt(result.value);
     const selectedMonth = months[selection - 1].value;
 
     // Update the form
-    const result = TIMEOFFS_updateFormForMonth(selectedMonth);
-    ui.alert('Success', result, ui.ButtonSet.OK);
+    const updateResult = TIMEOFFS_updateFormForMonth(selectedMonth);
+    HELPER_showSuccess('Timeoff Form Updated', updateResult);
 
   } catch (e) {
-    const ui = SpreadsheetApp.getUi();
-    ui.alert('Error', 'Could not update form: ' + e.message, ui.ButtonSet.OK);
+    HELPER_showError('Update Form Failed', e, 'form');
     Logger.log(`ERROR in promptUpdateTimeoffForm: ${e.message}\n${e.stack}`);
   }
 }
@@ -471,7 +482,7 @@ function setupAssignmentCheckboxes() {
     const lastRow = assignmentsSheet.getLastRow();
 
     if (lastRow <= 1) {
-      SpreadsheetApp.getUi().alert('No Data', 'No assignment data found to format.', SpreadsheetApp.getUi().ButtonSet.OK);
+      HELPER_showAlert('No Data', 'No assignment data found to format.', 'info');
       return;
     }
 
@@ -490,16 +501,15 @@ function setupAssignmentCheckboxes() {
 
     checkboxRange.setDataValidation(checkboxValidation);
 
-    SpreadsheetApp.getUi().alert(
-      'Success',
-      `Formatted ${lastRow - 1} rows in the IS_ANTICIPATED column as checkboxes.`,
-      SpreadsheetApp.getUi().ButtonSet.OK
+    HELPER_showSuccess(
+      'Checkboxes Formatted',
+      `Formatted ${lastRow - 1} rows in the IS_ANTICIPATED column as checkboxes.`
     );
 
     Logger.log(`Successfully formatted IS_ANTICIPATED column as checkboxes for ${lastRow - 1} rows`);
 
   } catch (e) {
-    SpreadsheetApp.getUi().alert('Error', 'Could not format checkboxes: ' + e.message, SpreadsheetApp.getUi().ButtonSet.OK);
+    HELPER_showError('Format Checkboxes Failed', e, 'schedule');
     Logger.log(`ERROR in setupAssignmentCheckboxes: ${e.message}\n${e.stack}`);
   }
 }
@@ -642,14 +652,13 @@ function exportCurrentSchedule() {
     headerRange.setBackground('#e6f4ea');
     
     const url = newSs.getUrl();
-    SpreadsheetApp.getUi().alert(
-      'Export Complete', 
-      `Schedule exported successfully!\n\nNew spreadsheet created:\n${url}`, 
-      SpreadsheetApp.getUi().ButtonSet.OK
+    HELPER_showSuccess(
+      'Export Complete',
+      `Schedule exported successfully!\n\nNew spreadsheet created:\n${url}`
     );
-    
+
   } catch (e) {
-    SpreadsheetApp.getUi().alert('Export Error', `Could not export schedule: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
+    HELPER_showError('Export Failed', e, 'schedule');
   }
 }
 
@@ -659,9 +668,10 @@ function exportCurrentSchedule() {
 function showDataValidation() {
   try {
     const message = runDataValidation();
-    SpreadsheetApp.getUi().alert('Data Validation', message, SpreadsheetApp.getUi().ButtonSet.OK);
+    // runDataValidation() returns a formatted string, so we'll show it as-is
+    HELPER_showAlert('Data Validation', message, 'info');
   } catch (e) {
-    SpreadsheetApp.getUi().alert('Validation Error', `Could not run validation: ${e.message}`, SpreadsheetApp.getUi().ButtonSet.OK);
+    HELPER_showError('Validation Failed', e, 'validation');
   }
 }
 
@@ -699,6 +709,6 @@ function showDebugPanel() {
   } catch (e) {
     message += `Error reading data: ${e.message}\n`;
   }
-  
-  SpreadsheetApp.getUi().alert('Debug Information', message, SpreadsheetApp.getUi().ButtonSet.OK);
+
+  HELPER_showAlert('Debug Information', message, 'info');
 }
