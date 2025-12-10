@@ -139,11 +139,10 @@ function ONEDIT_validateAssignment(sheet, row) {
     const volunteer = ONEDIT_findVolunteer(volunteerId, volunteerName);
 
     if (!volunteer) {
-      const ui = SpreadsheetApp.getUi();
-      const response = ui.alert(
-        '❌ Volunteer Not Found',
+      HELPER_showError(
+        'Volunteer Not Found',
         `Cannot find volunteer "${volunteerName || volunteerId}" in the Volunteers sheet.\n\nPlease check the spelling or Volunteer ID.`,
-        ui.ButtonSet.OK
+        'assignment'
       );
 
       // Clear the invalid assignment (safe for typed columns)
@@ -416,22 +415,17 @@ function ONEDIT_checkWhitelistMatch(notes, eventId, date) {
  * @returns {boolean} True if user wants to override, false if cancelled
  */
 function ONEDIT_showValidationDialog(volunteerName, warnings) {
-  const ui = SpreadsheetApp.getUi();
+  const message = `⚠️  Assignment Warnings for ${volunteerName}:\n\n` +
+                 warnings.join('\n\n') + '\n\n' +
+                 'Do you want to assign this volunteer anyway?\n\n' +
+                 '• YES: Proceed with override\n' +
+                 '• NO: Cancel assignment';
 
-  let message = `⚠️  Assignment Warnings for ${volunteerName}:\n\n`;
-  message += warnings.join('\n\n');
-  message += '\n\n────────────────────────────\n';
-  message += 'Do you want to assign this volunteer anyway?\n\n';
-  message += '• Click YES to proceed with override\n';
-  message += '• Click NO to cancel assignment';
-
-  const response = ui.alert(
-    '⚠️  Assignment Validation Warning',
+  return HELPER_confirmAction(
+    'Assignment Validation Warning',
     message,
-    ui.ButtonSet.YES_NO
+    { type: 'warning' }
   );
-
-  return response === ui.Button.YES;
 }
 
 /**
@@ -454,7 +448,7 @@ function ONEDIT_addWarningNote(sheet, row, warnings, currentNotes) {
  */
 function ONEDIT_setupConditionalFormatting() {
   Logger.log('ONEDIT_setupConditionalFormatting: Notes column removed, conditional formatting no longer applies');
-  SpreadsheetApp.getUi().alert(
+  HELPER_showAlert(
     'Conditional Formatting Updated',
     'The Notes-based conditional formatting has been removed.\n\n' +
     'Validation warnings are now shown directly in helper columns:\n' +
@@ -462,7 +456,7 @@ function ONEDIT_setupConditionalFormatting() {
     '• Column N: Active?\n' +
     '• Column O: Free?\n\n' +
     'You can manually add conditional formatting based on these columns if desired.',
-    SpreadsheetApp.getUi().ButtonSet.OK
+    'info'
   );
   return;
 }
