@@ -1056,3 +1056,350 @@ function TEST_weekendGroupingLogic() {
     Logger.log(`  Status: ${allFound ? '✅ PASS' : '❌ FAIL'}\n`);
   }
 }
+
+// ====================================================================
+// NOTIFICATION HELPER TESTS
+// ====================================================================
+
+/**
+ * Test all notification helper functions
+ * Tests the standardized notification system created in 0b_helper.gs
+ *
+ * This is an INTERACTIVE test - it will show actual dialogs for you to verify
+ * Run this function to ensure all notification patterns work correctly
+ */
+function TEST_notificationHelpers() {
+  Logger.log('=== NOTIFICATION HELPER TESTS ===\n');
+  Logger.log('This test will show several dialogs. Click through them to verify formatting.\n');
+
+  // Give user a heads up
+  const ui = SpreadsheetApp.getUi();
+  const startTest = ui.alert(
+    '🧪 Notification Helper Tests',
+    'This will test all 6 notification helper functions by showing sample dialogs.\n\n' +
+    'You will see:\n' +
+    '• Alert messages (4 types)\n' +
+    '• Confirmation dialogs (3 types)\n' +
+    '• User input prompts (with validation)\n' +
+    '• Error messages (with troubleshooting)\n' +
+    '• Success messages\n' +
+    '• Validation reports\n\n' +
+    'Ready to start?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (startTest !== ui.Button.YES) {
+    Logger.log('Test cancelled by user');
+    return;
+  }
+
+  Logger.log('Starting tests...\n');
+
+  // Test 1: HELPER_showAlert() - All types
+  Logger.log('TEST 1: HELPER_showAlert() - Testing all 4 types');
+
+  HELPER_showAlert(
+    'Info Alert Test',
+    'This is an informational alert.\n\nIt uses the ℹ️ emoji and standard formatting.',
+    'info'
+  );
+  Logger.log('  ✓ Info alert shown');
+
+  HELPER_showAlert(
+    'Success Alert Test',
+    'This is a success alert.\n\nIt uses the ✅ emoji.',
+    'success'
+  );
+  Logger.log('  ✓ Success alert shown');
+
+  HELPER_showAlert(
+    'Warning Alert Test',
+    'This is a warning alert.\n\nIt uses the ⚠️ emoji.',
+    'warning'
+  );
+  Logger.log('  ✓ Warning alert shown');
+
+  HELPER_showAlert(
+    'Error Alert Test',
+    'This is an error alert.\n\nIt uses the ❌ emoji.',
+    'error'
+  );
+  Logger.log('  ✓ Error alert shown\n');
+
+  // Test 2: HELPER_showSuccess()
+  Logger.log('TEST 2: HELPER_showSuccess()');
+
+  HELPER_showSuccess(
+    'Operation Complete',
+    'Successfully generated 365 days of liturgical calendar.\n\n' +
+    'Next steps:\n' +
+    '  1. Generate schedule for current month\n' +
+    '  2. Auto-assign volunteers'
+  );
+  Logger.log('  ✓ Success message shown\n');
+
+  // Test 3: HELPER_showError() - With context
+  Logger.log('TEST 3: HELPER_showError() - Testing with troubleshooting hints');
+
+  HELPER_showError(
+    'Assignment Failed',
+    'Could not auto-assign volunteers: No Active volunteers found with the required ministry roles.',
+    'assignment'
+  );
+  Logger.log('  ✓ Error with assignment context shown (check for troubleshooting hints)\n');
+
+  // Test another context
+  HELPER_showError(
+    'Calendar Generation Failed',
+    'Sheet \'SaintsCalendar\' not found',
+    'calendar'
+  );
+  Logger.log('  ✓ Error with calendar context shown (check for troubleshooting hints)\n');
+
+  // Test 4: HELPER_confirmAction() - All types
+  Logger.log('TEST 4: HELPER_confirmAction() - Testing confirmation dialogs');
+
+  const infoConfirm = HELPER_confirmAction(
+    'Archive Data?',
+    'This will create a new archive file for the current year.\n\n' +
+    'Current data will NOT be affected.',
+    { type: 'info' }
+  );
+  Logger.log(`  ✓ Info confirmation shown - User chose: ${infoConfirm ? 'YES' : 'NO'}`);
+
+  const warningConfirm = HELPER_confirmAction(
+    'Regenerate Schedule?',
+    'This will clear all existing assignments for this month.\n\n' +
+    'Manual assignments will be lost.',
+    { type: 'warning' }
+  );
+  Logger.log(`  ✓ Warning confirmation shown - User chose: ${warningConfirm ? 'YES' : 'NO'}`);
+
+  const dangerConfirm = HELPER_confirmAction(
+    'Delete All Data?',
+    'This will PERMANENTLY DELETE all liturgical calendar data.\n\n' +
+    '⚠️ This action cannot be undone!\n\n' +
+    '(This is just a test - nothing will be deleted)',
+    { type: 'danger' }
+  );
+  Logger.log(`  ✓ Danger confirmation shown - User chose: ${dangerConfirm ? 'YES' : 'NO'}\n`);
+
+  // Test 5: HELPER_promptUser() - With validation
+  Logger.log('TEST 5: HELPER_promptUser() - Testing input prompts with validation');
+
+  const monthResult = HELPER_promptUser(
+    'Enter Month',
+    'Enter a month in YYYY-MM format (e.g., 2026-01):',
+    {
+      required: true,
+      validator: (value) => {
+        if (!/^\d{4}-\d{2}$/.test(value)) {
+          return { valid: false, error: 'Please use format YYYY-MM (e.g., 2026-01)' };
+        }
+        const [year, month] = value.split('-').map(n => parseInt(n));
+        if (month < 1 || month > 12) {
+          return { valid: false, error: 'Month must be between 01 and 12' };
+        }
+        return { valid: true };
+      }
+    }
+  );
+
+  if (monthResult.success) {
+    Logger.log(`  ✓ Month prompt validated successfully: "${monthResult.value}"`);
+  } else {
+    Logger.log(`  ✓ Month prompt cancelled by user`);
+  }
+
+  // Test simple prompt without validation
+  const nameResult = HELPER_promptUser(
+    'Enter Name',
+    'Enter a volunteer name (or leave blank):',
+    { required: false }
+  );
+
+  if (nameResult.success) {
+    Logger.log(`  ✓ Name prompt accepted: "${nameResult.value}"`);
+  } else {
+    Logger.log(`  ✓ Name prompt cancelled`);
+  }
+  Logger.log('');
+
+  // Test 6: HELPER_showValidationReport()
+  Logger.log('TEST 6: HELPER_showValidationReport() - Testing validation reports');
+
+  const validationItems = [
+    { type: 'error', message: 'Config sheet missing "Year to Schedule" setting' },
+    { type: 'error', message: 'Volunteer "John Smith" has duplicate email address' },
+    { type: 'warning', message: 'MassTemplate "Sunday Mass" references non-existent role "cantor"' },
+    { type: 'warning', message: 'Volunteer "Jane Doe" has no ministry roles assigned' },
+    { type: 'info', message: 'Found 25 active volunteers' },
+    { type: 'info', message: 'Found 3 mass templates' }
+  ];
+
+  const summary = {
+    errors: 2,
+    warnings: 2
+  };
+
+  HELPER_showValidationReport('Data Validation Test', validationItems, summary);
+  Logger.log('  ✓ Validation report shown (check grouping by error/warning/info)\n');
+
+  // Test empty validation (all passed)
+  HELPER_showValidationReport('All Checks Passed', [], { errors: 0, warnings: 0 });
+  Logger.log('  ✓ Empty validation report shown (should say "All validation checks passed")\n');
+
+  // Final summary
+  Logger.log('=== TEST COMPLETE ===\n');
+  Logger.log('All 6 notification helper functions tested:');
+  Logger.log('  ✓ HELPER_showAlert() - 4 types tested');
+  Logger.log('  ✓ HELPER_showSuccess() - basic usage tested');
+  Logger.log('  ✓ HELPER_showError() - 2 contexts tested');
+  Logger.log('  ✓ HELPER_confirmAction() - 3 types tested');
+  Logger.log('  ✓ HELPER_promptUser() - validation tested');
+  Logger.log('  ✓ HELPER_showValidationReport() - grouping tested');
+  Logger.log('\nVerify that all dialogs:');
+  Logger.log('  • Had appropriate emoji prefixes');
+  Logger.log('  • Showed clear instructions');
+  Logger.log('  • Had proper formatting and spacing');
+  Logger.log('  • Included troubleshooting hints where applicable');
+
+  HELPER_showSuccess(
+    'Notification Tests Complete',
+    'All notification helper functions have been tested.\n\n' +
+    'Check the Execution Log for detailed results.'
+  );
+}
+
+/**
+ * Test specific error contexts
+ * Tests all 8 error contexts to verify troubleshooting hints
+ */
+function TEST_errorContexts() {
+  Logger.log('=== ERROR CONTEXT TESTS ===\n');
+  Logger.log('Testing all 8 error contexts for troubleshooting hints\n');
+
+  const contexts = [
+    { context: 'calendar', error: 'Calendar generation failed' },
+    { context: 'validation', error: 'Data validation failed' },
+    { context: 'schedule', error: 'Schedule generation failed' },
+    { context: 'assignment', error: 'Auto-assignment failed' },
+    { context: 'timeoffs', error: 'Timeoff processing failed' },
+    { context: 'print', error: 'Print schedule generation failed' },
+    { context: 'form', error: 'Form update failed' },
+    { context: 'archive', error: 'Archive creation failed' }
+  ];
+
+  const ui = SpreadsheetApp.getUi();
+  const startTest = ui.alert(
+    '🧪 Error Context Tests',
+    `This will show 8 error dialogs, one for each context.\n\n` +
+    `Verify that each error includes specific troubleshooting hints.\n\n` +
+    `Ready to start?`,
+    ui.ButtonSet.YES_NO
+  );
+
+  if (startTest !== ui.Button.YES) {
+    Logger.log('Test cancelled by user');
+    return;
+  }
+
+  for (const test of contexts) {
+    Logger.log(`Testing context: ${test.context}`);
+    HELPER_showError(`${test.context} Error Test`, test.error, test.context);
+    Logger.log(`  ✓ Showed error with ${test.context} context\n`);
+  }
+
+  Logger.log('=== TEST COMPLETE ===\n');
+  Logger.log('All 8 error contexts tested. Verify troubleshooting hints were shown.');
+
+  HELPER_showSuccess(
+    'Error Context Tests Complete',
+    'All 8 error contexts have been tested.\n\n' +
+    'Each should have shown context-specific troubleshooting hints.'
+  );
+}
+
+/**
+ * Test prompt validation edge cases
+ * Tests validator function with various invalid inputs
+ */
+function TEST_promptValidation() {
+  Logger.log('=== PROMPT VALIDATION TESTS ===\n');
+
+  const ui = SpreadsheetApp.getUi();
+  const startTest = ui.alert(
+    '🧪 Prompt Validation Tests',
+    'This will test input validation by asking you to enter:\n\n' +
+    '1. A valid month (YYYY-MM format)\n' +
+    '2. Try entering invalid formats to see validation errors\n\n' +
+    'The prompt will loop until you enter valid input or cancel.\n\n' +
+    'Ready to start?',
+    ui.ButtonSet.YES_NO
+  );
+
+  if (startTest !== ui.Button.YES) {
+    Logger.log('Test cancelled by user');
+    return;
+  }
+
+  Logger.log('Testing month format validation...\n');
+
+  const result = HELPER_promptUser(
+    'Month Format Test',
+    'Try entering invalid formats first (e.g., "01-2026", "2026/01", "January")\n\n' +
+    'Then enter a valid format (YYYY-MM):\n\n' +
+    'Enter month:',
+    {
+      required: true,
+      validator: (value) => {
+        // Format validation
+        if (!/^\d{4}-\d{2}$/.test(value)) {
+          return {
+            valid: false,
+            error: 'Format must be YYYY-MM (e.g., 2026-01). You entered: "' + value + '"'
+          };
+        }
+
+        // Range validation
+        const [year, month] = value.split('-').map(n => parseInt(n));
+        if (year < 2020 || year > 2050) {
+          return {
+            valid: false,
+            error: 'Year must be between 2020 and 2050'
+          };
+        }
+        if (month < 1 || month > 12) {
+          return {
+            valid: false,
+            error: 'Month must be between 01 and 12'
+          };
+        }
+
+        return { valid: true };
+      }
+    }
+  );
+
+  if (result.success) {
+    Logger.log(`✓ Valid input accepted: "${result.value}"`);
+    Logger.log(`  Format: Correct`);
+    Logger.log(`  Validation: Passed`);
+  } else {
+    Logger.log('✓ User cancelled (this is valid behavior)');
+  }
+
+  Logger.log('\n=== TEST COMPLETE ===\n');
+  Logger.log('Prompt validation tested. Verify that:');
+  Logger.log('  • Invalid inputs showed helpful error messages');
+  Logger.log('  • Validation errors looped back to prompt');
+  Logger.log('  • Valid input was accepted');
+  Logger.log('  • Cancel button worked correctly');
+
+  HELPER_showSuccess(
+    'Validation Tests Complete',
+    'Input validation has been tested.\n\n' +
+    'Check the Execution Log for detailed results.'
+  );
+}
+
