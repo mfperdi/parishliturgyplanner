@@ -434,7 +434,7 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
         row: row,
         rowIndex: i + 2, // +2 for 1-based indexing and header
         date: new Date(date),
-        role: HELPER_safeArrayAccess(row, assignCols.MINISTRY_ROLE - 1),
+        role: HELPER_safeArrayAccess(row, assignCols.ROLE - 1),  // Updated: was MINISTRY_ROLE
         eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1),
         massName: HELPER_safeArrayAccess(row, assignCols.DESCRIPTION - 1),
         time: HELPER_safeArrayAccess(row, assignCols.TIME - 1),

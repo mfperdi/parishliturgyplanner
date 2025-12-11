@@ -20,6 +20,7 @@ function generatePrintableSchedule(monthString, options = {}) {
     // Set default options
     const config = {
       sheetName: options.sheetName || 'MonthlyView',
+      ministryFilter: options.ministryFilter || null,  // NEW: Array of ministry names to filter by
       layoutStyle: options.layoutStyle || 'liturgical', // 'liturgical' or 'chronological'
       includeColors: options.includeColors !== false, // Default true
       includeSummary: options.includeSummary === true, // Default false (user can enable if needed)
@@ -99,7 +100,22 @@ function buildScheduleData(monthString, config) {
   const liturgicalNotes = loadLiturgicalNotes();
 
   // Get assignment data
-  const assignments = getAssignmentDataForMonth(monthString);
+  let assignments = getAssignmentDataForMonth(monthString);
+
+  // NEW: Apply ministry filter if specified
+  if (config.ministryFilter && config.ministryFilter.length > 0) {
+    const ministrySet = new Set(
+      config.ministryFilter.map(m => m.toLowerCase())
+    );
+
+    const originalCount = assignments.length;
+    assignments = assignments.filter(a =>
+      ministrySet.has(a.ministry.toLowerCase())
+    );
+
+    Logger.log(`Ministry filter applied: ${originalCount} → ${assignments.length} assignments`);
+    Logger.log(`Filtered to: ${config.ministryFilter.join(', ')}`);
+  }
 
   // Group assignments by liturgical celebration
   const assignmentsByLiturgy = groupAssignmentsByLiturgy(assignments);
@@ -250,11 +266,11 @@ function getAssignmentDataForMonth(monthString) {
           time: time,
           massName: HELPER_safeArrayAccess(row, assignCols.DESCRIPTION - 1),
           liturgicalCelebration: HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1),
-          ministryRole: HELPER_safeArrayAccess(row, assignCols.MINISTRY_ROLE - 1),
+          ministry: HELPER_safeArrayAccess(row, assignCols.MINISTRY - 1),     // NEW: Ministry category
+          role: HELPER_safeArrayAccess(row, assignCols.ROLE - 1),             // UPDATED: was ministryRole
           assignedGroup: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_GROUP - 1),
           assignedVolunteerName: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_VOLUNTEER_NAME - 1) || 'UNASSIGNED',
           status: HELPER_safeArrayAccess(row, assignCols.STATUS - 1, 'Pending'),
-          // notes field removed - Notes column no longer exists
           eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1)
         });
       }
@@ -277,7 +293,7 @@ function getAssignmentDataForMonth(monthString) {
         return aTimeOfDay - bTimeOfDay;
       }
 
-      return a.ministryRole.localeCompare(b.ministryRole);
+      return a.role.localeCompare(b.role);  // UPDATED: was ministryRole
     });
 
   } catch (error) {
@@ -428,7 +444,7 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
   }
 
   // Table headers
-  currentRow = createTableHeaders(sheet, currentRow);
+  currentRow = createTableHeaders(sheet, currentRow, config);
 
   // Assignment rows - pass printConfig for ministry group colors
   currentRow = createAssignmentRows(sheet, assignments, currentRow, config, printConfig);
@@ -440,11 +456,21 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
 /**
  * Creates table headers for assignment data.
  * PERFORMANCE: Use batch write instead of individual setValue() calls
+ * UPDATED: Show Ministry + Role columns (or just Role if single ministry filtered)
  */
-function createTableHeaders(sheet, startRow) {
-  const headers = ['Date', 'Time', 'Description', 'Ministry/Role', 'Assigned Volunteer'];
+function createTableHeaders(sheet, startRow, config) {
+  // Decide columns based on filter
+  let headers;
 
-  // PERFORMANCE: Write all headers in one API call instead of 5
+  if (config.ministryFilter && config.ministryFilter.length === 1) {
+    // Single ministry filter: hide redundant Ministry column
+    headers = ['Date', 'Time', 'Description', 'Role', 'Assigned Volunteer'];
+  } else {
+    // Full schedule or multi-ministry: show both Ministry and Role
+    headers = ['Date', 'Time', 'Description', 'Ministry', 'Role', 'Assigned Volunteer'];
+  }
+
+  // PERFORMANCE: Write all headers in one API call
   sheet.getRange(startRow, 1, 1, headers.length).setValues([headers]);
 
   const headerRange = sheet.getRange(startRow, 1, 1, headers.length);
@@ -490,6 +516,9 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
     return aTimeOfDay - bTimeOfDay;
   });
 
+  // Determine if we should show ministry column
+  const showMinistryColumn = !(config.ministryFilter && config.ministryFilter.length === 1);
+
   // PERFORMANCE: Collect all row data before writing
   const rowData = [];
   const formattingInfo = []; // Track special formatting needs
@@ -497,17 +526,24 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
   let rowIndex = 0;
   for (const mass of sortedMasses) {
     // Sort assignments within the mass by role
-    mass.assignments.sort((a, b) => a.ministryRole.localeCompare(b.ministryRole));
+    mass.assignments.sort((a, b) => a.role.localeCompare(b.role));
 
     for (let i = 0; i < mass.assignments.length; i++) {
       const assignment = mass.assignments[i];
 
-      // Build row data
-      const row = [
+      // Build row data based on configuration
+      const row = showMinistryColumn ? [
         i === 0 ? mass.date : '',  // Only show date on first row of mass
         i === 0 ? HELPER_formatTime(mass.time) : '',  // Only show time on first row
         i === 0 ? mass.massName : '',  // Only show mass name on first row
-        assignment.ministryRole,
+        assignment.ministry,       // Show ministry
+        assignment.role,           // Show role
+        assignment.assignedVolunteerName
+      ] : [
+        i === 0 ? mass.date : '',  // Only show date on first row of mass
+        i === 0 ? HELPER_formatTime(mass.time) : '',  // Only show time on first row
+        i === 0 ? mass.massName : '',  // Only show mass name on first row
+        assignment.role,           // Just show role (ministry is implied by filter)
         assignment.assignedVolunteerName
       ];
 
@@ -527,12 +563,13 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
 
   // PERFORMANCE: Write all data in ONE API call
   if (rowData.length > 0) {
-    sheet.getRange(startRow, 1, rowData.length, 5).setValues(rowData);
-    Logger.log(`✅ PERFORMANCE: Batch wrote ${rowData.length} assignment rows in 1 API call (saved ${rowData.length * 5 - 1} calls)`);
+    const numCols = showMinistryColumn ? 6 : 5;
+    sheet.getRange(startRow, 1, rowData.length, numCols).setValues(rowData);
+    Logger.log(`✅ PERFORMANCE: Batch wrote ${rowData.length} assignment rows in 1 API call (saved ${rowData.length * numCols - 1} calls)`);
 
     // Apply formatting in batches
     // 1. Apply borders to all rows at once
-    sheet.getRange(startRow, 1, rowData.length, 5).setBorder(true, true, true, true, false, false);
+    sheet.getRange(startRow, 1, rowData.length, numCols).setBorder(true, true, true, true, false, false);
 
     // 2. Apply date formatting to date cells (first row of each mass)
     // 3. Apply background colors where needed
@@ -546,14 +583,16 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
       }
 
       // Apply background colors
+      const volunteerColIndex = showMinistryColumn ? 6 : 5;
+
       if (info.isUnassigned) {
         // Highlight unassigned volunteer name cell
-        sheet.getRange(actualRow, 5).setBackground('#fce8e6');
+        sheet.getRange(actualRow, volunteerColIndex).setBackground('#fce8e6');
       } else if (info.assignedGroup && printConfig && printConfig.ministryGroupColors) {
         const groupColor = printConfig.ministryGroupColors[info.assignedGroup];
         if (groupColor) {
           // Apply ministry group color to entire row
-          sheet.getRange(actualRow, 1, 1, 5).setBackground(groupColor);
+          sheet.getRange(actualRow, 1, 1, numCols).setBackground(groupColor);
         }
       }
     }
@@ -570,7 +609,7 @@ function createChronologicalContent(sheet, scheduleData, startRow, config) {
   const { printConfig } = scheduleData;
 
   // Create single table with all assignments in date order
-  currentRow = createTableHeaders(sheet, currentRow);
+  currentRow = createTableHeaders(sheet, currentRow, config);
   currentRow = createAssignmentRows(sheet, scheduleData.assignments, currentRow, config, printConfig);
 
   return currentRow;
@@ -639,32 +678,46 @@ function calculateAssignmentStatistics(assignments) {
 
 /**
  * Applies final formatting to the schedule sheet.
+ * UPDATED: Handle variable column count based on ministry filter
  */
 function applyScheduleFormatting(sheet, config) {
+  // Determine number of columns based on filter
+  const showMinistryColumn = !(config.ministryFilter && config.ministryFilter.length === 1);
+  const numCols = showMinistryColumn ? 6 : 5;
+
   // Auto-resize columns
-  sheet.autoResizeColumns(1, 5);
-  
+  sheet.autoResizeColumns(1, numCols);
+
   // Set optimal column widths
   if (config.columnWidths === 'auto' || !config.columnWidths) {
-    sheet.setColumnWidth(1, 100);  // Date (increased from 80)
-    sheet.setColumnWidth(2, 90);   // Time (increased from 70)
-    sheet.setColumnWidth(3, 200);  // Description (increased from 140)
-    sheet.setColumnWidth(4, 180);  // Ministry/Role (increased from 130)
-    sheet.setColumnWidth(5, 200);  // Assigned Volunteer (increased from 140)
+    sheet.setColumnWidth(1, 100);  // Date
+    sheet.setColumnWidth(2, 90);   // Time
+    sheet.setColumnWidth(3, 200);  // Description
+
+    if (showMinistryColumn) {
+      // 6 columns: Date, Time, Description, Ministry, Role, Volunteer
+      sheet.setColumnWidth(4, 150);  // Ministry
+      sheet.setColumnWidth(5, 150);  // Role
+      sheet.setColumnWidth(6, 200);  // Assigned Volunteer
+    } else {
+      // 5 columns: Date, Time, Description, Role, Volunteer
+      sheet.setColumnWidth(4, 180);  // Role (wider since no Ministry column)
+      sheet.setColumnWidth(5, 200);  // Assigned Volunteer
+    }
   } else if (typeof config.columnWidths === 'object') {
     // Custom column widths
     Object.keys(config.columnWidths).forEach(col => {
       const colNum = parseInt(col);
-      if (colNum > 0 && colNum <= 5) {
+      if (colNum > 0 && colNum <= numCols) {
         sheet.setColumnWidth(colNum, config.columnWidths[col]);
       }
     });
   }
-  
+
   // Set font family
-  const dataRange = sheet.getRange(1, 1, sheet.getLastRow(), 5);
+  const dataRange = sheet.getRange(1, 1, sheet.getLastRow(), numCols);
   dataRange.setFontFamily('Arial');
-  
+
   Logger.log('Applied final formatting to schedule sheet');
 }
 
