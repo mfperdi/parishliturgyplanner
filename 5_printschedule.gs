@@ -407,13 +407,33 @@ function copyHeaderTemplate(spreadsheet, targetSheet) {
  * UPDATES: Cell B1 with parish/ministry name, B2 with schedule title, B3 with timestamp.
  */
 function createScheduleHeader(sheet, parishName, displayName, config, printConfig) {
-  // Update cell B1 with parish and ministry name (actual values, not formula)
+  // Store reference to MonthlyView for formatting
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const monthlyView = ss.getSheetByName('MonthlyView');
+
+  // Update cell B1 with parish and ministry name
   try {
     const configData = HELPER_readConfigSafe();
     const parish = configData['Parish Name'] || 'Parish';
     const ministry = configData['Ministry Name'] || 'Ministry';
     const headerText = `${parish} - ${ministry}`;
-    sheet.getRange(1, 2).setValue(headerText);
+
+    const b1Range = sheet.getRange(1, 2);
+    b1Range.setValue(headerText);
+
+    // Copy formatting from MonthlyView B1 if available
+    if (monthlyView && monthlyView.getLastRow() >= 1) {
+      const sourceRange = monthlyView.getRange(1, 2);
+      b1Range.setFontFamily(sourceRange.getFontFamily());
+      b1Range.setFontSize(sourceRange.getFontSize());
+      b1Range.setFontWeight(sourceRange.getFontWeight());
+      b1Range.setFontStyle(sourceRange.getFontStyle());
+      b1Range.setFontColor(sourceRange.getFontColor());
+      b1Range.setBackground(sourceRange.getBackground());
+      b1Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
+      b1Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
+    }
+
     Logger.log(`Updated parish/ministry header in cell B1: ${headerText}`);
   } catch (e) {
     Logger.log(`Could not update B1 header: ${e.message}`);
@@ -421,15 +441,55 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
   }
 
   // Update cell B2 with the scheduling period and "Schedule"
-  sheet.getRange(2, 2).setValue(`${displayName} Schedule`);
-  Logger.log(`Updated schedule title in cell B2: ${displayName} Schedule`);
+  try {
+    const b2Text = `${displayName} Schedule`;
+    const b2Range = sheet.getRange(2, 2);
+    b2Range.setValue(b2Text);
+
+    // Copy formatting from MonthlyView B2 if available
+    if (monthlyView && monthlyView.getLastRow() >= 2) {
+      const sourceRange = monthlyView.getRange(2, 2);
+      b2Range.setFontFamily(sourceRange.getFontFamily());
+      b2Range.setFontSize(sourceRange.getFontSize());
+      b2Range.setFontWeight(sourceRange.getFontWeight());
+      b2Range.setFontStyle(sourceRange.getFontStyle());
+      b2Range.setFontColor(sourceRange.getFontColor());
+      b2Range.setBackground(sourceRange.getBackground());
+      b2Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
+      b2Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
+    }
+
+    Logger.log(`Updated schedule title in cell B2: ${b2Text}`);
+  } catch (e) {
+    Logger.log(`Could not update B2 title: ${e.message}`);
+  }
 
   // Update the generated timestamp in B3
-  const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-  sheet.getRange(3, 2).setValue(generatedText);
-  sheet.getRange(3, 2).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('left');
+  try {
+    const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
+    const b3Range = sheet.getRange(3, 2);
+    b3Range.setValue(generatedText);
 
-  Logger.log('Updated generated timestamp in cell B3');
+    // Copy formatting from MonthlyView B3 if available
+    if (monthlyView && monthlyView.getLastRow() >= 3) {
+      const sourceRange = monthlyView.getRange(3, 2);
+      b3Range.setFontFamily(sourceRange.getFontFamily());
+      b3Range.setFontSize(sourceRange.getFontSize());
+      b3Range.setFontWeight(sourceRange.getFontWeight());
+      b3Range.setFontStyle(sourceRange.getFontStyle());
+      b3Range.setFontColor(sourceRange.getFontColor());
+      b3Range.setBackground(sourceRange.getBackground());
+      b3Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
+      b3Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
+    } else {
+      // Fallback to default formatting if MonthlyView not available
+      b3Range.setFontSize(10).setFontStyle('italic').setHorizontalAlignment('left');
+    }
+
+    Logger.log('Updated generated timestamp in cell B3');
+  } catch (e) {
+    Logger.log(`Could not update B3 timestamp: ${e.message}`);
+  }
 
   // Row 4 is blank, schedule content starts at row 5
   return 5;
