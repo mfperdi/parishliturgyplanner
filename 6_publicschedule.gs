@@ -1,36 +1,40 @@
 /**
  * ====================================================================
- * PUBLIC SCHEDULE SYNC
+ * PUBLIC SCHEDULE SYNC - WITH MINISTRY FILTERING
  * ====================================================================
- * Syncs MonthlyView to a separate public spreadsheet for volunteer access.
- * - Creates single spreadsheet with monthly tabs
- * - Clones MonthlyView exactly (formatting, colors, unassigned slots)
- * - Manual trigger only (admin controls when to publish)
+ * Syncs schedules to separate public spreadsheets for volunteer access.
+ * - Supports multiple public spreadsheets (one per ministry + one for all)
+ * - Generates filtered print schedules on-the-fly
+ * - Manual trigger or optional auto-publish after assignment
  * - Access managed manually via Google Sheets sharing
- * - No automatic Instructions sheet (admin can create manually if desired)
  */
 
 /**
- * Main function to sync MonthlyView to public spreadsheet.
+ * Main function to sync schedule to public spreadsheet with optional ministry filtering.
  * @param {string} monthString The month to publish (e.g., "2026-02").
+ * @param {object} options Options including ministryFilter
  * @returns {string} Success message with link to public spreadsheet.
  */
-function PUBLISH_syncMonthlyViewToPublic(monthString) {
+function PUBLISH_syncMonthlyViewToPublic(monthString, options = {}) {
   try {
     // Validate input
     const { year, month } = HELPER_validateMonthString(monthString);
     const displayName = HELPER_formatDate(new Date(year, month, 1), 'month-year');
+    const { ministryFilter } = options; // Array like ["Lector"] or null
 
-    Logger.log(`Starting public schedule sync for ${displayName}`);
+    const ministryName = ministryFilter && ministryFilter.length > 0 ? ministryFilter[0] : null;
+    const filterDesc = ministryName ? ` (${ministryName})` : ' (All Ministries)';
 
-    // Get or create public spreadsheet
-    const publicSpreadsheet = PUBLISH_getOrCreatePublicSpreadsheet();
+    Logger.log(`Starting public schedule sync for ${displayName}${filterDesc}`);
 
-    // Copy MonthlyView to public spreadsheet
-    const publicUrl = PUBLISH_copyMonthlyViewToPublic(monthString, publicSpreadsheet);
+    // Get or create appropriate public spreadsheet
+    const publicSpreadsheet = PUBLISH_getOrCreatePublicSpreadsheet(ministryName);
 
-    Logger.log(`Successfully synced ${displayName} to public spreadsheet`);
-    return `✅ Successfully published ${displayName} schedule!\n\nPublic URL:\n${publicUrl}\n\nVolunteers can view the "${displayName}" tab in the public spreadsheet.`;
+    // Generate and copy filtered schedule to public spreadsheet
+    const publicUrl = PUBLISH_copyFilteredScheduleToPublic(monthString, publicSpreadsheet, ministryFilter);
+
+    Logger.log(`Successfully synced ${displayName}${filterDesc} to public spreadsheet`);
+    return `✅ Successfully published ${displayName}${filterDesc}!\n\nPublic URL:\n${publicUrl}\n\nVolunteers can view the "${displayName}" tab.`;
 
   } catch (e) {
     Logger.log(`ERROR in PUBLISH_syncMonthlyViewToPublic: ${e.message}`);
@@ -40,13 +44,67 @@ function PUBLISH_syncMonthlyViewToPublic(monthString) {
 }
 
 /**
- * Gets or creates the public spreadsheet.
+ * Publishes schedules to all ministry spreadsheets at once.
+ * Creates main schedule (all ministries) + individual ministry schedules.
+ * @param {string} monthString The month to publish
+ * @returns {object} Results with URLs for each published schedule
+ */
+function PUBLISH_publishAllMinistries(monthString) {
+  try {
+    const { year, month } = HELPER_validateMonthString(monthString);
+    const displayName = HELPER_formatDate(new Date(year, month, 1), 'month-year');
+
+    Logger.log(`Publishing all ministries for ${displayName}`);
+
+    const results = [];
+
+    // 1. Publish main schedule (all ministries)
+    Logger.log('Publishing main schedule (all ministries)...');
+    const mainResult = PUBLISH_syncMonthlyViewToPublic(monthString, { ministryFilter: null });
+    results.push({ ministry: 'All Ministries', result: mainResult });
+
+    // 2. Get all active ministries and publish each
+    const ministries = getActiveMinistries();
+    Logger.log(`Publishing ${ministries.length} individual ministry schedules...`);
+
+    for (const ministry of ministries) {
+      Logger.log(`Publishing ${ministry} schedule...`);
+      const ministryResult = PUBLISH_syncMonthlyViewToPublic(monthString, { ministryFilter: [ministry] });
+      results.push({ ministry, result: ministryResult });
+    }
+
+    // Build success message with all URLs
+    const count = results.length;
+    let message = `✅ Published ${count} schedules for ${displayName}:\n\n`;
+
+    for (const { ministry } of results) {
+      message += `📄 ${ministry}\n`;
+    }
+
+    message += `\nAll schedules updated successfully!`;
+
+    Logger.log(`Successfully published all ${count} schedules`);
+    return message;
+
+  } catch (e) {
+    Logger.log(`ERROR in PUBLISH_publishAllMinistries: ${e.message}`);
+    Logger.log(`Stack trace: ${e.stack}`);
+    throw new Error(`Could not publish all ministries: ${e.message}`);
+  }
+}
+
+/**
+ * Gets or creates the public spreadsheet for a specific ministry (or main schedule).
  * Stores spreadsheet ID in Config sheet for reuse.
+ * @param {string|null} ministry Ministry name (e.g., "Lector") or null for main schedule
  * @returns {Spreadsheet} The public spreadsheet object.
  */
-function PUBLISH_getOrCreatePublicSpreadsheet() {
+function PUBLISH_getOrCreatePublicSpreadsheet(ministry = null) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Determine config key for this ministry
+    const configKey = ministry ? `Public Spreadsheet ID - ${ministry}` : 'Public Spreadsheet ID';
 
     // Try to get existing public spreadsheet ID from Config
     let publicSpreadsheetId = null;
@@ -55,7 +113,7 @@ function PUBLISH_getOrCreatePublicSpreadsheet() {
       if (configSheet) {
         const configData = configSheet.getDataRange().getValues();
         for (let i = 1; i < configData.length; i++) {
-          if (configData[i][0] === 'Public Spreadsheet ID') {
+          if (configData[i][0] === configKey) {
             publicSpreadsheetId = configData[i][1];
             break;
           }
@@ -78,13 +136,16 @@ function PUBLISH_getOrCreatePublicSpreadsheet() {
     }
 
     // Create new public spreadsheet
-    Logger.log('Creating new public spreadsheet...');
+    Logger.log(`Creating new public spreadsheet for ${ministry || 'all ministries'}...`);
 
-    // Get parish and ministry names from Config
+    // Get parish name from Config (Ministry Name will be empty per user preference)
     const config = HELPER_readConfigSafe();
     const parishName = config['Parish Name'] || 'Parish';
-    const ministryName = config['Ministry Name'] || 'Ministry';
-    const spreadsheetName = `${parishName} ${ministryName} Schedule`;
+
+    // Build spreadsheet name
+    const spreadsheetName = ministry
+      ? `${parishName} - ${ministry} Schedule`
+      : `${parishName} - Schedule`;
 
     // Create spreadsheet (will have default "Sheet1")
     const publicSpreadsheet = SpreadsheetApp.create(spreadsheetName);
@@ -92,7 +153,7 @@ function PUBLISH_getOrCreatePublicSpreadsheet() {
     Logger.log(`Created new public spreadsheet: ${spreadsheetName}`);
 
     // Store spreadsheet ID in Config
-    PUBLISH_storePublicSpreadsheetId(publicSpreadsheet.getId());
+    PUBLISH_storePublicSpreadsheetId(configKey, publicSpreadsheet.getId());
 
     return publicSpreadsheet;
 
@@ -103,10 +164,11 @@ function PUBLISH_getOrCreatePublicSpreadsheet() {
 }
 
 /**
- * Stores the public spreadsheet ID in Config sheet.
+ * Stores a public spreadsheet ID in Config sheet.
+ * @param {string} configKey The config key (e.g., "Public Spreadsheet ID - Lector")
  * @param {string} spreadsheetId The spreadsheet ID to store.
  */
-function PUBLISH_storePublicSpreadsheetId(spreadsheetId) {
+function PUBLISH_storePublicSpreadsheetId(configKey, spreadsheetId) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const configSheet = ss.getSheetByName(CONSTANTS.SHEETS.CONFIG);
@@ -120,7 +182,7 @@ function PUBLISH_storePublicSpreadsheetId(spreadsheetId) {
 
     // Find existing row
     for (let i = 1; i < configData.length; i++) {
-      if (configData[i][0] === 'Public Spreadsheet ID') {
+      if (configData[i][0] === configKey) {
         rowIndex = i + 1;
         break;
       }
@@ -129,12 +191,12 @@ function PUBLISH_storePublicSpreadsheetId(spreadsheetId) {
     // Add new row if not found
     if (rowIndex === -1) {
       rowIndex = configData.length + 1;
-      configSheet.getRange(rowIndex, 1).setValue('Public Spreadsheet ID');
+      configSheet.getRange(rowIndex, 1).setValue(configKey);
     }
 
     // Store ID
     configSheet.getRange(rowIndex, 2).setValue(spreadsheetId);
-    Logger.log(`Stored public spreadsheet ID in Config sheet`);
+    Logger.log(`Stored public spreadsheet ID in Config: ${configKey}`);
 
   } catch (e) {
     Logger.log(`WARNING: Could not store public spreadsheet ID: ${e.message}`);
@@ -143,41 +205,52 @@ function PUBLISH_storePublicSpreadsheetId(spreadsheetId) {
 }
 
 /**
- * Copies MonthlyView to public spreadsheet (exact clone with formatting).
- * Uses sheet duplication for reliable copying of complex formatting.
+ * Generates filtered print schedule and copies to public spreadsheet.
+ * Uses generatePrintableSchedule with ministryFilter to create schedule on-the-fly.
  * @param {string} monthString The month to copy.
  * @param {Spreadsheet} publicSpreadsheet The public spreadsheet object.
+ * @param {Array|null} ministryFilter Ministry filter array or null for all
  * @returns {string} URL to the public spreadsheet.
  */
-function PUBLISH_copyMonthlyViewToPublic(monthString, publicSpreadsheet) {
+function PUBLISH_copyFilteredScheduleToPublic(monthString, publicSpreadsheet, ministryFilter) {
   try {
     const { year, month } = HELPER_validateMonthString(monthString);
     const displayName = HELPER_formatDate(new Date(year, month, 1), 'month-year');
 
-    Logger.log(`Copying MonthlyView for ${displayName} to public spreadsheet`);
+    Logger.log(`Generating filtered schedule for ${displayName} to public spreadsheet`);
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sourceSheet = ss.getSheetByName('MonthlyView');
 
-    if (!sourceSheet) {
-      throw new Error('MonthlyView sheet not found. Please generate the print schedule first.');
+    // Generate filtered print schedule to a temporary sheet
+    const tempSheetName = `__TEMP_PUBLISH_${Date.now()}`;
+    Logger.log(`Generating filtered schedule to temp sheet: ${tempSheetName}`);
+
+    generatePrintableSchedule(monthString, {
+      sheetName: tempSheetName,
+      ministryFilter: ministryFilter
+    });
+
+    const tempSheet = ss.getSheetByName(tempSheetName);
+
+    if (!tempSheet) {
+      throw new Error(`Failed to generate temp schedule sheet: ${tempSheetName}`);
     }
 
-    // Check if MonthlyView has data
-    if (sourceSheet.getLastRow() < 5) {
-      throw new Error('MonthlyView appears empty. Please generate the print schedule first.');
+    // Check if temp sheet has data
+    if (tempSheet.getLastRow() < 5) {
+      ss.deleteSheet(tempSheet); // Clean up
+      throw new Error('Generated schedule appears empty. Please check assignments and try again.');
     }
 
-    // Copy the entire sheet to public spreadsheet (this preserves all formatting)
-    // Creates "Copy of MonthlyView" automatically
-    Logger.log(`Duplicating MonthlyView sheet to public spreadsheet`);
-    const copiedSheet = sourceSheet.copyTo(publicSpreadsheet);
+    // Copy the temp sheet to public spreadsheet
+    Logger.log(`Copying temp sheet to public spreadsheet`);
+    const copiedSheet = tempSheet.copyTo(publicSpreadsheet);
 
     // Rename to temporary unique name to avoid conflicts
     const tempName = `${displayName}_${Date.now()}`;
     copiedSheet.setName(tempName);
 
-    // NOW safe to delete existing sheet (we have at least 2 sheets)
+    // NOW safe to delete existing sheet with same name
     const existingSheet = publicSpreadsheet.getSheetByName(displayName);
     if (existingSheet) {
       Logger.log(`Sheet "${displayName}" already exists, deleting it`);
@@ -197,81 +270,40 @@ function PUBLISH_copyMonthlyViewToPublic(monthString, publicSpreadsheet) {
       // Non-fatal
     }
 
-    Logger.log(`Successfully copied MonthlyView to "${displayName}" sheet in public spreadsheet`);
+    // Clean up temp sheet from source spreadsheet
+    ss.deleteSheet(tempSheet);
+    Logger.log(`Deleted temp sheet: ${tempSheetName}`);
+
+    Logger.log(`Successfully copied filtered schedule to "${displayName}" sheet in public spreadsheet`);
     return publicSpreadsheet.getUrl();
 
   } catch (e) {
-    Logger.log(`ERROR in PUBLISH_copyMonthlyViewToPublic: ${e.message}`);
+    Logger.log(`ERROR in PUBLISH_copyFilteredScheduleToPublic: ${e.message}`);
+
+    // Try to clean up temp sheet if it exists
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const allSheets = ss.getSheets();
+      for (const sheet of allSheets) {
+        if (sheet.getName().startsWith('__TEMP_PUBLISH_')) {
+          ss.deleteSheet(sheet);
+          Logger.log(`Cleaned up temp sheet: ${sheet.getName()}`);
+        }
+      }
+    } catch (cleanupError) {
+      Logger.log(`Could not clean up temp sheets: ${cleanupError.message}`);
+    }
+
     throw new Error(`Could not copy schedule: ${e.message}`);
   }
 }
 
 /**
- * Menu wrapper: Prompts user to select a month and publishes that month's schedule.
- * Accessed via: Admin Tools > Public Schedule > Publish Current Month
- */
-function publishCurrentMonthSchedule() {
-  try {
-    const ui = SpreadsheetApp.getUi();
-
-    // Get available months from calendar
-    const months = getMonthsForSidebar();
-
-    if (months.length === 0) {
-      HELPER_showError(
-        'No Calendar Data',
-        'Please generate the liturgical calendar first.',
-        'calendar'
-      );
-      return;
-    }
-
-    // Build prompt with month options
-    let promptText = 'Select a month to publish:\n\n';
-    months.forEach((m, idx) => {
-      promptText += `${idx + 1}. ${m.display}\n`;
-    });
-    promptText += '\nEnter the number (1-' + months.length + '):';
-
-    const result = HELPER_promptUser(
-      'Publish Schedule',
-      promptText,
-      {
-        required: true,
-        validator: (value) => {
-          const selection = parseInt(value);
-          if (isNaN(selection) || selection < 1 || selection > months.length) {
-            return { valid: false, error: `Please enter a number between 1 and ${months.length}` };
-          }
-          return { valid: true };
-        }
-      }
-    );
-
-    if (!result.success) {
-      return; // User cancelled
-    }
-
-    const selection = parseInt(result.value);
-
-    const selectedMonth = months[selection - 1].value;
-    const selectedMonthName = months[selection - 1].display;
-
-    // Publish the selected month
-    const publishResult = PUBLISH_syncMonthlyViewToPublic(selectedMonth);
-    HELPER_showSuccess('Schedule Published', publishResult);
-
-  } catch (e) {
-    HELPER_showError('Publish Failed', e, 'print');
-    Logger.log(`ERROR in publishCurrentMonthSchedule: ${e.message}\n${e.stack}`);
-  }
-}
-
-/**
- * Helper function: Gets the public spreadsheet URL.
+ * Helper function: Gets the public spreadsheet URL for a ministry.
  * Returns URL or error message if not created yet.
+ * @param {string|null} ministry Ministry name or null for main schedule
  */
-function getPublicScheduleLink() {
+function getPublicScheduleLink(ministry = null) {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const configSheet = ss.getSheetByName(CONSTANTS.SHEETS.CONFIG);
@@ -280,20 +312,22 @@ function getPublicScheduleLink() {
       throw new Error('Config sheet not found');
     }
 
+    const configKey = ministry ? `Public Spreadsheet ID - ${ministry}` : 'Public Spreadsheet ID';
     const configData = configSheet.getDataRange().getValues();
     let publicSpreadsheetId = null;
 
     for (let i = 1; i < configData.length; i++) {
-      if (configData[i][0] === 'Public Spreadsheet ID') {
+      if (configData[i][0] === configKey) {
         publicSpreadsheetId = configData[i][1];
         break;
       }
     }
 
     if (!publicSpreadsheetId) {
+      const scheduleType = ministry ? `${ministry} schedule` : 'any schedules';
       HELPER_showAlert(
         'No Public Schedule Yet',
-        'You haven\'t published any schedules yet.\n\nUse "Admin Tools > Public Schedule > Publish Current Month" to create your first public schedule.',
+        `You haven't published ${scheduleType} yet.\n\nUse the sidebar to publish schedules.`,
         'info'
       );
       return;
@@ -301,9 +335,10 @@ function getPublicScheduleLink() {
 
     const publicSpreadsheet = SpreadsheetApp.openById(publicSpreadsheetId);
     const url = publicSpreadsheet.getUrl();
+    const scheduleType = ministry ? `${ministry} Schedule` : 'Main Schedule';
 
     HELPER_showAlert(
-      'Public Schedule Link',
+      `Public ${scheduleType} Link`,
       `Share this link with your volunteers:\n\n${url}\n\nYou can manage access via File > Share in the public spreadsheet.`,
       'info'
     );
@@ -320,12 +355,15 @@ function getPublicScheduleLink() {
  * Automatically publishes current and next month's schedules to public
  * spreadsheet on a timer. Designed for mobile workflow where admin
  * can't manually run scripts.
+ *
+ * NOTE: Auto-publish currently only publishes the main "All Ministries"
+ * schedule. Individual ministry schedules must be published manually.
  */
 
 /**
  * Auto-publish function that runs on a timer.
- * Publishes current month and next month (if available).
- * Safe to run repeatedly - only publishes if MonthlyView exists.
+ * Publishes main schedule (all ministries) only.
+ * Safe to run repeatedly - only publishes if assignments exist.
  * This is the function that gets triggered automatically.
  */
 function AUTOPUBLISH_runScheduledPublish() {
@@ -341,39 +379,13 @@ function AUTOPUBLISH_runScheduledPublish() {
       return 'Auto-publish disabled';
     }
 
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const monthlyViewSheet = ss.getSheetByName('MonthlyView');
+    // Determine current month to publish
+    const now = new Date();
+    const monthString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    Logger.log(`Auto-publishing current month: ${monthString}`);
 
-    if (!monthlyViewSheet) {
-      Logger.log('MonthlyView sheet not found. Nothing to publish.');
-      return 'No MonthlyView found';
-    }
-
-    if (monthlyViewSheet.getLastRow() < 5) {
-      Logger.log('MonthlyView appears empty. Nothing to publish.');
-      return 'MonthlyView is empty';
-    }
-
-    // Get the month that MonthlyView represents
-    // Check cell B2 which typically contains the month name
-    let monthString = null;
-    try {
-      const titleCell = monthlyViewSheet.getRange(2, 2).getValue();
-      monthString = AUTOPUBLISH_extractMonthFromTitle(titleCell);
-    } catch (e) {
-      Logger.log(`Could not determine month from MonthlyView: ${e.message}`);
-    }
-
-    if (!monthString) {
-      // Fallback: use current month
-      const now = new Date();
-      monthString = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      Logger.log(`Using current month as fallback: ${monthString}`);
-    }
-
-    // Publish the month
-    Logger.log(`Auto-publishing ${monthString}...`);
-    const result = PUBLISH_syncMonthlyViewToPublic(monthString);
+    // Publish main schedule (all ministries)
+    const result = PUBLISH_syncMonthlyViewToPublic(monthString, { ministryFilter: null });
 
     Logger.log('=== Auto-Publish Complete ===');
     return result;
@@ -383,42 +395,6 @@ function AUTOPUBLISH_runScheduledPublish() {
     Logger.log(`Stack trace: ${e.stack}`);
     // Don't throw - let trigger continue running
     return `Error: ${e.message}`;
-  }
-}
-
-/**
- * Extracts month string (YYYY-MM) from MonthlyView title.
- * @param {string} titleText - The title text from MonthlyView (e.g., "February 2026")
- * @returns {string|null} - Month string like "2026-02" or null if can't parse
- */
-function AUTOPUBLISH_extractMonthFromTitle(titleText) {
-  try {
-    if (!titleText || typeof titleText !== 'string') {
-      return null;
-    }
-
-    // Try to parse "February 2026" format
-    const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    for (let i = 0; i < monthNames.length; i++) {
-      if (titleText.includes(monthNames[i])) {
-        // Found month name, now find year
-        const yearMatch = titleText.match(/\b(20\d{2})\b/);
-        if (yearMatch) {
-          const year = yearMatch[1];
-          const month = String(i + 1).padStart(2, '0');
-          return `${year}-${month}`;
-        }
-      }
-    }
-
-    return null;
-  } catch (e) {
-    Logger.log(`Error extracting month from title: ${e.message}`);
-    return null;
   }
 }
 
@@ -450,7 +426,7 @@ function AUTOPUBLISH_setupTrigger(intervalMinutes) {
     AUTOPUBLISH_setConfigValue('Auto-Publish Enabled', true);
     AUTOPUBLISH_setConfigValue('Auto-Publish Interval (Minutes)', intervalMinutes);
 
-    return `✅ Auto-publish enabled!\n\nSchedules will automatically publish every ${intervalMinutes} minutes.\n\nEdit on mobile and changes will appear in the public spreadsheet shortly.`;
+    return `✅ Auto-publish enabled!\n\nMain schedule will automatically publish every ${intervalMinutes} minutes.\n\nIndividual ministry schedules must be published manually.`;
 
   } catch (e) {
     Logger.log(`ERROR in AUTOPUBLISH_setupTrigger: ${e.message}`);
@@ -576,8 +552,9 @@ function enableAutoPublish() {
   try {
     const confirmed = HELPER_confirmAction(
       'Enable Auto-Publish',
-      'This will automatically publish your MonthlyView to the public spreadsheet on a timer.\n\n' +
-      'Perfect for mobile editing - make changes anytime and they\'ll appear in the public schedule automatically.',
+      'This will automatically publish the main schedule (all ministries) to the public spreadsheet on a timer.\n\n' +
+      'Perfect for mobile editing - make changes anytime and they\'ll appear in the public schedule automatically.\n\n' +
+      'Individual ministry schedules must be published manually.',
       { type: 'info' }
     );
 
@@ -629,7 +606,7 @@ function disableAutoPublish() {
     const confirmed = HELPER_confirmAction(
       'Disable Auto-Publish',
       'This will stop automatic publishing to the public spreadsheet.\n\n' +
-      'You\'ll need to manually publish schedules using "Publish Current Month".',
+      'You\'ll need to manually publish schedules using the sidebar.',
       { type: 'warning' }
     );
 
@@ -657,16 +634,17 @@ function showAutoPublishStatus() {
     let type = 'info';
 
     if (status.enabled && status.triggerExists) {
-      message = `Publishing every ${status.interval} minutes\n\n` +
-                `Your MonthlyView will automatically sync to the public spreadsheet. ` +
-                `Edit assignments on mobile and changes will appear shortly!`;
+      message = `✅ Enabled - Publishing every ${status.interval} minutes\n\n` +
+                `Your main schedule (all ministries) will automatically sync to the public spreadsheet. ` +
+                `Individual ministry schedules must be published manually.`;
       type = 'success';
     } else if (status.enabled && !status.triggerExists) {
-      message = `Config says enabled, but no trigger found.\n\n` +
+      message = `⚠️ Config says enabled, but no trigger found.\n\n` +
                 `Use "Enable Auto-Publish" to fix this.`;
       type = 'warning';
     } else {
-      message = `You must manually publish schedules using "Publish Current Month".\n\n` +
+      message = `❌ Disabled\n\n` +
+                `You must manually publish schedules using the sidebar.\n\n` +
                 `Use "Enable Auto-Publish" to turn on automatic publishing.`;
       type = 'info';
     }
