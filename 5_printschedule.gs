@@ -418,52 +418,63 @@ function copyHeaderTemplate(spreadsheet, targetSheet) {
 
 /**
  * Creates the schedule header section.
- * UPDATES: Cell B1 with parish/ministry name (if safe), B2 with schedule title, B3 with timestamp.
- * IMPORTANT: Preserves logo in A1 by detecting merged cells
+ * UPDATES: Cell B1 with parish/ministry name, B2 with schedule title, B3 with timestamp.
+ * IMPORTANT: For MonthlyView, preserves existing header completely (logo, images, formatting).
  */
 function createScheduleHeader(sheet, parishName, displayName, config, printConfig) {
-  // Store reference to MonthlyView for formatting
+  // Check if this sheet already has content in rows 1-3 (existing header setup)
+  // If yes, preserve it completely - don't touch rows 1-3 at all
+  const existingHeaderContent = sheet.getLastRow() >= 1 && sheet.getRange(1, 1, 3, 6).getValues();
+  const hasExistingHeader = existingHeaderContent &&
+    existingHeaderContent.some(row => row.some(cell => cell !== null && cell !== ''));
+
+  if (hasExistingHeader && config.sheetName === 'MonthlyView') {
+    // MonthlyView with existing header - don't touch rows 1-3 at all
+    // This preserves logos, images, custom formatting, merged cells, everything
+    Logger.log('Preserving existing header in MonthlyView (rows 1-3 untouched)');
+
+    // Just update the timestamp in B3 to show when schedule was regenerated
+    try {
+      const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
+      const b3Range = sheet.getRange(3, 2);
+      b3Range.setValue(generatedText);
+      Logger.log('Updated timestamp in B3');
+    } catch (e) {
+      Logger.log(`Could not update timestamp: ${e.message}`);
+      // Non-fatal - continue
+    }
+
+    return 5; // Schedule content starts at row 5
+  }
+
+  // New sheet or non-MonthlyView - set up header from scratch
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const monthlyView = ss.getSheetByName('MonthlyView');
 
   // Update cell B1 with parish and ministry name
-  // BUT: Only if it's safe to do so (not part of a merged cell with logo in A1)
   try {
     const configData = HELPER_readConfigSafe();
     const parish = configData['Parish Name'] || 'Parish';
     const ministry = configData['Ministry Name'] || 'Ministry';
     const headerText = `${parish} - ${ministry}`;
 
-    // Check if A1 or B1 is part of a merged cell
-    const a1Range = sheet.getRange(1, 1);
     const b1Range = sheet.getRange(1, 2);
-    const a1Merge = a1Range.getMergedRanges();
-    const b1Merge = b1Range.getMergedRanges();
+    b1Range.setValue(headerText);
 
-    // If A1 is merged (likely contains logo), DON'T update B1
-    // This preserves the logo and any existing header setup
-    if (a1Merge.length === 0 && b1Merge.length === 0) {
-      // Safe to update B1 - no merges detected
-      b1Range.setValue(headerText);
-
-      // Copy formatting from MonthlyView B1 if available
-      if (monthlyView && monthlyView.getLastRow() >= 1) {
-        const sourceRange = monthlyView.getRange(1, 2);
-        b1Range.setFontFamily(sourceRange.getFontFamily());
-        b1Range.setFontSize(sourceRange.getFontSize());
-        b1Range.setFontWeight(sourceRange.getFontWeight());
-        b1Range.setFontStyle(sourceRange.getFontStyle());
-        b1Range.setFontColor(sourceRange.getFontColor());
-        b1Range.setBackground(sourceRange.getBackground());
-        b1Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
-        b1Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
-      }
-
-      Logger.log(`Updated parish/ministry header in cell B1: ${headerText}`);
-    } else {
-      // A1 or B1 is merged - preserve existing header to protect logo
-      Logger.log(`Skipped B1 update - merged cell detected (preserving logo)`);
+    // Copy formatting from MonthlyView B1 if available
+    if (monthlyView && monthlyView.getLastRow() >= 1) {
+      const sourceRange = monthlyView.getRange(1, 2);
+      b1Range.setFontFamily(sourceRange.getFontFamily());
+      b1Range.setFontSize(sourceRange.getFontSize());
+      b1Range.setFontWeight(sourceRange.getFontWeight());
+      b1Range.setFontStyle(sourceRange.getFontStyle());
+      b1Range.setFontColor(sourceRange.getFontColor());
+      b1Range.setBackground(sourceRange.getBackground());
+      b1Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
+      b1Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
     }
+
+    Logger.log(`Updated parish/ministry header in cell B1: ${headerText}`);
   } catch (e) {
     Logger.log(`Could not update B1 header: ${e.message}`);
     // Non-fatal - continue
