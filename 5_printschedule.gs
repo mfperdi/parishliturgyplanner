@@ -37,6 +37,8 @@ function generatePrintableSchedule(monthString, options = {}) {
     
     // Create or get the target sheet
     let scheduleSheet = ss.getSheetByName(config.sheetName);
+    const isNewSheet = !scheduleSheet;
+
     if (!scheduleSheet) {
       scheduleSheet = ss.insertSheet(config.sheetName);
     } else {
@@ -44,6 +46,11 @@ function generatePrintableSchedule(monthString, options = {}) {
       if (scheduleSheet.getLastRow() >= 4) {
         scheduleSheet.getRange(4, 1, scheduleSheet.getLastRow() - 3, scheduleSheet.getMaxColumns()).clear();
       }
+    }
+
+    // If this is a new sheet (e.g., temp sheet for publishing), copy header template from MonthlyView
+    if (isNewSheet && config.sheetName !== 'MonthlyView') {
+      copyHeaderTemplate(ss, scheduleSheet);
     }
     
     // Get month display name
@@ -319,6 +326,80 @@ function groupAssignmentsByLiturgy(assignments) {
   }
   
   return assignmentsByLiturgy;
+}
+
+/**
+ * Copies header template (logo, formatting) from MonthlyView to a new sheet.
+ * This preserves the logo and header setup when generating to temp sheets.
+ * @param {Spreadsheet} spreadsheet The active spreadsheet.
+ * @param {Sheet} targetSheet The target sheet to copy header to.
+ */
+function copyHeaderTemplate(spreadsheet, targetSheet) {
+  try {
+    const monthlyView = spreadsheet.getSheetByName('MonthlyView');
+
+    if (!monthlyView) {
+      Logger.log('MonthlyView not found, skipping header template copy');
+      return;
+    }
+
+    // Check if MonthlyView has content in rows 1-3
+    if (monthlyView.getLastRow() < 1) {
+      Logger.log('MonthlyView has no header, skipping template copy');
+      return;
+    }
+
+    // Copy rows 1-3 from MonthlyView (includes logo and header formatting)
+    const headerRange = monthlyView.getRange(1, 1, 3, monthlyView.getMaxColumns());
+    const targetRange = targetSheet.getRange(1, 1, 3, monthlyView.getMaxColumns());
+
+    // Copy values
+    targetRange.setValues(headerRange.getValues());
+
+    // Copy formatting (fonts, colors, alignment, etc.)
+    targetRange.setFontFamilies(headerRange.getFontFamilies());
+    targetRange.setFontSizes(headerRange.getFontSizes());
+    targetRange.setFontWeights(headerRange.getFontWeights());
+    targetRange.setFontStyles(headerRange.getFontStyles());
+    targetRange.setFontColors(headerRange.getFontColors());
+    targetRange.setBackgrounds(headerRange.getBackgrounds());
+    targetRange.setHorizontalAlignments(headerRange.getHorizontalAlignments());
+    targetRange.setVerticalAlignments(headerRange.getVerticalAlignments());
+
+    // Copy column widths for first few columns (where logo/header are)
+    for (let col = 1; col <= Math.min(6, monthlyView.getMaxColumns()); col++) {
+      const width = monthlyView.getColumnWidth(col);
+      targetSheet.setColumnWidth(col, width);
+    }
+
+    // Copy row heights for header rows
+    for (let row = 1; row <= 3; row++) {
+      const height = monthlyView.getRowHeight(row);
+      targetSheet.setRowHeight(row, height);
+    }
+
+    // Copy any images in the header area (logo in A1)
+    const images = monthlyView.getImages();
+    for (const image of images) {
+      const anchorRow = image.getAnchorRow();
+      const anchorCol = image.getAnchorColumn();
+
+      // Only copy images in header area (rows 1-3)
+      if (anchorRow <= 3) {
+        const blob = image.getBlob();
+        const anchorRowOffset = image.getAnchorRowOffset();
+        const anchorColOffset = image.getAnchorColumnOffset();
+
+        targetSheet.insertImage(blob, anchorCol, anchorRow, anchorColOffset, anchorRowOffset);
+        Logger.log(`Copied image from row ${anchorRow}, col ${anchorCol}`);
+      }
+    }
+
+    Logger.log('Successfully copied header template from MonthlyView');
+  } catch (e) {
+    Logger.log(`Could not copy header template: ${e.message}`);
+    // Non-fatal - continue with default header
+  }
 }
 
 /**
