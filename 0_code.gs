@@ -165,6 +165,37 @@ function getMonthsForSidebar() {
 }
 
 /**
+ * Get unique active ministry names from Ministries sheet for sidebar dropdown.
+ * @returns {string[]} Sorted array of ministry names
+ */
+function getActiveMinistries() {
+  try {
+    const data = HELPER_readSheetData(CONSTANTS.SHEETS.MINISTRIES);
+    const cols = CONSTANTS.COLS.MINISTRIES;
+
+    const ministries = new Set();
+
+    for (const row of data) {
+      const ministry = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1);
+      const isActive = HELPER_safeArrayAccess(row, cols.IS_ACTIVE - 1, true);
+
+      if (ministry && isActive === true) {
+        ministries.add(ministry);
+      }
+    }
+
+    const sortedMinistries = Array.from(ministries).sort();
+    Logger.log(`Loaded ${sortedMinistries.length} active ministries: ${sortedMinistries.join(', ')}`);
+
+    return sortedMinistries;
+  } catch (e) {
+    Logger.log(`Error in getActiveMinistries: ${e.message}`);
+    // Return fallback ministries if sheet cannot be read
+    return ['Lector', 'Eucharistic Minister'];
+  }
+}
+
+/**
  * Gets the count of pending timeoff requests.
  * @returns {number} Number of pending timeoff requests.
  */

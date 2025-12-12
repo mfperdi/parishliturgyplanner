@@ -130,22 +130,22 @@ const CONSTANTS = {
       ROLES: 3             // Comma-separated list of role names (e.g., "1st reading, 2nd reading, Psalm, Bread, Chalice")
     },
     
-    // 'Assignments' sheet (12 columns + 3 formula helper columns)
+    // 'Assignments' sheet (13 columns + 3 formula helper columns)
     ASSIGNMENTS: {
       DATE: 1,
       TIME: 2,
       DESCRIPTION: 3,           // Mass description
       LITURGICAL_CELEBRATION: 4,
-      MINISTRY_ROLE: 5,
-      EVENT_ID: 6,
-      IS_ANTICIPATED: 7,        // Is this a vigil mass? (true/false)
-      MONTH_YEAR: 8,
-      ASSIGNED_GROUP: 9,
-      ASSIGNED_VOLUNTEER_ID: 10,
-      ASSIGNED_VOLUNTEER_NAME: 11,
-      STATUS: 12
-      // NOTES: 13 - REMOVED - Replaced with formula helper columns (Qualified?, Active?, Free?)
-      // Helper columns M-O are formula-based and not written by scripts
+      MINISTRY: 5,              // Ministry category (e.g., "Lector")
+      ROLE: 6,                  // Specific role within ministry (e.g., "1st reading")
+      EVENT_ID: 7,
+      IS_ANTICIPATED: 8,        // Is this a vigil mass? (true/false)
+      MONTH_YEAR: 9,
+      ASSIGNED_GROUP: 10,
+      ASSIGNED_VOLUNTEER_ID: 11,
+      ASSIGNED_VOLUNTEER_NAME: 12,
+      STATUS: 13
+      // Helper columns N-P are formula-based and not written by scripts
     },
     
     // 'Volunteers' sheet (14 columns)

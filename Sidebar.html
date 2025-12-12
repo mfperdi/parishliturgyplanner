@@ -507,6 +507,18 @@
             <span id="completion-print" class="completion-badge hidden">✓ Complete</span>
           </div>
           <div class="step-description">Export completed assignments for distribution</div>
+
+          <!-- Ministry Filter Dropdown -->
+          <div style="margin-bottom: 10px;">
+            <label for="ministry-filter" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
+              Filter by Ministry (optional):
+            </label>
+            <select id="ministry-filter" class="month-select" style="width: 100%; padding: 8px;">
+              <option value="">All Ministries</option>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
           <button id="btn-print" class="btn btn-outline" disabled>
             Print Schedule
           </button>
@@ -730,11 +742,17 @@
     window.addEventListener('load', () => {
       allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnPrint, btnPublish];
       updatePhaseProgress('setup');
-      
+
       google.script.run
         .withSuccessHandler(onMonthsLoaded)
         .withFailureHandler((error) => showError(error, 'calendar'))
         .getMonthsForSidebar();
+
+      // Load ministries for print filter dropdown
+      google.script.run
+        .withSuccessHandler(onMinistriesLoaded)
+        .withFailureHandler((error) => console.error('Failed to load ministries:', error))
+        .getActiveMinistries();
     });
     
     // Month selection handler
@@ -743,6 +761,23 @@
       refreshWorkflowData();
     });
     
+    function onMinistriesLoaded(ministries) {
+      const ministryFilter = document.getElementById('ministry-filter');
+
+      // Clear existing options except "All Ministries"
+      ministryFilter.innerHTML = '<option value="">All Ministries</option>';
+
+      // Add ministry options
+      ministries.forEach(ministry => {
+        const option = document.createElement('option');
+        option.value = ministry;
+        option.textContent = ministry;
+        ministryFilter.appendChild(option);
+      });
+
+      console.log(`Loaded ${ministries.length} ministries for filter dropdown`);
+    }
+
     function onMonthsLoaded(months) {
       if (months.length === 0) {
         monthSelect.innerHTML = '<option value="">No calendar data found</option>';
@@ -885,8 +920,13 @@
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
 
+      // Get ministry filter selection
+      const ministryFilter = document.getElementById('ministry-filter').value;
+      const ministryFilterArray = ministryFilter ? [ministryFilter] : null;
+
       const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const msg = `Generating printable schedule for ${selectedText}...`;
+      const filterText = ministryFilter ? ` (${ministryFilter} only)` : '';
+      const msg = `Generating printable schedule for ${selectedText}${filterText}...`;
       showLoading(msg);
 
       google.script.run
@@ -896,7 +936,7 @@
           markStepComplete('print');
         })
         .withFailureHandler((error) => showError(error, 'print'))
-        .generatePrintableSchedule(selectedMonth);
+        .generatePrintableSchedule(selectedMonth, { ministryFilter: ministryFilterArray });
     });
 
     btnPublish.addEventListener('click', () => {

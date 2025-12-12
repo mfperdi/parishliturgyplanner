@@ -37,6 +37,10 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
   Logger.log("2. Reading mass templates...");
   const templateMap = SCHEDULE_buildTemplateMap();
 
+  // 2a. Build role-to-ministry mapping for validation and population
+  Logger.log("2a. Building role-to-ministry mapping...");
+  const roleToMinistryMap = SCHEDULE_buildRoleToMinistryMap();
+
   // 3. Find all masses that need to be scheduled this month (using 3-layer logic)
   Logger.log("3. Finding all masses for the month...");
   const massesToSchedule = SCHEDULE_findMassesForMonth(month, scheduleYear);
@@ -87,21 +91,36 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
 
     // For each role in the template, create a new row
     for (const role of roles) {
-      const newRow = new Array(assignCols.STATUS).fill(""); // 12 columns (A-L), formulas in M-O
+      const roleName = role.skill;
+
+      // Look up ministry name for this role
+      const ministryName = roleToMinistryMap.get(roleName.toLowerCase());
+
+      // VALIDATION: Throw error if role doesn't exist in Ministries sheet
+      if (!ministryName) {
+        throw new Error(
+          `Role "${roleName}" from template "${templateName}" does not exist in the Ministries sheet. ` +
+          `Please add this role to the Ministries sheet with an appropriate Ministry Name, ` +
+          `or update the "${templateName}" template to use a valid role.`
+        );
+      }
+
+      const newRow = new Array(assignCols.STATUS).fill(""); // 13 columns (A-M), formulas in N-P
 
       newRow[assignCols.DATE - 1] = mass.date;
       newRow[assignCols.TIME - 1] = mass.time;
       newRow[assignCols.DESCRIPTION - 1] = mass.description;
       newRow[assignCols.LITURGICAL_CELEBRATION - 1] = liturgicalCelebration;
-      newRow[assignCols.MINISTRY_ROLE - 1] = role.skill;  // Use specific role name (e.g., "1st Reader") instead of ministry category
+      newRow[assignCols.MINISTRY - 1] = ministryName;    // NEW: Ministry category (e.g., "Lector")
+      newRow[assignCols.ROLE - 1] = roleName;            // Specific role (e.g., "1st reading")
       newRow[assignCols.EVENT_ID - 1] = mass.eventId || "";
-      newRow[assignCols.IS_ANTICIPATED - 1] = mass.isAnticipated || false; // NEW: Vigil mass flag
+      newRow[assignCols.IS_ANTICIPATED - 1] = mass.isAnticipated || false;
       newRow[assignCols.MONTH_YEAR - 1] = monthString;
       newRow[assignCols.ASSIGNED_GROUP - 1] = mass.assignedGroup || "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_ID - 1] = "";
       newRow[assignCols.ASSIGNED_VOLUNTEER_NAME - 1] = "";
-      newRow[assignCols.STATUS - 1] = "Unassigned"; // Set default status
-      // Notes column removed - helper formulas (Qualified?, Active?, Free?) in columns M-O
+      newRow[assignCols.STATUS - 1] = "Unassigned";
+      // Helper formulas (Qualified?, Active?, Free?) in columns N-P
 
       newAssignmentRows.push(newRow);
     }
@@ -122,7 +141,7 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
     Logger.log("7. Formatting IS_ANTICIPATED column as checkboxes...");
     const checkboxRange = assignmentsSheet.getRange(
       startRow,
-      assignCols.IS_ANTICIPATED,
+      assignCols.IS_ANTICIPATED,  // Now column 8 (was 7)
       newAssignmentRows.length,
       1
     );
@@ -223,6 +242,38 @@ function SCHEDULE_buildTemplateMap() {
 
   Logger.log(`> Built template map with ${templateMap.size} templates.`);
   return templateMap;
+}
+
+/**
+ * Builds a role-to-ministry mapping from the Ministries sheet.
+ * Maps specific roles (e.g., "1st reading") to general ministry categories (e.g., "Lector").
+ * Only includes active roles.
+ * @returns {Map} Map of role name (lowercase) to ministry name
+ */
+function SCHEDULE_buildRoleToMinistryMap() {
+  const map = new Map();
+
+  try {
+    const ministryData = HELPER_readSheetData(CONSTANTS.SHEETS.MINISTRIES);
+    const cols = CONSTANTS.COLS.MINISTRIES;
+
+    for (const row of ministryData) {
+      const ministryName = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1);
+      const roleName = HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1);
+      const isActive = HELPER_safeArrayAccess(row, cols.IS_ACTIVE - 1, true);
+
+      if (ministryName && roleName && isActive === true) {
+        map.set(roleName.toLowerCase(), ministryName);
+      }
+    }
+
+    Logger.log(`> Built role-to-ministry map with ${map.size} entries.`);
+  } catch (e) {
+    Logger.log(`ERROR building role-to-ministry map: ${e.message}`);
+    throw new Error(`Could not read Ministries sheet: ${e.message}`);
+  }
+
+  return map;
 }
 
 /**
