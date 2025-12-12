@@ -418,7 +418,8 @@ function copyHeaderTemplate(spreadsheet, targetSheet) {
 
 /**
  * Creates the schedule header section.
- * UPDATES: Cell B1 with parish/ministry name, B2 with schedule title, B3 with timestamp.
+ * UPDATES: Cell B1 with parish/ministry name (if safe), B2 with schedule title, B3 with timestamp.
+ * IMPORTANT: Preserves logo in A1 by detecting merged cells
  */
 function createScheduleHeader(sheet, parishName, displayName, config, printConfig) {
   // Store reference to MonthlyView for formatting
@@ -426,29 +427,43 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
   const monthlyView = ss.getSheetByName('MonthlyView');
 
   // Update cell B1 with parish and ministry name
+  // BUT: Only if it's safe to do so (not part of a merged cell with logo in A1)
   try {
     const configData = HELPER_readConfigSafe();
     const parish = configData['Parish Name'] || 'Parish';
     const ministry = configData['Ministry Name'] || 'Ministry';
     const headerText = `${parish} - ${ministry}`;
 
+    // Check if A1 or B1 is part of a merged cell
+    const a1Range = sheet.getRange(1, 1);
     const b1Range = sheet.getRange(1, 2);
-    b1Range.setValue(headerText);
+    const a1Merge = a1Range.getMergedRanges();
+    const b1Merge = b1Range.getMergedRanges();
 
-    // Copy formatting from MonthlyView B1 if available
-    if (monthlyView && monthlyView.getLastRow() >= 1) {
-      const sourceRange = monthlyView.getRange(1, 2);
-      b1Range.setFontFamily(sourceRange.getFontFamily());
-      b1Range.setFontSize(sourceRange.getFontSize());
-      b1Range.setFontWeight(sourceRange.getFontWeight());
-      b1Range.setFontStyle(sourceRange.getFontStyle());
-      b1Range.setFontColor(sourceRange.getFontColor());
-      b1Range.setBackground(sourceRange.getBackground());
-      b1Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
-      b1Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
+    // If A1 is merged (likely contains logo), DON'T update B1
+    // This preserves the logo and any existing header setup
+    if (a1Merge.length === 0 && b1Merge.length === 0) {
+      // Safe to update B1 - no merges detected
+      b1Range.setValue(headerText);
+
+      // Copy formatting from MonthlyView B1 if available
+      if (monthlyView && monthlyView.getLastRow() >= 1) {
+        const sourceRange = monthlyView.getRange(1, 2);
+        b1Range.setFontFamily(sourceRange.getFontFamily());
+        b1Range.setFontSize(sourceRange.getFontSize());
+        b1Range.setFontWeight(sourceRange.getFontWeight());
+        b1Range.setFontStyle(sourceRange.getFontStyle());
+        b1Range.setFontColor(sourceRange.getFontColor());
+        b1Range.setBackground(sourceRange.getBackground());
+        b1Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
+        b1Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
+      }
+
+      Logger.log(`Updated parish/ministry header in cell B1: ${headerText}`);
+    } else {
+      // A1 or B1 is merged - preserve existing header to protect logo
+      Logger.log(`Skipped B1 update - merged cell detected (preserving logo)`);
     }
-
-    Logger.log(`Updated parish/ministry header in cell B1: ${headerText}`);
   } catch (e) {
     Logger.log(`Could not update B1 header: ${e.message}`);
     // Non-fatal - continue
