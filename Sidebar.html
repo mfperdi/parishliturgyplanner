@@ -532,10 +532,35 @@
             Publish Schedule
             <span id="completion-publish" class="completion-badge hidden">✓ Complete</span>
           </div>
-          <div class="step-description">Sync schedule to public volunteer view spreadsheet</div>
-          <button id="btn-publish" class="btn btn-outline" disabled>
-            Publish Schedule
+          <div class="step-description">Sync schedules to public volunteer spreadsheets</div>
+
+          <!-- Publish All Ministries Button -->
+          <button id="btn-publish-all" class="btn btn-secondary" disabled style="margin-bottom: 12px;">
+            📄 Publish All Ministries
           </button>
+
+          <!-- Individual Ministry Publishing -->
+          <div style="margin-bottom: 10px;">
+            <label for="publish-ministry-filter" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
+              Or publish individual ministry:
+            </label>
+            <select id="publish-ministry-filter" class="month-select" style="width: 100%; padding: 8px; margin-bottom: 8px;">
+              <option value="">Select ministry...</option>
+              <!-- Populated dynamically -->
+            </select>
+            <button id="btn-publish-ministry" class="btn btn-outline" disabled>
+              Publish Selected Ministry
+            </button>
+          </div>
+
+          <!-- Auto-Publish Toggle -->
+          <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #f1f3f4;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #666; cursor: pointer;">
+              <input type="checkbox" id="auto-publish-toggle" style="cursor: pointer;">
+              <span>Auto-publish main schedule (every 30 min)</span>
+            </label>
+            <div id="auto-publish-status" style="margin-top: 4px; font-size: 11px; color: #5f6368;"></div>
+          </div>
         </div>
       </div>
 
@@ -599,7 +624,11 @@
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
     const btnPrint = document.getElementById('btn-print');
-    const btnPublish = document.getElementById('btn-publish');
+    const btnPublishAll = document.getElementById('btn-publish-all');
+    const btnPublishMinistry = document.getElementById('btn-publish-ministry');
+    const publishMinistryFilter = document.getElementById('publish-ministry-filter');
+    const autoPublishToggle = document.getElementById('auto-publish-toggle');
+    const autoPublishStatus = document.getElementById('auto-publish-status');
     const statusMessage = document.getElementById('status-message');
     
     // Phase elements
@@ -704,7 +733,11 @@
 
       // Completion phase buttons (enable after assignment)
       btnPrint.disabled = !hasCalendar || !hasMonthSelected;
-      btnPublish.disabled = !hasCalendar || !hasMonthSelected;
+      btnPublishAll.disabled = !hasCalendar || !hasMonthSelected;
+
+      // Publish ministry button enabled when ministry selected AND month selected
+      const hasMinistrySelected = publishMinistryFilter.value !== '';
+      btnPublishMinistry.disabled = !hasCalendar || !hasMonthSelected || !hasMinistrySelected;
 
       updatePhaseStates();
       updateBadges();
@@ -740,7 +773,7 @@
     
     // Initialization
     window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnPrint, btnPublish];
+      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnPrint, btnPublishAll, btnPublishMinistry];
       updatePhaseProgress('setup');
 
       google.script.run
@@ -748,11 +781,17 @@
         .withFailureHandler((error) => showError(error, 'calendar'))
         .getMonthsForSidebar();
 
-      // Load ministries for print filter dropdown
+      // Load ministries for filter dropdowns (print and publish)
       google.script.run
         .withSuccessHandler(onMinistriesLoaded)
         .withFailureHandler((error) => console.error('Failed to load ministries:', error))
         .getActiveMinistries();
+
+      // Load auto-publish status
+      google.script.run
+        .withSuccessHandler(onAutoPublishStatusLoaded)
+        .withFailureHandler((error) => console.error('Failed to load auto-publish status:', error))
+        .AUTOPUBLISH_getStatus();
     });
     
     // Month selection handler
@@ -763,19 +802,30 @@
     
     function onMinistriesLoaded(ministries) {
       const ministryFilter = document.getElementById('ministry-filter');
+      const publishMinistryFilter = document.getElementById('publish-ministry-filter');
 
-      // Clear existing options except "All Ministries"
+      // Populate print filter dropdown
       ministryFilter.innerHTML = '<option value="">All Ministries</option>';
 
-      // Add ministry options
+      // Populate publish filter dropdown
+      publishMinistryFilter.innerHTML = '<option value="">Select ministry...</option>';
+
+      // Add ministry options to both dropdowns
       ministries.forEach(ministry => {
-        const option = document.createElement('option');
-        option.value = ministry;
-        option.textContent = ministry;
-        ministryFilter.appendChild(option);
+        // Add to print filter dropdown
+        const option1 = document.createElement('option');
+        option1.value = ministry;
+        option1.textContent = ministry;
+        ministryFilter.appendChild(option1);
+
+        // Add to publish filter dropdown
+        const option2 = document.createElement('option');
+        option2.value = ministry;
+        option2.textContent = ministry;
+        publishMinistryFilter.appendChild(option2);
       });
 
-      console.log(`Loaded ${ministries.length} ministries for filter dropdown`);
+      console.log(`Loaded ${ministries.length} ministries for filter dropdowns`);
     }
 
     function onMonthsLoaded(months) {
@@ -939,23 +989,105 @@
         .generatePrintableSchedule(selectedMonth, { ministryFilter: ministryFilterArray });
     });
 
-    btnPublish.addEventListener('click', () => {
+    // Publish All Ministries button
+    btnPublishAll.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
 
       const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const msg = `Publishing schedule for ${selectedText}...`;
+      const msg = `Publishing all ministry schedules for ${selectedText}...`;
       showLoading(msg);
 
       google.script.run
         .withSuccessHandler((message) => {
-          const friendlyMessage = message.replace(selectedMonth, selectedText);
-          showSuccess(friendlyMessage);
+          showSuccess(message);
           markStepComplete('publish');
         })
         .withFailureHandler((error) => showError(error, 'publish'))
-        .PUBLISH_syncMonthlyViewToPublic(selectedMonth);
+        .PUBLISH_publishAllMinistries(selectedMonth);
     });
+
+    // Publish Individual Ministry button
+    btnPublishMinistry.addEventListener('click', () => {
+      const selectedMonth = monthSelect.value;
+      const selectedMinistry = publishMinistryFilter.value;
+      if (!selectedMonth || !selectedMinistry) return;
+
+      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
+      const msg = `Publishing ${selectedMinistry} schedule for ${selectedText}...`;
+      showLoading(msg);
+
+      google.script.run
+        .withSuccessHandler((message) => {
+          showSuccess(message);
+          markStepComplete('publish');
+        })
+        .withFailureHandler((error) => showError(error, 'publish'))
+        .PUBLISH_syncMonthlyViewToPublic(selectedMonth, { ministryFilter: [selectedMinistry] });
+    });
+
+    // Publish ministry filter change handler
+    publishMinistryFilter.addEventListener('change', () => {
+      updateButtonStates();
+    });
+
+    // Auto-publish toggle handler
+    autoPublishToggle.addEventListener('change', () => {
+      const isEnabled = autoPublishToggle.checked;
+
+      if (isEnabled) {
+        // Enable auto-publish
+        showLoading('Enabling auto-publish...');
+        google.script.run
+          .withSuccessHandler((message) => {
+            showSuccess(message);
+            loadAutoPublishStatus();
+          })
+          .withFailureHandler((error) => {
+            showError(error, 'publish');
+            autoPublishToggle.checked = false;
+            loadAutoPublishStatus();
+          })
+          .AUTOPUBLISH_setupTrigger(30); // 30 minute interval
+      } else {
+        // Disable auto-publish
+        showLoading('Disabling auto-publish...');
+        google.script.run
+          .withSuccessHandler((message) => {
+            showSuccess(message);
+            loadAutoPublishStatus();
+          })
+          .withFailureHandler((error) => {
+            showError(error, 'publish');
+            autoPublishToggle.checked = true;
+            loadAutoPublishStatus();
+          })
+          .AUTOPUBLISH_removeTrigger();
+      }
+    });
+
+    // Load auto-publish status helper
+    function loadAutoPublishStatus() {
+      google.script.run
+        .withSuccessHandler(onAutoPublishStatusLoaded)
+        .withFailureHandler((error) => console.error('Failed to load auto-publish status:', error))
+        .AUTOPUBLISH_getStatus();
+    }
+
+    function onAutoPublishStatusLoaded(status) {
+      autoPublishToggle.checked = status.enabled;
+
+      if (status.enabled && status.triggerExists) {
+        autoPublishStatus.textContent = `✓ Active - Publishing every ${status.interval} minutes`;
+        autoPublishStatus.style.color = '#137333';
+      } else if (status.enabled && !status.triggerExists) {
+        autoPublishStatus.textContent = '⚠ Enabled in config but no trigger found';
+        autoPublishStatus.style.color = '#f9ab00';
+      } else {
+        autoPublishStatus.textContent = 'Disabled';
+        autoPublishStatus.style.color = '#5f6368';
+      }
+    }
 
     // Archive button event listeners
     const btnArchive = document.getElementById('btn-archive');
