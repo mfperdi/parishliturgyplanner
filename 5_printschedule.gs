@@ -353,6 +353,20 @@ function copyHeaderTemplate(spreadsheet, targetSheet) {
     const headerRange = monthlyView.getRange(1, 1, 3, monthlyView.getMaxColumns());
     const targetRange = targetSheet.getRange(1, 1, 3, monthlyView.getMaxColumns());
 
+    // Copy merged cells first (important for A1 logo cell)
+    const merges = headerRange.getMergedRanges();
+    for (const mergeRange of merges) {
+      const startRow = mergeRange.getRow();
+      const startCol = mergeRange.getColumn();
+      const numRows = mergeRange.getNumRows();
+      const numCols = mergeRange.getNumColumns();
+
+      // Create corresponding merged range in target sheet
+      const targetMergeRange = targetSheet.getRange(startRow, startCol, numRows, numCols);
+      targetMergeRange.merge();
+      Logger.log(`Merged cells: Row ${startRow}, Col ${startCol}, ${numRows}x${numCols}`);
+    }
+
     // Copy values
     targetRange.setValues(headerRange.getValues());
 
