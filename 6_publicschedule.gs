@@ -270,6 +270,31 @@ function PUBLISH_copyFilteredScheduleToPublic(monthString, publicSpreadsheet, mi
       // Non-fatal
     }
 
+    // Trim the copied sheet for clean print/PDF output
+    try {
+      const numColumns = ministryFilter && ministryFilter.length === 1 ? 5 : 6;
+      const lastRow = copiedSheet.getLastRow();
+      const bufferRows = 2;
+      const bufferCols = 1;
+      const targetRows = lastRow + bufferRows;
+      const targetCols = numColumns + bufferCols;
+
+      const maxRows = copiedSheet.getMaxRows();
+      if (maxRows > targetRows) {
+        copiedSheet.deleteRows(targetRows + 1, maxRows - targetRows);
+        Logger.log(`Trimmed public sheet to ${targetRows} rows`);
+      }
+
+      const maxCols = copiedSheet.getMaxColumns();
+      if (maxCols > targetCols) {
+        copiedSheet.deleteColumns(targetCols + 1, maxCols - targetCols);
+        Logger.log(`Trimmed public sheet to ${targetCols} columns`);
+      }
+    } catch (e) {
+      Logger.log(`Warning: Could not trim public sheet: ${e.message}`);
+      // Non-fatal
+    }
+
     // Clean up temp sheet from source spreadsheet
     ss.deleteSheet(tempSheet);
     Logger.log(`Deleted temp sheet: ${tempSheetName}`);
