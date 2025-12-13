@@ -73,7 +73,10 @@ function generatePrintableSchedule(monthString, options = {}) {
     
     // Apply final formatting
     applyScheduleFormatting(scheduleSheet, config);
-    
+
+    // Trim excess rows and columns for clean print/PDF output
+    trimSheet(scheduleSheet, numColumns);
+
     Logger.log(`Enhanced schedule created successfully in '${config.sheetName}' sheet`);
     return `Enhanced schedule for ${displayName} has been created in the '${config.sheetName}' sheet. Ready for printing or PDF export.`;
     
@@ -795,6 +798,47 @@ function applyScheduleFormatting(sheet, config) {
   dataRange.setFontFamily('Arial');
 
   Logger.log('Applied final formatting to schedule sheet');
+}
+
+/**
+ * Trims excess rows and columns from a sheet for clean print/PDF output.
+ * Keeps content + buffer rows/columns to allow for minor manual edits.
+ * @param {Sheet} sheet - The sheet to trim
+ * @param {number} numColumns - The number of content columns (5 or 6)
+ */
+function trimSheet(sheet, numColumns) {
+  try {
+    // Step 1: Get actual content dimensions
+    const lastRow = sheet.getLastRow();  // Last row with content
+    const lastCol = numColumns;  // We know this from our layout
+
+    // Step 2: Calculate target dimensions with buffer
+    const bufferRows = 2;  // Room for manual notes
+    const bufferCols = 1;  // Small margin
+    const targetRows = lastRow + bufferRows;
+    const targetCols = lastCol + bufferCols;
+
+    // Step 3: Delete excess rows (if any)
+    const maxRows = sheet.getMaxRows();
+    if (maxRows > targetRows) {
+      const rowsToDelete = maxRows - targetRows;
+      sheet.deleteRows(targetRows + 1, rowsToDelete);
+      Logger.log(`Trimmed ${rowsToDelete} excess rows (kept ${targetRows} rows)`);
+    }
+
+    // Step 4: Delete excess columns (if any)
+    const maxCols = sheet.getMaxColumns();
+    if (maxCols > targetCols) {
+      const colsToDelete = maxCols - targetCols;
+      sheet.deleteColumns(targetCols + 1, colsToDelete);
+      Logger.log(`Trimmed ${colsToDelete} excess columns (kept ${targetCols} columns)`);
+    }
+
+    Logger.log(`Sheet trimmed to ${targetRows} rows x ${targetCols} columns for clean print output`);
+  } catch (e) {
+    Logger.log(`Warning: Could not trim sheet: ${e.message}`);
+    // Non-fatal - continue even if trim fails
+  }
 }
 
 /**
