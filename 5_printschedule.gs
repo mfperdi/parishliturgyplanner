@@ -330,6 +330,7 @@ function groupAssignmentsByLiturgy(assignments) {
  * Creates the schedule header section.
  * Sets up logo (from Config "Logo URL"), parish/ministry name, schedule title, and timestamp.
  * IMPORTANT: Uses =IMAGE() formula for logo so it can be copied programmatically.
+ * Layout: Logo in A1:A3 (vertical merge), content in B1:F3
  */
 function createScheduleHeader(sheet, parishName, displayName, config, printConfig) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -348,70 +349,67 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
     Logger.log(`Could not read config: ${e.message}`);
   }
 
-  // Row 1: Logo in merged cell A1:C1
+  // Logo: A1:A3 vertical merge
   try {
-    // Merge A1:C1 for logo
-    const logoRange = sheet.getRange(1, 1, 1, 3);
+    // Merge A1:A3 vertically for logo
+    const logoRange = sheet.getRange(1, 1, 3, 1);  // A1:A3
     logoRange.merge();
 
     if (logoUrl) {
       // Set =IMAGE() formula with logo URL from config
       const imageFormula = `=IMAGE("${logoUrl}", 1)`;  // Mode 1 = fit to cell
       sheet.getRange(1, 1).setFormula(imageFormula);
-      Logger.log(`Set logo formula in A1 with URL: ${logoUrl}`);
+      Logger.log(`Set logo formula in A1:A3 with URL: ${logoUrl}`);
     } else {
-      // No logo URL configured - leave A1:C1 empty but merged
-      Logger.log('No Logo URL in config - A1:C1 merged but empty');
+      // No logo URL configured - leave A1:A3 empty but merged
+      Logger.log('No Logo URL in config - A1:A3 merged but empty');
     }
-
-    // Set row height for logo (adjust as needed)
-    sheet.setRowHeight(1, 80);
 
   } catch (e) {
     Logger.log(`Could not set up logo: ${e.message}`);
   }
 
-  // Row 1, Columns D-F: Parish and Ministry Name
+  // Row 1, Columns B-F: Parish and Ministry Name
   try {
     const headerText = `${parish} - ${ministry}`;
-    const headerRange = sheet.getRange(1, 4, 1, 3);  // D1:F1
+    const headerRange = sheet.getRange(1, 2, 1, 5);  // B1:F1
     headerRange.merge();
     headerRange.setValue(headerText);
     headerRange.setFontSize(16)
                 .setFontWeight('bold')
                 .setHorizontalAlignment('left')
                 .setVerticalAlignment('middle');
-    Logger.log(`Set parish/ministry header in D1: ${headerText}`);
+    Logger.log(`Set parish/ministry header in B1:F1: ${headerText}`);
   } catch (e) {
     Logger.log(`Could not set parish/ministry header: ${e.message}`);
   }
 
-  // Row 2: Schedule title spanning all columns
+  // Row 2, Columns B-F: Schedule title
   try {
     const scheduleTitle = `${displayName} Schedule`;
-    const titleRange = sheet.getRange(2, 1, 1, 6);  // A2:F2
+    const titleRange = sheet.getRange(2, 2, 1, 5);  // B2:F2
     titleRange.merge();
     titleRange.setValue(scheduleTitle);
     titleRange.setFontSize(14)
               .setFontWeight('bold')
-              .setHorizontalAlignment('center')
+              .setHorizontalAlignment('left')
               .setVerticalAlignment('middle');
-    Logger.log(`Set schedule title in row 2: ${scheduleTitle}`);
+    Logger.log(`Set schedule title in B2:F2: ${scheduleTitle}`);
   } catch (e) {
     Logger.log(`Could not set schedule title: ${e.message}`);
   }
 
-  // Row 3: Timestamp spanning all columns
+  // Row 3, Columns B-F: Timestamp
   try {
     const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-    const timestampRange = sheet.getRange(3, 1, 1, 6);  // A3:F3
+    const timestampRange = sheet.getRange(3, 2, 1, 5);  // B3:F3
     timestampRange.merge();
     timestampRange.setValue(timestamp);
     timestampRange.setFontSize(10)
                   .setFontStyle('italic')
-                  .setHorizontalAlignment('center')
+                  .setHorizontalAlignment('left')
                   .setVerticalAlignment('middle');
-    Logger.log(`Set timestamp in row 3`);
+    Logger.log(`Set timestamp in B3:F3`);
   } catch (e) {
     Logger.log(`Could not set timestamp: ${e.message}`);
   }
