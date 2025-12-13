@@ -363,6 +363,10 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
     const logoRange = sheet.getRange(1, 1, 3, 1);  // A1:A3
     logoRange.merge();
 
+    // Center the logo in the cell
+    logoRange.setHorizontalAlignment('center');
+    logoRange.setVerticalAlignment('middle');
+
     if (logoUrl) {
       // Set =IMAGE() formula with logo URL from config
       const imageFormula = `=IMAGE("${logoUrl}", 1)`;  // Mode 1 = fit to cell
