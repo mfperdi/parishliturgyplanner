@@ -362,8 +362,8 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
   const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
 
   // Calculate Sunday Cycle (A, B, C) based on year
-  // Year A: year % 3 = 0, Year B: year % 3 = 1, Year C: year % 3 = 2
-  const sundayCycle = year % 3 === 0 ? 'A' : (year % 3 === 1 ? 'B' : 'C');
+  // Year A: year % 3 = 1, Year B: year % 3 = 2, Year C: year % 3 = 0
+  const sundayCycle = year % 3 === 1 ? 'A' : (year % 3 === 2 ? 'B' : 'C');
 
   // Calculate Weekday Cycle (I or II) based on odd/even year
   const weekdayCycle = year % 2 === 0 ? 'II' : 'I';
