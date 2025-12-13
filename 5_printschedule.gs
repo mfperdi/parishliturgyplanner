@@ -335,9 +335,9 @@ function groupAssignmentsByLiturgy(assignments) {
 
 /**
  * Creates the schedule header section.
- * Sets up logo (from Config "Logo URL"), parish/ministry name, schedule title, and timestamp.
+ * Sets up logo (from Config "Logo URL"), parish/ministry name, schedule title, liturgical year/cycle, and timestamp.
  * IMPORTANT: Uses =IMAGE() formula for logo so it can be copied programmatically.
- * Layout: Logo in A1:A3 (vertical merge), content in B1:numColumns
+ * Layout: Logo in A1:A4 (vertical merge), content in B1:numColumns
  * @param {number} numColumns - Total number of columns in the schedule (5 or 6)
  */
 function createScheduleHeader(sheet, parishName, displayName, config, printConfig, numColumns = 6) {
@@ -357,13 +357,24 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
     Logger.log(`Could not read config: ${e.message}`);
   }
 
+  // Extract year from displayName for liturgical year calculation
+  const yearMatch = displayName.match(/\d{4}/);
+  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
+
+  // Calculate Sunday Cycle (A, B, C) based on year
+  // Year A: year % 3 = 0, Year B: year % 3 = 1, Year C: year % 3 = 2
+  const sundayCycle = year % 3 === 0 ? 'A' : (year % 3 === 1 ? 'B' : 'C');
+
+  // Calculate Weekday Cycle (I or II) based on odd/even year
+  const weekdayCycle = year % 2 === 0 ? 'II' : 'I';
+
   // Calculate header merge width (from column B to last column)
   const headerMergeWidth = numColumns - 1;  // Exclude column A (logo column)
 
-  // Logo: A1:A3 vertical merge
+  // Logo: A1:A4 vertical merge (extended to 4 rows)
   try {
-    // Merge A1:A3 vertically for logo
-    const logoRange = sheet.getRange(1, 1, 3, 1);  // A1:A3
+    // Merge A1:A4 vertically for logo
+    const logoRange = sheet.getRange(1, 1, 4, 1);  // A1:A4 (4 rows)
     logoRange.merge();
 
     // Center the logo in the cell
@@ -374,10 +385,10 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
       // Set =IMAGE() formula with logo URL from config
       const imageFormula = `=IMAGE("${logoUrl}", 1)`;  // Mode 1 = fit to cell
       sheet.getRange(1, 1).setFormula(imageFormula);
-      Logger.log(`Set logo formula in A1:A3 with URL: ${logoUrl}`);
+      Logger.log(`Set logo formula in A1:A4 with URL: ${logoUrl}`);
     } else {
-      // No logo URL configured - leave A1:A3 empty but merged
-      Logger.log('No Logo URL in config - A1:A3 merged but empty');
+      // No logo URL configured - leave A1:A4 empty but merged
+      Logger.log('No Logo URL in config - A1:A4 merged but empty');
     }
 
   } catch (e) {
@@ -414,23 +425,38 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
     Logger.log(`Could not set schedule title: ${e.message}`);
   }
 
-  // Row 3, Columns B to last column: Timestamp
+  // Row 3, Columns B to last column: Liturgical Year and Reading Cycles (NEW)
+  try {
+    const liturgicalInfo = `Liturgical Year ${year}: Sunday Cycle ${sundayCycle}, Weekday Cycle ${weekdayCycle}`;
+    const liturgicalRange = sheet.getRange(3, 2, 1, headerMergeWidth);
+    liturgicalRange.merge();
+    liturgicalRange.setValue(liturgicalInfo);
+    liturgicalRange.setFontSize(11)
+                   .setFontWeight('normal')
+                   .setHorizontalAlignment('left')
+                   .setVerticalAlignment('middle');
+    Logger.log(`Set liturgical year info in row 3, cols 2-${numColumns}: ${liturgicalInfo}`);
+  } catch (e) {
+    Logger.log(`Could not set liturgical year info: ${e.message}`);
+  }
+
+  // Row 4, Columns B to last column: Timestamp (moved from row 3)
   try {
     const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-    const timestampRange = sheet.getRange(3, 2, 1, headerMergeWidth);
+    const timestampRange = sheet.getRange(4, 2, 1, headerMergeWidth);
     timestampRange.merge();
     timestampRange.setValue(timestamp);
     timestampRange.setFontSize(10)
                   .setFontStyle('italic')
                   .setHorizontalAlignment('left')
                   .setVerticalAlignment('middle');
-    Logger.log(`Set timestamp in row 3, cols 2-${numColumns}`);
+    Logger.log(`Set timestamp in row 4, cols 2-${numColumns}`);
   } catch (e) {
     Logger.log(`Could not set timestamp: ${e.message}`);
   }
 
-  // Row 4 is blank, schedule content starts at row 5
-  return 5;
+  // Row 5 is blank, schedule content starts at row 6
+  return 6;
 }
 
 /**
