@@ -59,9 +59,13 @@ function generatePrintableSchedule(monthString, options = {}) {
 
     Logger.log(`Found ${scheduleData.liturgicalData.size} liturgical celebrations and ${scheduleData.assignments.length} assignments`);
 
+    // Determine number of columns based on ministry filter
+    const showMinistryColumn = !(config.ministryFilter && config.ministryFilter.length === 1);
+    const numColumns = showMinistryColumn ? 6 : 5;
+
     // Generate the schedule using modular approach
-    let currentRow = createScheduleHeader(scheduleSheet, scheduleData.parishName, displayName, config, scheduleData.printConfig);
-    currentRow = createScheduleContent(scheduleSheet, scheduleData, currentRow, config);
+    let currentRow = createScheduleHeader(scheduleSheet, scheduleData.parishName, displayName, config, scheduleData.printConfig, numColumns);
+    currentRow = createScheduleContent(scheduleSheet, scheduleData, currentRow, config, numColumns);
     
     if (config.includeSummary) {
       currentRow = createScheduleSummary(scheduleSheet, scheduleData.assignments, currentRow, config);
@@ -330,9 +334,10 @@ function groupAssignmentsByLiturgy(assignments) {
  * Creates the schedule header section.
  * Sets up logo (from Config "Logo URL"), parish/ministry name, schedule title, and timestamp.
  * IMPORTANT: Uses =IMAGE() formula for logo so it can be copied programmatically.
- * Layout: Logo in A1:A3 (vertical merge), content in B1:F3
+ * Layout: Logo in A1:A3 (vertical merge), content in B1:numColumns
+ * @param {number} numColumns - Total number of columns in the schedule (5 or 6)
  */
-function createScheduleHeader(sheet, parishName, displayName, config, printConfig) {
+function createScheduleHeader(sheet, parishName, displayName, config, printConfig, numColumns = 6) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // Read config for logo URL and header text
@@ -348,6 +353,9 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
   } catch (e) {
     Logger.log(`Could not read config: ${e.message}`);
   }
+
+  // Calculate header merge width (from column B to last column)
+  const headerMergeWidth = numColumns - 1;  // Exclude column A (logo column)
 
   // Logo: A1:A3 vertical merge
   try {
@@ -369,47 +377,47 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
     Logger.log(`Could not set up logo: ${e.message}`);
   }
 
-  // Row 1, Columns B-F: Parish and Ministry Name
+  // Row 1, Columns B to last column: Parish and Ministry Name
   try {
     const headerText = `${parish} - ${ministry}`;
-    const headerRange = sheet.getRange(1, 2, 1, 5);  // B1:F1
+    const headerRange = sheet.getRange(1, 2, 1, headerMergeWidth);
     headerRange.merge();
     headerRange.setValue(headerText);
     headerRange.setFontSize(16)
                 .setFontWeight('bold')
                 .setHorizontalAlignment('left')
                 .setVerticalAlignment('middle');
-    Logger.log(`Set parish/ministry header in B1:F1: ${headerText}`);
+    Logger.log(`Set parish/ministry header in row 1, cols 2-${numColumns}: ${headerText}`);
   } catch (e) {
     Logger.log(`Could not set parish/ministry header: ${e.message}`);
   }
 
-  // Row 2, Columns B-F: Schedule title
+  // Row 2, Columns B to last column: Schedule title
   try {
     const scheduleTitle = `${displayName} Schedule`;
-    const titleRange = sheet.getRange(2, 2, 1, 5);  // B2:F2
+    const titleRange = sheet.getRange(2, 2, 1, headerMergeWidth);
     titleRange.merge();
     titleRange.setValue(scheduleTitle);
     titleRange.setFontSize(14)
               .setFontWeight('bold')
               .setHorizontalAlignment('left')
               .setVerticalAlignment('middle');
-    Logger.log(`Set schedule title in B2:F2: ${scheduleTitle}`);
+    Logger.log(`Set schedule title in row 2, cols 2-${numColumns}: ${scheduleTitle}`);
   } catch (e) {
     Logger.log(`Could not set schedule title: ${e.message}`);
   }
 
-  // Row 3, Columns B-F: Timestamp
+  // Row 3, Columns B to last column: Timestamp
   try {
     const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-    const timestampRange = sheet.getRange(3, 2, 1, 5);  // B3:F3
+    const timestampRange = sheet.getRange(3, 2, 1, headerMergeWidth);
     timestampRange.merge();
     timestampRange.setValue(timestamp);
     timestampRange.setFontSize(10)
                   .setFontStyle('italic')
                   .setHorizontalAlignment('left')
                   .setVerticalAlignment('middle');
-    Logger.log(`Set timestamp in B3:F3`);
+    Logger.log(`Set timestamp in row 3, cols 2-${numColumns}`);
   } catch (e) {
     Logger.log(`Could not set timestamp: ${e.message}`);
   }
@@ -421,22 +429,22 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
 /**
  * Creates the main schedule content with configurable layout.
  */
-function createScheduleContent(sheet, scheduleData, startRow, config) {
+function createScheduleContent(sheet, scheduleData, startRow, config, numColumns = 6) {
   let currentRow = startRow;
-  
+
   if (config.groupByLiturgy) {
-    currentRow = createLiturgicalContent(sheet, scheduleData, currentRow, config);
+    currentRow = createLiturgicalContent(sheet, scheduleData, currentRow, config, numColumns);
   } else {
-    currentRow = createChronologicalContent(sheet, scheduleData, currentRow, config);
+    currentRow = createChronologicalContent(sheet, scheduleData, currentRow, config, numColumns);
   }
-  
+
   return currentRow;
 }
 
 /**
  * Creates content grouped by liturgical celebrations.
  */
-function createLiturgicalContent(sheet, scheduleData, startRow, config) {
+function createLiturgicalContent(sheet, scheduleData, startRow, config, numColumns = 6) {
   let currentRow = startRow;
   const { liturgicalData, liturgicalNotes, assignmentsByLiturgy, printConfig } = scheduleData;
 
@@ -453,7 +461,7 @@ function createLiturgicalContent(sheet, scheduleData, startRow, config) {
 
     if (celebrationAssignments.length === 0) continue;
 
-    currentRow = createCelebrationSection(sheet, celebration, liturgyInfo, celebrationAssignments, currentRow, config, printConfig, liturgicalNotes);
+    currentRow = createCelebrationSection(sheet, celebration, liturgyInfo, celebrationAssignments, currentRow, config, printConfig, liturgicalNotes, numColumns);
   }
 
   return currentRow;
@@ -463,7 +471,7 @@ function createLiturgicalContent(sheet, scheduleData, startRow, config) {
  * Creates a section for a single liturgical celebration.
  * PERFORMANCE: Batch write celebration header data
  */
-function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, startRow, config, printConfig, liturgicalNotes) {
+function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, startRow, config, printConfig, liturgicalNotes, numColumns = 6) {
   let currentRow = startRow;
 
   // Celebration header with color coding - use configured liturgical colors
@@ -493,7 +501,7 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
   if (config.includeColors) {
     titleRange.setBackground(bgColor);
   }
-  sheet.getRange(currentRow, 1, 1, 5).merge();
+  sheet.getRange(currentRow, 1, 1, numColumns).merge();
   currentRow++;
 
   // Apply formatting to rank info row if it exists
@@ -503,7 +511,7 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
     if (config.includeColors) {
       rankRange.setBackground(bgColor);
     }
-    sheet.getRange(currentRow, 1, 1, 5).merge();
+    sheet.getRange(currentRow, 1, 1, numColumns).merge();
     currentRow++;
   }
 
@@ -668,7 +676,7 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
 /**
  * Creates chronological content (alternative layout).
  */
-function createChronologicalContent(sheet, scheduleData, startRow, config) {
+function createChronologicalContent(sheet, scheduleData, startRow, config, numColumns = 6) {
   let currentRow = startRow;
   const { printConfig } = scheduleData;
 
