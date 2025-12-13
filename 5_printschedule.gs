@@ -42,16 +42,14 @@ function generatePrintableSchedule(monthString, options = {}) {
     if (!scheduleSheet) {
       scheduleSheet = ss.insertSheet(config.sheetName);
     } else {
-      // Clear only from row 4 onward, preserving the manual header setup in rows 1-3
-      if (scheduleSheet.getLastRow() >= 4) {
-        scheduleSheet.getRange(4, 1, scheduleSheet.getLastRow() - 3, scheduleSheet.getMaxColumns()).clear();
+      // Clear entire sheet (including header rows 1-3) so header can be regenerated from config
+      if (scheduleSheet.getLastRow() >= 1) {
+        scheduleSheet.clear();
       }
     }
 
-    // If this is a new sheet (e.g., temp sheet for publishing), copy header template from MonthlyView
-    if (isNewSheet && config.sheetName !== 'MonthlyView') {
-      copyHeaderTemplate(ss, scheduleSheet);
-    }
+    // Note: Header setup is now done in createScheduleHeader() using Config "Logo URL"
+    // No need to copy from MonthlyView - everything is programmatically created
     
     // Get month display name
     const displayName = HELPER_formatDate(new Date(year, month, 1), 'month-year');
@@ -329,206 +327,93 @@ function groupAssignmentsByLiturgy(assignments) {
 }
 
 /**
- * Copies header template (logo, formatting) from MonthlyView to a new sheet.
- * This preserves the logo and header setup when generating to temp sheets.
- * @param {Spreadsheet} spreadsheet The active spreadsheet.
- * @param {Sheet} targetSheet The target sheet to copy header to.
- */
-function copyHeaderTemplate(spreadsheet, targetSheet) {
-  try {
-    const monthlyView = spreadsheet.getSheetByName('MonthlyView');
-
-    if (!monthlyView) {
-      Logger.log('MonthlyView not found, skipping header template copy');
-      return;
-    }
-
-    // Check if MonthlyView has content in rows 1-3
-    if (monthlyView.getLastRow() < 1) {
-      Logger.log('MonthlyView has no header, skipping template copy');
-      return;
-    }
-
-    // Copy rows 1-3 from MonthlyView (includes logo and header formatting)
-    const headerRange = monthlyView.getRange(1, 1, 3, monthlyView.getMaxColumns());
-    const targetRange = targetSheet.getRange(1, 1, 3, monthlyView.getMaxColumns());
-
-    // Copy merged cells first (important for A1 logo cell)
-    const merges = headerRange.getMergedRanges();
-    for (const mergeRange of merges) {
-      const startRow = mergeRange.getRow();
-      const startCol = mergeRange.getColumn();
-      const numRows = mergeRange.getNumRows();
-      const numCols = mergeRange.getNumColumns();
-
-      // Create corresponding merged range in target sheet
-      const targetMergeRange = targetSheet.getRange(startRow, startCol, numRows, numCols);
-      targetMergeRange.merge();
-      Logger.log(`Merged cells: Row ${startRow}, Col ${startCol}, ${numRows}x${numCols}`);
-    }
-
-    // Copy values
-    targetRange.setValues(headerRange.getValues());
-
-    // Copy formatting (fonts, colors, alignment, etc.)
-    targetRange.setFontFamilies(headerRange.getFontFamilies());
-    targetRange.setFontSizes(headerRange.getFontSizes());
-    targetRange.setFontWeights(headerRange.getFontWeights());
-    targetRange.setFontStyles(headerRange.getFontStyles());
-    targetRange.setFontColors(headerRange.getFontColors());
-    targetRange.setBackgrounds(headerRange.getBackgrounds());
-    targetRange.setHorizontalAlignments(headerRange.getHorizontalAlignments());
-    targetRange.setVerticalAlignments(headerRange.getVerticalAlignments());
-
-    // Copy column widths for first few columns (where logo/header are)
-    for (let col = 1; col <= Math.min(6, monthlyView.getMaxColumns()); col++) {
-      const width = monthlyView.getColumnWidth(col);
-      targetSheet.setColumnWidth(col, width);
-    }
-
-    // Copy row heights for header rows
-    for (let row = 1; row <= 3; row++) {
-      const height = monthlyView.getRowHeight(row);
-      targetSheet.setRowHeight(row, height);
-    }
-
-    // Copy any images in the header area (logo in A1)
-    const images = monthlyView.getImages();
-    for (const image of images) {
-      const anchorRow = image.getAnchorRow();
-      const anchorCol = image.getAnchorColumn();
-
-      // Only copy images in header area (rows 1-3)
-      if (anchorRow <= 3) {
-        const blob = image.getBlob();
-        const anchorRowOffset = image.getAnchorRowOffset();
-        const anchorColOffset = image.getAnchorColumnOffset();
-
-        targetSheet.insertImage(blob, anchorCol, anchorRow, anchorColOffset, anchorRowOffset);
-        Logger.log(`Copied image from row ${anchorRow}, col ${anchorCol}`);
-      }
-    }
-
-    Logger.log('Successfully copied header template from MonthlyView');
-  } catch (e) {
-    Logger.log(`Could not copy header template: ${e.message}`);
-    // Non-fatal - continue with default header
-  }
-}
-
-/**
  * Creates the schedule header section.
- * UPDATES: Cell B1 with parish/ministry name, B2 with schedule title, B3 with timestamp.
- * IMPORTANT: For MonthlyView, preserves existing header completely (logo, images, formatting).
+ * Sets up logo (from Config "Logo URL"), parish/ministry name, schedule title, and timestamp.
+ * IMPORTANT: Uses =IMAGE() formula for logo so it can be copied programmatically.
  */
 function createScheduleHeader(sheet, parishName, displayName, config, printConfig) {
-  // Check if this sheet already has content in rows 1-3 (existing header setup)
-  // If yes, preserve it completely - don't touch rows 1-3 at all
-  const existingHeaderContent = sheet.getLastRow() >= 1 && sheet.getRange(1, 1, 3, 6).getValues();
-  const hasExistingHeader = existingHeaderContent &&
-    existingHeaderContent.some(row => row.some(cell => cell !== null && cell !== ''));
-
-  if (hasExistingHeader && config.sheetName === 'MonthlyView') {
-    // MonthlyView with existing header - don't touch rows 1-3 at all
-    // This preserves logos, images, custom formatting, merged cells, everything
-    Logger.log('Preserving existing header in MonthlyView (rows 1-3 untouched)');
-
-    // Just update the timestamp in B3 to show when schedule was regenerated
-    try {
-      const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-      const b3Range = sheet.getRange(3, 2);
-      b3Range.setValue(generatedText);
-      Logger.log('Updated timestamp in B3');
-    } catch (e) {
-      Logger.log(`Could not update timestamp: ${e.message}`);
-      // Non-fatal - continue
-    }
-
-    return 5; // Schedule content starts at row 5
-  }
-
-  // New sheet or non-MonthlyView - set up header from scratch
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const monthlyView = ss.getSheetByName('MonthlyView');
 
-  // Update cell B1 with parish and ministry name
+  // Read config for logo URL and header text
+  let logoUrl = '';
+  let parish = 'Parish';
+  let ministry = 'Ministry';
+
   try {
     const configData = HELPER_readConfigSafe();
-    const parish = configData['Parish Name'] || 'Parish';
-    const ministry = configData['Ministry Name'] || 'Ministry';
-    const headerText = `${parish} - ${ministry}`;
-
-    const b1Range = sheet.getRange(1, 2);
-    b1Range.setValue(headerText);
-
-    // Copy formatting from MonthlyView B1 if available
-    if (monthlyView && monthlyView.getLastRow() >= 1) {
-      const sourceRange = monthlyView.getRange(1, 2);
-      b1Range.setFontFamily(sourceRange.getFontFamily());
-      b1Range.setFontSize(sourceRange.getFontSize());
-      b1Range.setFontWeight(sourceRange.getFontWeight());
-      b1Range.setFontStyle(sourceRange.getFontStyle());
-      b1Range.setFontColor(sourceRange.getFontColor());
-      b1Range.setBackground(sourceRange.getBackground());
-      b1Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
-      b1Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
-    }
-
-    Logger.log(`Updated parish/ministry header in cell B1: ${headerText}`);
+    logoUrl = configData['Logo URL'] || '';
+    parish = configData['Parish Name'] || parish;
+    ministry = configData['Ministry Name'] || ministry;
   } catch (e) {
-    Logger.log(`Could not update B1 header: ${e.message}`);
-    // Non-fatal - continue
+    Logger.log(`Could not read config: ${e.message}`);
   }
 
-  // Update cell B2 with the scheduling period and "Schedule"
+  // Row 1: Logo in merged cell A1:C1
   try {
-    const b2Text = `${displayName} Schedule`;
-    const b2Range = sheet.getRange(2, 2);
-    b2Range.setValue(b2Text);
+    // Merge A1:C1 for logo
+    const logoRange = sheet.getRange(1, 1, 1, 3);
+    logoRange.merge();
 
-    // Copy formatting from MonthlyView B2 if available
-    if (monthlyView && monthlyView.getLastRow() >= 2) {
-      const sourceRange = monthlyView.getRange(2, 2);
-      b2Range.setFontFamily(sourceRange.getFontFamily());
-      b2Range.setFontSize(sourceRange.getFontSize());
-      b2Range.setFontWeight(sourceRange.getFontWeight());
-      b2Range.setFontStyle(sourceRange.getFontStyle());
-      b2Range.setFontColor(sourceRange.getFontColor());
-      b2Range.setBackground(sourceRange.getBackground());
-      b2Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
-      b2Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
-    }
-
-    Logger.log(`Updated schedule title in cell B2: ${b2Text}`);
-  } catch (e) {
-    Logger.log(`Could not update B2 title: ${e.message}`);
-  }
-
-  // Update the generated timestamp in B3
-  try {
-    const generatedText = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-    const b3Range = sheet.getRange(3, 2);
-    b3Range.setValue(generatedText);
-
-    // Copy formatting from MonthlyView B3 if available
-    if (monthlyView && monthlyView.getLastRow() >= 3) {
-      const sourceRange = monthlyView.getRange(3, 2);
-      b3Range.setFontFamily(sourceRange.getFontFamily());
-      b3Range.setFontSize(sourceRange.getFontSize());
-      b3Range.setFontWeight(sourceRange.getFontWeight());
-      b3Range.setFontStyle(sourceRange.getFontStyle());
-      b3Range.setFontColor(sourceRange.getFontColor());
-      b3Range.setBackground(sourceRange.getBackground());
-      b3Range.setHorizontalAlignment(sourceRange.getHorizontalAlignment());
-      b3Range.setVerticalAlignment(sourceRange.getVerticalAlignment());
+    if (logoUrl) {
+      // Set =IMAGE() formula with logo URL from config
+      const imageFormula = `=IMAGE("${logoUrl}", 1)`;  // Mode 1 = fit to cell
+      sheet.getRange(1, 1).setFormula(imageFormula);
+      Logger.log(`Set logo formula in A1 with URL: ${logoUrl}`);
     } else {
-      // Fallback to default formatting if MonthlyView not available
-      b3Range.setFontSize(10).setFontStyle('italic').setHorizontalAlignment('left');
+      // No logo URL configured - leave A1:C1 empty but merged
+      Logger.log('No Logo URL in config - A1:C1 merged but empty');
     }
 
-    Logger.log('Updated generated timestamp in cell B3');
+    // Set row height for logo (adjust as needed)
+    sheet.setRowHeight(1, 80);
+
   } catch (e) {
-    Logger.log(`Could not update B3 timestamp: ${e.message}`);
+    Logger.log(`Could not set up logo: ${e.message}`);
+  }
+
+  // Row 1, Columns D-F: Parish and Ministry Name
+  try {
+    const headerText = `${parish} - ${ministry}`;
+    const headerRange = sheet.getRange(1, 4, 1, 3);  // D1:F1
+    headerRange.merge();
+    headerRange.setValue(headerText);
+    headerRange.setFontSize(16)
+                .setFontWeight('bold')
+                .setHorizontalAlignment('left')
+                .setVerticalAlignment('middle');
+    Logger.log(`Set parish/ministry header in D1: ${headerText}`);
+  } catch (e) {
+    Logger.log(`Could not set parish/ministry header: ${e.message}`);
+  }
+
+  // Row 2: Schedule title spanning all columns
+  try {
+    const scheduleTitle = `${displayName} Schedule`;
+    const titleRange = sheet.getRange(2, 1, 1, 6);  // A2:F2
+    titleRange.merge();
+    titleRange.setValue(scheduleTitle);
+    titleRange.setFontSize(14)
+              .setFontWeight('bold')
+              .setHorizontalAlignment('center')
+              .setVerticalAlignment('middle');
+    Logger.log(`Set schedule title in row 2: ${scheduleTitle}`);
+  } catch (e) {
+    Logger.log(`Could not set schedule title: ${e.message}`);
+  }
+
+  // Row 3: Timestamp spanning all columns
+  try {
+    const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
+    const timestampRange = sheet.getRange(3, 1, 1, 6);  // A3:F3
+    timestampRange.merge();
+    timestampRange.setValue(timestamp);
+    timestampRange.setFontSize(10)
+                  .setFontStyle('italic')
+                  .setHorizontalAlignment('center')
+                  .setVerticalAlignment('middle');
+    Logger.log(`Set timestamp in row 3`);
+  } catch (e) {
+    Logger.log(`Could not set timestamp: ${e.message}`);
   }
 
   // Row 4 is blank, schedule content starts at row 5
