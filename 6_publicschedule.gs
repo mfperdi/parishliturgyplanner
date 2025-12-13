@@ -260,11 +260,11 @@ function PUBLISH_copyFilteredScheduleToPublic(monthString, publicSpreadsheet, mi
     // Rename to final name
     copiedSheet.setName(displayName);
 
-    // Update timestamp in cell B3 to show when it was published
+    // Update timestamp in cell B4 to show when it was published (row 4 after liturgical year row was added)
     try {
       const publishedText = `Published: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-      copiedSheet.getRange(3, 2).setValue(publishedText);
-      Logger.log('Updated published timestamp in B3');
+      copiedSheet.getRange(4, 2).setValue(publishedText);
+      Logger.log('Updated published timestamp in B4');
     } catch (e) {
       Logger.log(`Could not update timestamp: ${e.message}`);
       // Non-fatal
