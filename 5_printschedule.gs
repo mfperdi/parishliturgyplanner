@@ -642,6 +642,8 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
     titleRange.setBackground(bgColor);
   }
   sheet.getRange(currentRow, 1, 1, numColumns).merge();
+
+  const celebrationStartRow = currentRow;
   currentRow++;
 
   // Apply formatting to rank info row if it exists
@@ -654,6 +656,10 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
     sheet.getRange(currentRow, 1, 1, numColumns).merge();
     currentRow++;
   }
+
+  // Add black border around liturgical day header (celebration + rank info)
+  const headerBoxRange = sheet.getRange(celebrationStartRow, 1, headerRows, numColumns);
+  headerBoxRange.setBorder(true, true, true, true, false, false, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
   // Table headers
   currentRow = createTableHeaders(sheet, currentRow, config);
@@ -736,6 +742,7 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
   const formattingInfo = []; // Track special formatting needs
 
   let rowIndex = 0;
+  let massIndex = 0;
   for (const mass of sortedMasses) {
     // Sort assignments within the mass by role
     mass.assignments.sort((a, b) => a.role.localeCompare(b.role));
@@ -766,11 +773,13 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
         rowOffset: rowIndex,
         isUnassigned: assignment.assignedVolunteerName === 'UNASSIGNED',
         assignedGroup: assignment.assignedGroup,
-        hasDate: i === 0  // Need to apply date format to first row
+        hasDate: i === 0,  // Need to apply date format to first row
+        isFirstRowOfMass: i === 0 && massIndex > 0  // First row of a new mass (but not the very first mass)
       });
 
       rowIndex++;
     }
+    massIndex++;
   }
 
   // PERFORMANCE: Write all data in ONE API call
@@ -785,6 +794,7 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
 
     // 2. Apply date formatting to date cells (first row of each mass)
     // 3. Apply background colors where needed
+    // 4. Apply thicker borders between different masses
     for (let i = 0; i < formattingInfo.length; i++) {
       const info = formattingInfo[i];
       const actualRow = startRow + info.rowOffset;
@@ -792,6 +802,11 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
       // Apply date format to first row of each mass
       if (info.hasDate) {
         sheet.getRange(actualRow, 1).setNumberFormat('M/d/yyyy');
+      }
+
+      // Apply thicker top border between different mass times
+      if (info.isFirstRowOfMass) {
+        sheet.getRange(actualRow, 1, 1, numCols).setBorder(true, null, null, null, null, null, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
       }
 
       // Apply background colors
