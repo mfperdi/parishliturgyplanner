@@ -46,6 +46,10 @@ function generatePrintableSchedule(monthString, options = {}) {
       if (scheduleSheet.getLastRow() >= 1) {
         scheduleSheet.clear();
       }
+
+      // Unfreeze rows/columns to avoid "can't merge frozen and non-frozen rows" error
+      scheduleSheet.setFrozenRows(0);
+      scheduleSheet.setFrozenColumns(0);
     }
 
     // Note: Header setup is now done in createScheduleHeader() using Config "Logo URL"
@@ -73,6 +77,10 @@ function generatePrintableSchedule(monthString, options = {}) {
     
     // Apply final formatting
     applyScheduleFormatting(scheduleSheet, config);
+
+    // Freeze header rows (rows 1-5) to keep them visible when scrolling
+    // Row 5 is blank, content starts at row 6
+    scheduleSheet.setFrozenRows(5);
 
     // Trim excess rows and columns for clean print/PDF output
     trimSheet(scheduleSheet, numColumns);
