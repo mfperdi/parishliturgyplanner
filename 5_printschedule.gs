@@ -642,8 +642,6 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
     titleRange.setBackground(bgColor);
   }
   sheet.getRange(currentRow, 1, 1, numColumns).merge();
-
-  const celebrationStartRow = currentRow;
   currentRow++;
 
   // Apply formatting to rank info row if it exists
@@ -656,10 +654,6 @@ function createCelebrationSection(sheet, celebration, liturgyInfo, assignments, 
     sheet.getRange(currentRow, 1, 1, numColumns).merge();
     currentRow++;
   }
-
-  // Add black border around liturgical day header (celebration + rank info)
-  const headerBoxRange = sheet.getRange(celebrationStartRow, 1, headerRows, numColumns);
-  headerBoxRange.setBorder(true, true, true, true, false, false, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
 
   // Table headers
   currentRow = createTableHeaders(sheet, currentRow, config);
@@ -774,7 +768,7 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
         isUnassigned: assignment.assignedVolunteerName === 'UNASSIGNED',
         assignedGroup: assignment.assignedGroup,
         hasDate: i === 0,  // Need to apply date format to first row
-        isFirstRowOfMass: i === 0 && massIndex > 0  // First row of a new mass (but not the very first mass)
+        massIndex: massIndex  // Track which mass this row belongs to for alternating colors
       });
 
       rowIndex++;
@@ -792,9 +786,7 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
     // 1. Apply borders to all rows at once
     sheet.getRange(startRow, 1, rowData.length, numCols).setBorder(true, true, true, true, false, false);
 
-    // 2. Apply date formatting to date cells (first row of each mass)
-    // 3. Apply background colors where needed
-    // 4. Apply thicker borders between different masses
+    // 2. Apply date formatting and background colors
     for (let i = 0; i < formattingInfo.length; i++) {
       const info = formattingInfo[i];
       const actualRow = startRow + info.rowOffset;
@@ -804,16 +796,11 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
         sheet.getRange(actualRow, 1).setNumberFormat('M/d/yyyy');
       }
 
-      // Apply thicker top border between different mass times
-      if (info.isFirstRowOfMass) {
-        sheet.getRange(actualRow, 1, 1, numCols).setBorder(true, null, null, null, null, null, '#000000', SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-      }
-
       // Apply background colors
       const volunteerColIndex = showMinistryColumn ? 6 : 5;
 
       if (info.isUnassigned) {
-        // Highlight unassigned volunteer name cell
+        // Highlight unassigned volunteer name cell only
         sheet.getRange(actualRow, volunteerColIndex).setBackground('#fce8e6');
       } else if (info.assignedGroup && printConfig && printConfig.ministryGroupColors) {
         const groupColor = printConfig.ministryGroupColors[info.assignedGroup];
@@ -821,6 +808,10 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
           // Apply ministry group color to entire row
           sheet.getRange(actualRow, 1, 1, numCols).setBackground(groupColor);
         }
+      } else {
+        // Alternating white/light gray for each mass time (no ministry color)
+        const bgColor = info.massIndex % 2 === 0 ? '#ffffff' : '#f3f3f3';
+        sheet.getRange(actualRow, 1, 1, numCols).setBackground(bgColor);
       }
     }
   }
