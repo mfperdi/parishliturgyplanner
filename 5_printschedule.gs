@@ -935,7 +935,7 @@ function applyScheduleFormatting(sheet, config) {
 
 /**
  * Trims excess rows and columns from a sheet for clean print/PDF output.
- * Keeps content + buffer rows/columns to allow for minor manual edits.
+ * Keeps content + buffer rows, but exact content columns for clean appearance.
  * @param {Sheet} sheet - The sheet to trim
  * @param {number} numColumns - The number of content columns (5 or 6)
  */
@@ -947,7 +947,7 @@ function trimSheet(sheet, numColumns) {
 
     // Step 2: Calculate target dimensions with buffer
     const bufferRows = 2;  // Room for manual notes
-    const bufferCols = 1;  // Small margin
+    const bufferCols = 0;  // No buffer - trim to exact content width for clean print
     const targetRows = lastRow + bufferRows;
     const targetCols = lastCol + bufferCols;
 
