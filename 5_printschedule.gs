@@ -64,7 +64,7 @@ function generatePrintableSchedule(monthString, options = {}) {
     const numColumns = showMinistryColumn ? 6 : 5;
 
     // Generate the schedule using modular approach
-    let currentRow = createScheduleHeader(scheduleSheet, scheduleData.parishName, displayName, config, scheduleData.printConfig, numColumns);
+    let currentRow = createScheduleHeader(scheduleSheet, scheduleData, displayName, config, numColumns);
     currentRow = createScheduleContent(scheduleSheet, scheduleData, currentRow, config, numColumns);
     
     if (config.includeSummary) {
@@ -334,13 +334,113 @@ function groupAssignmentsByLiturgy(assignments) {
 }
 
 /**
+ * Determines the liturgical year based on Advent date and Mass dates in the schedule.
+ * Liturgical year starts on 1st Sunday of Advent (late November/early December).
+ * If month spans two liturgical years, returns the year with the majority of Masses.
+ * @param {Array} assignments - Array of assignment objects with date property
+ * @returns {number} The liturgical year (e.g., 2026 for Advent 2025 - Advent 2026)
+ */
+function determineLiturgicalYear(assignments) {
+  if (!assignments || assignments.length === 0) {
+    return new Date().getFullYear();
+  }
+
+  try {
+    // Get all unique Mass dates from assignments
+    const massDates = [...new Set(assignments.map(a => a.date))].filter(d => d instanceof Date);
+
+    if (massDates.length === 0) {
+      return new Date().getFullYear();
+    }
+
+    // Read LiturgicalCalendar to find Advent dates
+    const calendarData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.CALENDAR);
+    const calCols = CONSTANTS.COLS.CALENDAR;
+
+    // Find all "1st Sunday of Advent" dates
+    const adventDates = [];
+    for (const row of calendarData) {
+      const celebration = row[calCols.LITURGICAL_CELEBRATION - 1];
+      if (celebration && celebration.toLowerCase().includes("1st sunday of advent")) {
+        const date = new Date(row[calCols.DATE - 1]);
+        adventDates.push(date);
+      }
+    }
+
+    // Sort Advent dates chronologically
+    adventDates.sort((a, b) => a.getTime() - b.getTime());
+
+    if (adventDates.length === 0) {
+      // Fallback: if no Advent dates found, use calendar year of first Mass
+      return massDates[0].getFullYear();
+    }
+
+    // Count masses in each liturgical year
+    const liturgicalYearCounts = {};
+
+    for (const massDate of massDates) {
+      let liturgicalYear = null;
+
+      // Find which liturgical year this Mass belongs to
+      for (let i = 0; i < adventDates.length; i++) {
+        const adventStart = adventDates[i];
+        const nextAdvent = adventDates[i + 1];
+
+        // Check if massDate is in this liturgical year
+        // Liturgical year runs from Advent to day before next Advent
+        if (massDate >= adventStart && (!nextAdvent || massDate < nextAdvent)) {
+          // Liturgical year is the year AFTER Advent starts
+          // e.g., Advent Nov 30, 2025 → Liturgical Year 2026
+          liturgicalYear = adventStart.getFullYear() + 1;
+          break;
+        }
+      }
+
+      // If no Advent boundary found, check if before first Advent
+      if (!liturgicalYear && massDate < adventDates[0]) {
+        liturgicalYear = adventDates[0].getFullYear(); // Before first Advent in calendar
+      }
+
+      // Fallback to calendar year if still not determined
+      if (!liturgicalYear) {
+        liturgicalYear = massDate.getFullYear();
+      }
+
+      // Count this mass for its liturgical year
+      liturgicalYearCounts[liturgicalYear] = (liturgicalYearCounts[liturgicalYear] || 0) + 1;
+    }
+
+    // Return the liturgical year with the most Masses
+    let maxYear = null;
+    let maxCount = 0;
+
+    for (const [year, count] of Object.entries(liturgicalYearCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        maxYear = parseInt(year);
+      }
+    }
+
+    Logger.log(`Determined liturgical year: ${maxYear} (based on ${maxCount} masses)`);
+    return maxYear;
+
+  } catch (e) {
+    Logger.log(`Error determining liturgical year: ${e.message}, falling back to calendar year`);
+    // Fallback: use calendar year of first Mass
+    const firstDate = assignments[0].date;
+    return firstDate instanceof Date ? firstDate.getFullYear() : new Date().getFullYear();
+  }
+}
+
+/**
  * Creates the schedule header section.
  * Sets up logo (from Config "Logo URL"), parish/ministry name, schedule title, liturgical year/cycle, and timestamp.
  * IMPORTANT: Uses =IMAGE() formula for logo so it can be copied programmatically.
  * Layout: Logo in A1:A4 (vertical merge), content in B1:numColumns
+ * @param {object} scheduleData - Complete schedule data including assignments
  * @param {number} numColumns - Total number of columns in the schedule (5 or 6)
  */
-function createScheduleHeader(sheet, parishName, displayName, config, printConfig, numColumns = 6) {
+function createScheduleHeader(sheet, scheduleData, displayName, config, numColumns = 6) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // Read config for logo URL and header text
@@ -357,16 +457,15 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
     Logger.log(`Could not read config: ${e.message}`);
   }
 
-  // Extract year from displayName for liturgical year calculation
-  const yearMatch = displayName.match(/\d{4}/);
-  const year = yearMatch ? parseInt(yearMatch[0]) : new Date().getFullYear();
+  // Determine liturgical year based on Advent date and actual Mass dates
+  const liturgicalYear = determineLiturgicalYear(scheduleData.assignments);
 
-  // Calculate Sunday Cycle (A, B, C) based on year
+  // Calculate Sunday Cycle (A, B, C) based on LITURGICAL year
   // Year A: year % 3 = 1, Year B: year % 3 = 2, Year C: year % 3 = 0
-  const sundayCycle = year % 3 === 1 ? 'A' : (year % 3 === 2 ? 'B' : 'C');
+  const sundayCycle = liturgicalYear % 3 === 1 ? 'A' : (liturgicalYear % 3 === 2 ? 'B' : 'C');
 
-  // Calculate Weekday Cycle (I or II) based on odd/even year
-  const weekdayCycle = year % 2 === 0 ? 'II' : 'I';
+  // Calculate Weekday Cycle (I or II) based on odd/even LITURGICAL year
+  const weekdayCycle = liturgicalYear % 2 === 0 ? 'II' : 'I';
 
   // Calculate header merge width (from column B to last column)
   const headerMergeWidth = numColumns - 1;  // Exclude column A (logo column)
@@ -427,7 +526,7 @@ function createScheduleHeader(sheet, parishName, displayName, config, printConfi
 
   // Row 3, Columns B to last column: Liturgical Year and Reading Cycles (NEW)
   try {
-    const liturgicalInfo = `Liturgical Year ${year}: Sunday Cycle ${sundayCycle}, Weekday Cycle ${weekdayCycle}`;
+    const liturgicalInfo = `Liturgical Year ${liturgicalYear}: Sunday Cycle ${sundayCycle}, Weekday Cycle ${weekdayCycle}`;
     const liturgicalRange = sheet.getRange(3, 2, 1, headerMergeWidth);
     liturgicalRange.merge();
     liturgicalRange.setValue(liturgicalInfo);
