@@ -275,7 +275,7 @@ function PUBLISH_copyFilteredScheduleToPublic(monthString, publicSpreadsheet, mi
       const numColumns = ministryFilter && ministryFilter.length === 1 ? 5 : 6;
       const lastRow = copiedSheet.getLastRow();
       const bufferRows = 2;
-      const bufferCols = 1;
+      const bufferCols = 0;  // No buffer - trim to exact content width for clean print
       const targetRows = lastRow + bufferRows;
       const targetCols = numColumns + bufferCols;
 
