@@ -91,13 +91,15 @@ function onEdit(e) {
     // Get the edited value
     const editedValue = e.value || "";
 
-    // If cell was cleared, just return (no validation needed)
+    // If cell was cleared, clear both ID and Name
     if (!editedValue || editedValue.trim() === "") {
+      ONEDIT_safeClearContent(sheet.getRange(row, volIdCol));
+      ONEDIT_safeClearContent(sheet.getRange(row, volNameCol));
       return;
     }
 
-    // Perform validation
-    ONEDIT_validateAssignment(sheet, row);
+    // Perform validation, passing which column was edited
+    ONEDIT_validateAssignment(sheet, row, col);
 
   } catch (error) {
     // Log errors but don't disrupt user workflow
@@ -110,8 +112,9 @@ function onEdit(e) {
  * Validates a volunteer assignment in the Assignments sheet
  * @param {Sheet} sheet - The Assignments sheet
  * @param {number} row - The row number being validated
+ * @param {number} editedCol - The column number that was edited
  */
-function ONEDIT_validateAssignment(sheet, row) {
+function ONEDIT_validateAssignment(sheet, row, editedCol) {
   try {
     const cols = CONSTANTS.COLS.ASSIGNMENTS;
 
@@ -119,11 +122,20 @@ function ONEDIT_validateAssignment(sheet, row) {
     const rowData = sheet.getRange(row, 1, 1, 13).getValues()[0];
 
     const date = rowData[cols.DATE - 1];
-    const ministryRole = rowData[cols.MINISTRY_ROLE - 1];
+    const ministryRole = rowData[cols.ROLE - 1];  // Fixed: Use ROLE not MINISTRY_ROLE
     const eventId = rowData[cols.EVENT_ID - 1];
-    const volunteerId = rowData[cols.ASSIGNED_VOLUNTEER_ID - 1];
-    const volunteerName = rowData[cols.ASSIGNED_VOLUNTEER_NAME - 1];
+    let volunteerId = rowData[cols.ASSIGNED_VOLUNTEER_ID - 1];
+    let volunteerName = rowData[cols.ASSIGNED_VOLUNTEER_NAME - 1];
     // Notes column removed - validation shown in formula columns M-O instead
+
+    // Determine which value to prioritize based on which column was edited
+    if (editedCol === cols.ASSIGNED_VOLUNTEER_ID) {
+      // User edited ID, so ignore any mismatched name
+      volunteerName = null;
+    } else if (editedCol === cols.ASSIGNED_VOLUNTEER_NAME) {
+      // User edited name, so ignore any mismatched ID
+      volunteerId = null;
+    }
 
     // Must have either volunteer ID or name
     if (!volunteerId && !volunteerName) {
@@ -238,25 +250,29 @@ function ONEDIT_findVolunteer(volunteerId, volunteerName) {
 }
 
 /**
- * Gets the required ministry skill for a role from MassTemplates
- * @param {string} ministryRole - The ministry role name
- * @returns {string} The required skill or empty string
+ * Gets the required ministry category for a role from Ministries sheet
+ * @param {string} roleName - The specific role name (e.g., "1st reading")
+ * @returns {string} The ministry category (e.g., "Lector") or empty string
  */
-function ONEDIT_getRequiredSkill(ministryRole) {
+function ONEDIT_getRequiredSkill(roleName) {
   try {
-    const templateData = HELPER_readSheetData(CONSTANTS.SHEETS.TEMPLATES);
-    const cols = CONSTANTS.COLS.TEMPLATES;
+    const ministriesData = HELPER_readSheetData(CONSTANTS.SHEETS.MINISTRIES);
+    const cols = CONSTANTS.COLS.MINISTRIES;
 
-    for (const row of templateData) {
-      const rowRole = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1, '');
-      if (rowRole.toLowerCase() === ministryRole.toLowerCase()) {
-        return HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1, '');
+    // Look up the role in the Ministries sheet to find its ministry category
+    for (const row of ministriesData) {
+      const rowRoleName = HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1, '');
+      const isActive = HELPER_safeArrayAccess(row, cols.IS_ACTIVE - 1, true);
+
+      // Only match active roles
+      if (isActive && rowRoleName.toLowerCase() === roleName.toLowerCase()) {
+        return HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1, '');
       }
     }
 
     return '';
   } catch (error) {
-    Logger.log(`Error getting required skill: ${error.message}`);
+    Logger.log(`Error getting required ministry: ${error.message}`);
     return '';
   }
 }
