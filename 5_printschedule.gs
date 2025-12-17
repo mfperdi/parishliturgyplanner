@@ -1019,7 +1019,382 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
     includeSummary: true,
     showRankInfo: true
   };
-  
+
   const mergedOptions = { ...defaultOptions, ...customOptions };
   return generatePrintableSchedule(monthString, mergedOptions);
+}
+
+
+// =============================================================================
+// WEEKLY VIEW GENERATION
+// =============================================================================
+
+/**
+ * Generate simplified weekly view optimized for email copy-paste.
+ * Creates a "WeeklyView" sheet showing assignments for the current liturgical week (Sunday-Saturday).
+ *
+ * @param {Date} weekStartDate - Sunday of the target week (default: current week)
+ * @param {object} options - Configuration options
+ * @param {Array} options.ministryFilter - Array of ministry names to filter (e.g., ['Lector'])
+ * @param {string} options.sheetName - Target sheet name (default: 'WeeklyView')
+ * @param {boolean} options.includeColors - Use background colors (default: false for email compatibility)
+ * @returns {string} Success message
+ *
+ * @example
+ * // Generate current week
+ * generateWeeklyView();
+ *
+ * // Generate with ministry filter
+ * generateWeeklyView(null, { ministryFilter: ['Lector'] });
+ *
+ * // Generate specific week
+ * generateWeeklyView(new Date(2026, 0, 5)); // Week of Jan 5-11, 2026
+ */
+function generateWeeklyView(weekStartDate = null, options = {}) {
+  try {
+    // Calculate week boundaries (defaults to current week)
+    let weekBounds;
+    if (weekStartDate) {
+      weekBounds = HELPER_getCurrentWeekBounds(weekStartDate);
+    } else {
+      weekBounds = HELPER_getCurrentWeekBounds();
+    }
+
+    const { startDate, endDate, weekString } = weekBounds;
+    Logger.log(`Generating weekly view for: ${weekString}`);
+    Logger.log(`Week range: ${startDate} to ${endDate}`);
+
+    // Set default options
+    const config = {
+      sheetName: options.sheetName || 'WeeklyView',
+      ministryFilter: options.ministryFilter || null,
+      includeColors: options.includeColors || false, // Email-friendly: no colors
+      ...options
+    };
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Create or clear the target sheet
+    let weeklySheet = ss.getSheetByName(config.sheetName);
+    if (!weeklySheet) {
+      weeklySheet = ss.insertSheet(config.sheetName);
+    } else {
+      weeklySheet.clear();
+      weeklySheet.setFrozenRows(0);
+      weeklySheet.setFrozenColumns(0);
+    }
+
+    // Build weekly schedule data
+    const scheduleData = buildWeeklyScheduleData(startDate, endDate, config);
+
+    Logger.log(`Found ${scheduleData.assignments.length} assignments for the week`);
+
+    // Determine number of columns (5 for email-friendly format)
+    const numColumns = 5; // Date | Time | Mass | Role | Volunteer
+
+    // Generate the schedule
+    let currentRow = createWeeklyScheduleHeader(weeklySheet, scheduleData, weekString, config, numColumns);
+    currentRow = createWeeklyScheduleContent(weeklySheet, scheduleData, currentRow, config, numColumns);
+
+    // Apply simple formatting (email-friendly)
+    applyWeeklyScheduleFormatting(weeklySheet, numColumns);
+
+    // Trim excess rows and columns
+    trimSheet(weeklySheet, numColumns);
+
+    Logger.log(`Weekly view created successfully in '${config.sheetName}' sheet`);
+    return `Weekly view for ${weekString} has been created in the '${config.sheetName}' sheet. Ready to copy into email.`;
+
+  } catch (e) {
+    Logger.log(`ERROR in generateWeeklyView: ${e.message}`);
+    Logger.log(`Stack trace: ${e.stack}`);
+    throw new Error(`Could not generate weekly view: ${e.message}`);
+  }
+}
+
+
+/**
+ * Build schedule data filtered to one liturgical week.
+ * Handles weeks that span multiple months or years.
+ *
+ * @param {Date} weekStart - Sunday of the week
+ * @param {Date} weekEnd - Saturday of the week
+ * @param {object} config - Configuration options
+ * @returns {object} Weekly schedule data
+ */
+function buildWeeklyScheduleData(weekStart, weekEnd, config) {
+  try {
+    // Get parish name
+    let parishName = "Parish Ministry Schedule";
+    try {
+      const configData = HELPER_readConfigSafe();
+      parishName = configData["Parish Name"] || parishName;
+    } catch (e) {
+      Logger.log(`Could not read parish name: ${e.message}`);
+    }
+
+    // Determine which months are touched by this week
+    const monthStrings = [];
+    const startMonthString = `${weekStart.getFullYear()}-${(weekStart.getMonth() + 1).toString().padStart(2, '0')}`;
+    monthStrings.push(startMonthString);
+
+    // If week spans into next month, add that month too
+    if (weekEnd.getMonth() !== weekStart.getMonth() || weekEnd.getFullYear() !== weekStart.getFullYear()) {
+      const endMonthString = `${weekEnd.getFullYear()}-${(weekEnd.getMonth() + 1).toString().padStart(2, '0')}`;
+      monthStrings.push(endMonthString);
+    }
+
+    Logger.log(`Reading assignments from months: ${monthStrings.join(', ')}`);
+
+    // Read assignments from all relevant months
+    let assignments = [];
+    for (const monthString of monthStrings) {
+      try {
+        const monthAssignments = getAssignmentDataForMonth(monthString);
+        assignments = assignments.concat(monthAssignments);
+      } catch (e) {
+        Logger.log(`No assignments found for ${monthString}: ${e.message}`);
+      }
+    }
+
+    // Filter to week range
+    assignments = assignments.filter(a =>
+      HELPER_isDateInWeek(a.date, weekStart, weekEnd)
+    );
+
+    Logger.log(`Found ${assignments.length} assignments in week range`);
+
+    // Apply ministry filter if specified
+    if (config.ministryFilter && config.ministryFilter.length > 0) {
+      const ministrySet = new Set(
+        config.ministryFilter.map(m => m.toLowerCase())
+      );
+
+      const originalCount = assignments.length;
+      assignments = assignments.filter(a =>
+        ministrySet.has(a.ministry.toLowerCase())
+      );
+
+      Logger.log(`Ministry filter applied: ${originalCount} → ${assignments.length} assignments`);
+    }
+
+    // Sort by date, then time, then role
+    assignments.sort((a, b) => {
+      if (a.date.getTime() !== b.date.getTime()) {
+        return a.date.getTime() - b.date.getTime();
+      }
+      if (a.time !== b.time) {
+        return a.time.localeCompare(b.time);
+      }
+      return a.role.localeCompare(b.role);
+    });
+
+    // Build liturgical data map for the week
+    const liturgicalData = new Map();
+    for (const monthString of monthStrings) {
+      try {
+        const monthLiturgicalData = buildLiturgicalDataMap(monthString);
+        for (const [key, value] of monthLiturgicalData) {
+          // Only include if date is in week range
+          const datesInWeek = value.dates.filter(d =>
+            HELPER_isDateInWeek(d, weekStart, weekEnd)
+          );
+          if (datesInWeek.length > 0) {
+            liturgicalData.set(key, {
+              ...value,
+              dates: datesInWeek
+            });
+          }
+        }
+      } catch (e) {
+        Logger.log(`Could not load liturgical data for ${monthString}: ${e.message}`);
+      }
+    }
+
+    return {
+      parishName,
+      assignments,
+      liturgicalData,
+      weekStart,
+      weekEnd,
+      ministryFilterText: config.ministryFilter ? config.ministryFilter.join(', ') : 'All Ministries'
+    };
+
+  } catch (e) {
+    Logger.log(`ERROR in buildWeeklyScheduleData: ${e.message}`);
+    throw new Error(`Could not build weekly schedule data: ${e.message}`);
+  }
+}
+
+
+/**
+ * Create weekly schedule header (simplified for email).
+ *
+ * @param {Sheet} sheet - Target sheet
+ * @param {object} scheduleData - Weekly schedule data
+ * @param {string} weekString - Formatted week range
+ * @param {object} config - Configuration options
+ * @param {number} numColumns - Number of columns
+ * @returns {number} Starting content row
+ */
+function createWeeklyScheduleHeader(sheet, scheduleData, weekString, config, numColumns) {
+  try {
+    let currentRow = 1;
+
+    // Row 1: Parish name + Ministry filter
+    const headerTitle = config.ministryFilter && config.ministryFilter.length > 0
+      ? `${scheduleData.parishName} - ${scheduleData.ministryFilterText}`
+      : scheduleData.parishName;
+
+    sheet.getRange(currentRow, 1, 1, numColumns).merge();
+    sheet.getRange(currentRow, 1).setValue(headerTitle);
+    sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
+    currentRow++;
+
+    // Row 2: Week range
+    sheet.getRange(currentRow, 1, 1, numColumns).merge();
+    sheet.getRange(currentRow, 1).setValue(weekString);
+    sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
+    currentRow++;
+
+    // Row 3: Generation timestamp
+    const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'long')}`;
+    sheet.getRange(currentRow, 1, 1, numColumns).merge();
+    sheet.getRange(currentRow, 1).setValue(timestamp);
+    sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('center');
+    currentRow++;
+
+    // Row 4: Blank separator
+    currentRow++;
+
+    return currentRow; // Row 5 is where content starts
+
+  } catch (e) {
+    Logger.log(`ERROR in createWeeklyScheduleHeader: ${e.message}`);
+    throw new Error(`Could not create weekly schedule header: ${e.message}`);
+  }
+}
+
+
+/**
+ * Create weekly schedule content (simplified table for email).
+ *
+ * @param {Sheet} sheet - Target sheet
+ * @param {object} scheduleData - Weekly schedule data
+ * @param {number} startRow - Starting row number
+ * @param {object} config - Configuration options
+ * @param {number} numColumns - Number of columns
+ * @returns {number} Final row number
+ */
+function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numColumns) {
+  try {
+    let currentRow = startRow;
+
+    // Check if there are assignments
+    if (!scheduleData.assignments || scheduleData.assignments.length === 0) {
+      // No assignments message
+      sheet.getRange(currentRow, 1, 1, numColumns).merge();
+      sheet.getRange(currentRow, 1).setValue('No assignments found for this week. Please generate the schedule first.');
+      sheet.getRange(currentRow, 1).setFontStyle('italic').setHorizontalAlignment('center');
+      return currentRow;
+    }
+
+    // Table headers
+    const headers = ['Date', 'Time', 'Mass', 'Role', 'Volunteer'];
+    for (let col = 0; col < headers.length; col++) {
+      sheet.getRange(currentRow, col + 1).setValue(headers[col]);
+    }
+    sheet.getRange(currentRow, 1, 1, numColumns)
+      .setFontWeight('bold')
+      .setBackground('#f0f0f0')
+      .setHorizontalAlignment('center');
+    currentRow++;
+
+    // Group assignments by Mass (date + time)
+    const assignmentsByMass = new Map();
+    for (const assignment of scheduleData.assignments) {
+      const massKey = `${assignment.date.getTime()}_${assignment.time}`;
+      if (!assignmentsByMass.has(massKey)) {
+        assignmentsByMass.set(massKey, {
+          date: assignment.date,
+          time: assignment.time,
+          description: assignment.description,
+          assignments: []
+        });
+      }
+      assignmentsByMass.get(massKey).assignments.push(assignment);
+    }
+
+    // Write content rows
+    for (const [massKey, mass] of assignmentsByMass) {
+      const massAssignments = mass.assignments;
+      const numRows = massAssignments.length;
+
+      for (let i = 0; i < numRows; i++) {
+        const assignment = massAssignments[i];
+        const rowData = [
+          i === 0 ? HELPER_formatDate(mass.date, 'default') : '', // Date (first row only)
+          i === 0 ? mass.time : '', // Time (first row only)
+          i === 0 ? mass.description : '', // Mass description (first row only)
+          assignment.role,
+          assignment.volunteerName || 'UNASSIGNED'
+        ];
+
+        // Write row data
+        for (let col = 0; col < rowData.length; col++) {
+          sheet.getRange(currentRow, col + 1).setValue(rowData[col]);
+        }
+
+        // Highlight unassigned roles (light red background)
+        if (!assignment.volunteerName || assignment.volunteerName === 'UNASSIGNED') {
+          sheet.getRange(currentRow, numColumns).setBackground('#fce8e6');
+        }
+
+        currentRow++;
+      }
+    }
+
+    // Apply borders to entire table
+    const tableRange = sheet.getRange(startRow, 1, currentRow - startRow, numColumns);
+    tableRange.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+
+    return currentRow;
+
+  } catch (e) {
+    Logger.log(`ERROR in createWeeklyScheduleContent: ${e.message}`);
+    throw new Error(`Could not create weekly schedule content: ${e.message}`);
+  }
+}
+
+
+/**
+ * Apply email-friendly formatting to weekly schedule sheet.
+ *
+ * @param {Sheet} sheet - Target sheet
+ * @param {number} numColumns - Number of columns
+ */
+function applyWeeklyScheduleFormatting(sheet, numColumns) {
+  try {
+    // Set column widths (optimized for email)
+    sheet.setColumnWidth(1, 120); // Date
+    sheet.setColumnWidth(2, 80);  // Time
+    sheet.setColumnWidth(3, 200); // Mass
+    sheet.setColumnWidth(4, 150); // Role
+    sheet.setColumnWidth(5, 150); // Volunteer
+
+    // Set default font
+    const dataRange = sheet.getDataRange();
+    dataRange.setFontFamily('Arial').setFontSize(11);
+
+    // Set text alignment
+    sheet.getRange(5, 1, sheet.getLastRow() - 4, 1).setHorizontalAlignment('left'); // Date column
+    sheet.getRange(5, 2, sheet.getLastRow() - 4, 1).setHorizontalAlignment('center'); // Time column
+    sheet.getRange(5, 3, sheet.getLastRow() - 4, 1).setHorizontalAlignment('left'); // Mass column
+    sheet.getRange(5, 4, sheet.getLastRow() - 4, 2).setHorizontalAlignment('left'); // Role and Volunteer columns
+
+    Logger.log('Weekly schedule formatting applied');
+
+  } catch (e) {
+    Logger.log(`ERROR in applyWeeklyScheduleFormatting: ${e.message}`);
+  }
 }

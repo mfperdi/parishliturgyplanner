@@ -1122,3 +1122,129 @@ function HELPER_showValidationReport(title, items, summary = null) {
 
   ui.alert(formattedTitle, message, ui.ButtonSet.OK);
 }
+
+
+// =============================================================================
+// WEEKLY VIEW HELPERS
+// =============================================================================
+
+/**
+ * Calculate liturgical week boundaries (Sunday-Saturday).
+ *
+ * @param {Date} referenceDate - Any date within the target week (default: today)
+ * @returns {object} { startDate: Date, endDate: Date, weekString: string }
+ *
+ * @example
+ * // If today is Wednesday, Jan 8, 2026:
+ * const week = HELPER_getCurrentWeekBounds();
+ * // Returns: {
+ * //   startDate: Sunday Jan 5, 2026 00:00:00,
+ * //   endDate: Saturday Jan 11, 2026 23:59:59,
+ * //   weekString: "Week of January 5-11, 2026"
+ * // }
+ */
+function HELPER_getCurrentWeekBounds(referenceDate = new Date()) {
+  try {
+    // Clone the date to avoid modifying the original
+    const date = new Date(referenceDate.getTime());
+
+    // Get day of week (0 = Sunday, 6 = Saturday)
+    const dayOfWeek = date.getDay();
+
+    // Calculate days back to Sunday (start of liturgical week)
+    const daysToSunday = dayOfWeek; // 0 if Sunday, 1 if Monday, etc.
+
+    // Calculate week start (Sunday at midnight)
+    const weekStart = new Date(date.getTime());
+    weekStart.setDate(date.getDate() - daysToSunday);
+    weekStart.setHours(0, 0, 0, 0);
+
+    // Calculate week end (Saturday at 11:59:59 PM)
+    const weekEnd = new Date(weekStart.getTime());
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    // Generate week string
+    const weekString = HELPER_getWeekString(weekStart, weekEnd);
+
+    return {
+      startDate: weekStart,
+      endDate: weekEnd,
+      weekString: weekString
+    };
+  } catch (e) {
+    Logger.log(`ERROR in HELPER_getCurrentWeekBounds: ${e.message}`);
+    throw new Error(`Could not calculate week boundaries: ${e.message}`);
+  }
+}
+
+
+/**
+ * Format week range for display.
+ * Handles weeks that span multiple months or years.
+ *
+ * @param {Date} startDate - Sunday of the week
+ * @param {Date} endDate - Saturday of the week
+ * @returns {string} Formatted week string
+ *
+ * @example
+ * HELPER_getWeekString(new Date(2026, 0, 5), new Date(2026, 0, 11))
+ * // Returns: "Week of January 5-11, 2026"
+ *
+ * HELPER_getWeekString(new Date(2025, 11, 29), new Date(2026, 0, 4))
+ * // Returns: "Week of December 29, 2025 - January 4, 2026"
+ */
+function HELPER_getWeekString(startDate, endDate) {
+  try {
+    const startMonth = startDate.getMonth();
+    const endMonth = endDate.getMonth();
+    const startYear = startDate.getFullYear();
+    const endYear = endDate.getFullYear();
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Same month and year: "Week of January 5-11, 2026"
+    if (startMonth === endMonth && startYear === endYear) {
+      return `Week of ${monthNames[startMonth]} ${startDate.getDate()}-${endDate.getDate()}, ${startYear}`;
+    }
+
+    // Different months (and possibly years): "Week of December 29, 2025 - January 4, 2026"
+    return `Week of ${monthNames[startMonth]} ${startDate.getDate()}, ${startYear} - ${monthNames[endMonth]} ${endDate.getDate()}, ${endYear}`;
+
+  } catch (e) {
+    Logger.log(`ERROR in HELPER_getWeekString: ${e.message}`);
+    return 'Week of [Error]';
+  }
+}
+
+
+/**
+ * Check if a date falls within a week range (inclusive).
+ *
+ * @param {Date} dateToCheck - Date to test
+ * @param {Date} weekStart - Start of week (Sunday)
+ * @param {Date} weekEnd - End of week (Saturday)
+ * @returns {boolean} True if date is within the week
+ *
+ * @example
+ * const weekStart = new Date(2026, 0, 5); // Sunday Jan 5
+ * const weekEnd = new Date(2026, 0, 11);  // Saturday Jan 11
+ * HELPER_isDateInWeek(new Date(2026, 0, 8), weekStart, weekEnd)  // true (Wed Jan 8)
+ * HELPER_isDateInWeek(new Date(2026, 0, 4), weekStart, weekEnd)  // false (Sat Jan 4)
+ */
+function HELPER_isDateInWeek(dateToCheck, weekStart, weekEnd) {
+  try {
+    // Normalize all dates to midnight for comparison
+    const checkDate = new Date(dateToCheck.getFullYear(), dateToCheck.getMonth(), dateToCheck.getDate());
+    const startDate = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate());
+    const endDate = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate());
+
+    return checkDate >= startDate && checkDate <= endDate;
+  } catch (e) {
+    Logger.log(`ERROR in HELPER_isDateInWeek: ${e.message}`);
+    return false;
+  }
+}

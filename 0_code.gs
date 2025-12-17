@@ -99,6 +99,17 @@ function onOpen(e) {
           .addItem('Debug Functions', 'showDebugPanel')
           .addItem('Export Data', 'exportCurrentSchedule'))
       .addToUi();
+
+  // Auto-generate weekly view when spreadsheet opens
+  // Wrapped in try-catch to prevent errors from blocking menu creation
+  try {
+    generateWeeklyView();
+    Logger.log('Weekly view auto-generated on open');
+  } catch (e) {
+    // Silently fail - weekly view generation is optional
+    // User can manually refresh if needed
+    Logger.log(`Weekly view auto-generation failed: ${e.message}`);
+  }
 }
 
 /**
