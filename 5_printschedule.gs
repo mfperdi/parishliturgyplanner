@@ -291,7 +291,8 @@ function getAssignmentDataForMonth(monthString) {
           assignedGroup: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_GROUP - 1),
           assignedVolunteerName: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_VOLUNTEER_NAME - 1) || 'UNASSIGNED',
           status: HELPER_safeArrayAccess(row, assignCols.STATUS - 1, 'Pending'),
-          eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1)
+          eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1),
+          isAnticipated: HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1) === true || HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1) === 'TRUE'
         });
       }
     }
@@ -1038,6 +1039,7 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
  * @param {Array} options.ministryFilter - Array of ministry names to filter (e.g., ['Lector'])
  * @param {string} options.sheetName - Target sheet name (default: 'WeeklyView')
  * @param {boolean} options.includeColors - Use background colors (default: false for email compatibility)
+ * @param {string} options.weekRange - Week range ('current', 'next', '2weeks', '3weeks', '4weeks')
  * @returns {string} Success message
  *
  * @example
@@ -1047,16 +1049,26 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
  * // Generate with ministry filter
  * generateWeeklyView(null, { ministryFilter: ['Lector'] });
  *
+ * // Generate next 2 weeks
+ * generateWeeklyView(null, { weekRange: '2weeks' });
+ *
  * // Generate specific week
  * generateWeeklyView(new Date(2026, 0, 5)); // Week of Jan 5-11, 2026
  */
 function generateWeeklyView(weekStartDate = null, options = {}) {
   try {
-    // Calculate week boundaries (defaults to current week)
+    // Calculate week boundaries based on range option
     let weekBounds;
+    const weekRange = options.weekRange || 'current';
+
     if (weekStartDate) {
+      // Specific date provided - use single week
       weekBounds = HELPER_getCurrentWeekBounds(weekStartDate);
+    } else if (weekRange) {
+      // Use multi-week range helper
+      weekBounds = HELPER_getWeekRangeBounds(weekRange);
     } else {
+      // Default to current week
       weekBounds = HELPER_getCurrentWeekBounds();
     }
 
@@ -1277,13 +1289,14 @@ function createWeeklyScheduleHeader(sheet, scheduleData, weekString, config, num
 
 
 /**
- * Create weekly schedule content (simplified table for email).
+ * Create weekly schedule content with weekend grouping.
+ * Groups Saturday vigil + Sunday masses together, keeps weekday masses in table format.
  *
  * @param {Sheet} sheet - Target sheet
  * @param {object} scheduleData - Weekly schedule data
  * @param {number} startRow - Starting row number
  * @param {object} config - Configuration options
- * @param {number} numColumns - Number of columns
+ * @param {number} numColumns - Number of columns (not used in new format, kept for compatibility)
  * @returns {number} Final row number
  */
 function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numColumns) {
@@ -1293,70 +1306,42 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
     // Check if there are assignments
     if (!scheduleData.assignments || scheduleData.assignments.length === 0) {
       // No assignments message
-      sheet.getRange(currentRow, 1, 1, numColumns).merge();
+      sheet.getRange(currentRow, 1, 1, 5).merge();
       sheet.getRange(currentRow, 1).setValue('No assignments found for this week. Please generate the schedule first.');
       sheet.getRange(currentRow, 1).setFontStyle('italic').setHorizontalAlignment('center');
       return currentRow;
     }
 
-    // Table headers
-    const headers = ['Date', 'Time', 'Mass', 'Role', 'Volunteer'];
-    for (let col = 0; col < headers.length; col++) {
-      sheet.getRange(currentRow, col + 1).setValue(headers[col]);
-    }
-    sheet.getRange(currentRow, 1, 1, numColumns)
-      .setFontWeight('bold')
-      .setBackground('#f0f0f0')
-      .setHorizontalAlignment('center');
-    currentRow++;
+    // Separate weekend and weekday assignments
+    const weekendAssignments = [];
+    const weekdayAssignments = [];
 
-    // Group assignments by Mass (date + time)
-    const assignmentsByMass = new Map();
     for (const assignment of scheduleData.assignments) {
-      const massKey = `${assignment.date.getTime()}_${assignment.time}`;
-      if (!assignmentsByMass.has(massKey)) {
-        assignmentsByMass.set(massKey, {
-          date: assignment.date,
-          time: assignment.time,
-          description: assignment.description,
-          assignments: []
-        });
-      }
-      assignmentsByMass.get(massKey).assignments.push(assignment);
-    }
+      const dayOfWeek = assignment.date.getDay(); // 0 = Sunday, 6 = Saturday
+      const isWeekend = (dayOfWeek === 0) || (dayOfWeek === 6 && assignment.isAnticipated);
 
-    // Write content rows
-    for (const [massKey, mass] of assignmentsByMass) {
-      const massAssignments = mass.assignments;
-      const numRows = massAssignments.length;
-
-      for (let i = 0; i < numRows; i++) {
-        const assignment = massAssignments[i];
-        const rowData = [
-          i === 0 ? HELPER_formatDate(mass.date, 'default') : '', // Date (first row only)
-          i === 0 ? mass.time : '', // Time (first row only)
-          i === 0 ? mass.description : '', // Mass description (first row only)
-          assignment.role,
-          assignment.volunteerName || 'UNASSIGNED'
-        ];
-
-        // Write row data
-        for (let col = 0; col < rowData.length; col++) {
-          sheet.getRange(currentRow, col + 1).setValue(rowData[col]);
-        }
-
-        // Highlight unassigned roles (light red background)
-        if (!assignment.volunteerName || assignment.volunteerName === 'UNASSIGNED') {
-          sheet.getRange(currentRow, numColumns).setBackground('#fce8e6');
-        }
-
-        currentRow++;
+      if (isWeekend) {
+        weekendAssignments.push(assignment);
+      } else {
+        weekdayAssignments.push(assignment);
       }
     }
 
-    // Apply borders to entire table
-    const tableRange = sheet.getRange(startRow, 1, currentRow - startRow, numColumns);
-    tableRange.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+    // WEEKEND SECTION (Saturday vigil + Sunday masses)
+    if (weekendAssignments.length > 0) {
+      currentRow = createWeekendSection(sheet, weekendAssignments, scheduleData.liturgicalData, currentRow);
+      currentRow += 2; // Add spacing after weekend section
+    }
+
+    // WEEKDAY SECTION (Monday-Friday)
+    if (weekdayAssignments.length > 0) {
+      // Section header
+      sheet.getRange(currentRow, 1).setValue('Weekday Masses');
+      sheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold');
+      currentRow += 2;
+
+      currentRow = createWeekdayTableSection(sheet, weekdayAssignments, currentRow);
+    }
 
     return currentRow;
 
@@ -1364,6 +1349,201 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
     Logger.log(`ERROR in createWeeklyScheduleContent: ${e.message}`);
     throw new Error(`Could not create weekly schedule content: ${e.message}`);
   }
+}
+
+
+/**
+ * Create weekend section with grouped Saturday vigil + Sunday masses.
+ *
+ * @param {Sheet} sheet - Target sheet
+ * @param {Array} weekendAssignments - Weekend assignments
+ * @param {Map} liturgicalData - Liturgical celebration data
+ * @param {number} startRow - Starting row number
+ * @returns {number} Final row number
+ */
+function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRow) {
+  let currentRow = startRow;
+
+  // Group assignments by Mass (date + time)
+  const massesByDateTime = new Map();
+  for (const assignment of weekendAssignments) {
+    const massKey = `${assignment.date.getTime()}_${assignment.time}`;
+    if (!massesByDateTime.has(massKey)) {
+      massesByDateTime.set(massKey, {
+        date: assignment.date,
+        time: assignment.time,
+        description: assignment.description,
+        liturgicalCelebration: assignment.liturgicalCelebration,
+        isAnticipated: assignment.isAnticipated,
+        assignments: []
+      });
+    }
+    massesByDateTime.get(massKey).assignments.push(assignment);
+  }
+
+  // Sort masses by date, then time
+  const masses = Array.from(massesByDateTime.values()).sort((a, b) => {
+    if (a.date.getTime() !== b.date.getTime()) {
+      return a.date.getTime() - b.date.getTime();
+    }
+    return a.time.localeCompare(b.time);
+  });
+
+  // Get weekend date range and liturgical celebration
+  const saturdayMass = masses.find(m => m.date.getDay() === 6);
+  const sundayMass = masses.find(m => m.date.getDay() === 0);
+
+  let weekendTitle = 'Weekend Masses';
+  if (saturdayMass && sundayMass) {
+    const satDate = HELPER_formatDate(saturdayMass.date, 'default');
+    const sunDate = HELPER_formatDate(sundayMass.date, 'default');
+    const celebration = sundayMass.liturgicalCelebration || saturdayMass.liturgicalCelebration;
+    weekendTitle = `Weekend of ${satDate.split('/')[0]}-${sunDate} - ${celebration}`;
+  } else if (sundayMass) {
+    const celebration = sundayMass.liturgicalCelebration;
+    weekendTitle = `${HELPER_formatDate(sundayMass.date, 'default')} - ${celebration}`;
+  } else if (saturdayMass) {
+    const celebration = saturdayMass.liturgicalCelebration;
+    weekendTitle = `${HELPER_formatDate(saturdayMass.date, 'default')} - ${celebration}`;
+  }
+
+  // Weekend header
+  sheet.getRange(currentRow, 1, 1, 5).merge();
+  sheet.getRange(currentRow, 1).setValue(weekendTitle);
+  sheet.getRange(currentRow, 1)
+    .setFontSize(12)
+    .setFontWeight('bold')
+    .setBackground('#e8f0fe');
+  currentRow += 2;
+
+  // Write each Mass
+  for (const mass of masses) {
+    const dayName = mass.date.getDay() === 6 ? 'Saturday' : 'Sunday';
+    const dateStr = HELPER_formatDate(mass.date, 'default');
+    const timeStr = formatTimeDisplay(mass.time);
+    const massType = mass.isAnticipated ? 'Vigil' : '';
+
+    // Mass header (e.g., "Saturday January 4 - 5:00 PM Vigil")
+    const massHeader = `${dayName} ${dateStr} - ${timeStr}${massType ? ' ' + massType : ''}`;
+    sheet.getRange(currentRow, 1).setValue(massHeader);
+    sheet.getRange(currentRow, 1).setFontWeight('bold');
+    currentRow++;
+
+    // Write assignments for this Mass (indented)
+    for (const assignment of mass.assignments) {
+      const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || 'UNASSIGNED';
+      const assignmentText = `  ${assignment.role}: ${volunteerName}`;
+
+      sheet.getRange(currentRow, 1).setValue(assignmentText);
+
+      // Highlight unassigned
+      if (volunteerName === 'UNASSIGNED') {
+        sheet.getRange(currentRow, 1).setBackground('#fce8e6');
+      }
+
+      currentRow++;
+    }
+
+    currentRow++; // Blank line between masses
+  }
+
+  return currentRow;
+}
+
+
+/**
+ * Create weekday table section (Monday-Friday).
+ *
+ * @param {Sheet} sheet - Target sheet
+ * @param {Array} weekdayAssignments - Weekday assignments
+ * @param {number} startRow - Starting row number
+ * @returns {number} Final row number
+ */
+function createWeekdayTableSection(sheet, weekdayAssignments, startRow) {
+  let currentRow = startRow;
+
+  // Table headers
+  const headers = ['Date', 'Time', 'Mass', 'Role', 'Volunteer'];
+  for (let col = 0; col < headers.length; col++) {
+    sheet.getRange(currentRow, col + 1).setValue(headers[col]);
+  }
+  sheet.getRange(currentRow, 1, 1, 5)
+    .setFontWeight('bold')
+    .setBackground('#f0f0f0')
+    .setHorizontalAlignment('center');
+  currentRow++;
+
+  // Group by Mass
+  const massesByDateTime = new Map();
+  for (const assignment of weekdayAssignments) {
+    const massKey = `${assignment.date.getTime()}_${assignment.time}`;
+    if (!massesByDateTime.has(massKey)) {
+      massesByDateTime.set(massKey, {
+        date: assignment.date,
+        time: assignment.time,
+        description: assignment.description,
+        assignments: []
+      });
+    }
+    massesByDateTime.get(massKey).assignments.push(assignment);
+  }
+
+  // Sort masses by date, then time
+  const masses = Array.from(massesByDateTime.values()).sort((a, b) => {
+    if (a.date.getTime() !== b.date.getTime()) {
+      return a.date.getTime() - b.date.getTime();
+    }
+    return a.time.localeCompare(b.time);
+  });
+
+  // Write table rows
+  for (const mass of masses) {
+    const massAssignments = mass.assignments;
+
+    for (let i = 0; i < massAssignments.length; i++) {
+      const assignment = massAssignments[i];
+      const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || 'UNASSIGNED';
+
+      const rowData = [
+        i === 0 ? HELPER_formatDate(mass.date, 'default') : '',
+        i === 0 ? formatTimeDisplay(mass.time) : '',
+        i === 0 ? mass.description : '',
+        assignment.role,
+        volunteerName
+      ];
+
+      for (let col = 0; col < rowData.length; col++) {
+        sheet.getRange(currentRow, col + 1).setValue(rowData[col]);
+      }
+
+      // Highlight unassigned
+      if (volunteerName === 'UNASSIGNED') {
+        sheet.getRange(currentRow, 5).setBackground('#fce8e6');
+      }
+
+      currentRow++;
+    }
+  }
+
+  // Apply borders to table
+  const tableRange = sheet.getRange(startRow - 1, 1, currentRow - startRow + 1, 5);
+  tableRange.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+
+  return currentRow;
+}
+
+
+/**
+ * Format time for display (handles both Date objects and string times).
+ *
+ * @param {Date|string} time - Time to format
+ * @returns {string} Formatted time (e.g., "5:00 PM")
+ */
+function formatTimeDisplay(time) {
+  if (time instanceof Date) {
+    return Utilities.formatDate(time, Session.getScriptTimeZone(), 'h:mm a');
+  }
+  return time; // Already a string
 }
 
 
