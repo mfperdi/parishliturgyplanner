@@ -1248,3 +1248,99 @@ function HELPER_isDateInWeek(dateToCheck, weekStart, weekEnd) {
     return false;
   }
 }
+
+
+/**
+ * Calculate date range for multi-week views.
+ * Supports "current", "next", "2weeks", "3weeks", "4weeks".
+ *
+ * @param {string} weekRange - Range specification ('current', 'next', '2weeks', '3weeks', '4weeks')
+ * @param {Date} referenceDate - Reference date (default: today)
+ * @returns {object} { startDate, endDate, weekString }
+ *
+ * @example
+ * // Current week
+ * HELPER_getWeekRangeBounds('current')
+ * // Returns: { startDate: Sunday, endDate: Saturday, weekString: "Week of January 5-11, 2026" }
+ *
+ * // Next 2 weeks
+ * HELPER_getWeekRangeBounds('2weeks')
+ * // Returns: { startDate: Sunday, endDate: Saturday +13 days, weekString: "Weeks of January 5-25, 2026" }
+ */
+function HELPER_getWeekRangeBounds(weekRange = 'current', referenceDate = new Date()) {
+  try {
+    // Get base week bounds
+    const baseWeek = HELPER_getCurrentWeekBounds(referenceDate);
+    let startDate = new Date(baseWeek.startDate.getTime());
+    let endDate = new Date(baseWeek.endDate.getTime());
+
+    // Adjust based on range type
+    switch (weekRange) {
+      case 'current':
+        // Use base week as-is
+        break;
+
+      case 'next':
+        // Shift to next week
+        startDate.setDate(startDate.getDate() + 7);
+        endDate.setDate(endDate.getDate() + 7);
+        break;
+
+      case '2weeks':
+        // Current week + next week (14 days total)
+        endDate.setDate(endDate.getDate() + 7);
+        break;
+
+      case '3weeks':
+        // Next 3 weeks (21 days total)
+        endDate.setDate(endDate.getDate() + 14);
+        break;
+
+      case '4weeks':
+        // Next 4 weeks (28 days total)
+        endDate.setDate(endDate.getDate() + 21);
+        break;
+
+      default:
+        Logger.log(`Unknown week range: ${weekRange}, using current week`);
+    }
+
+    // Generate appropriate week string
+    let weekString;
+    if (weekRange === 'current' || weekRange === 'next') {
+      weekString = HELPER_getWeekString(startDate, endDate);
+    } else {
+      // Multi-week: "Weeks of January 5 - January 25, 2026"
+      const startMonth = startDate.getMonth();
+      const endMonth = endDate.getMonth();
+      const startYear = startDate.getFullYear();
+      const endYear = endDate.getFullYear();
+
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+
+      if (startMonth === endMonth && startYear === endYear) {
+        // Same month: "Weeks of January 5-25, 2026"
+        weekString = `Weeks of ${monthNames[startMonth]} ${startDate.getDate()}-${endDate.getDate()}, ${startYear}`;
+      } else if (startYear === endYear) {
+        // Different months, same year: "Weeks of December 29 - January 11, 2026"
+        weekString = `Weeks of ${monthNames[startMonth]} ${startDate.getDate()} - ${monthNames[endMonth]} ${endDate.getDate()}, ${startYear}`;
+      } else {
+        // Different years: "Weeks of December 29, 2025 - January 11, 2026"
+        weekString = `Weeks of ${monthNames[startMonth]} ${startDate.getDate()}, ${startYear} - ${monthNames[endMonth]} ${endDate.getDate()}, ${endYear}`;
+      }
+    }
+
+    return {
+      startDate: startDate,
+      endDate: endDate,
+      weekString: weekString
+    };
+
+  } catch (e) {
+    Logger.log(`ERROR in HELPER_getWeekRangeBounds: ${e.message}`);
+    throw new Error(`Could not calculate week range boundaries: ${e.message}`);
+  }
+}

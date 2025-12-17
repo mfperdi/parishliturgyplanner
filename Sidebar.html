@@ -534,6 +534,20 @@
           </div>
           <div class="step-description">Create email-friendly weekly schedule (auto-updates on open)</div>
 
+          <!-- Week Range Selector -->
+          <div style="margin-bottom: 10px;">
+            <label for="weekly-range-select" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
+              Generate schedule for:
+            </label>
+            <select id="weekly-range-select" class="month-select" style="width: 100%; padding: 8px;">
+              <option value="current">This Week</option>
+              <option value="next">Next Week</option>
+              <option value="2weeks">This + Next Week (2 weeks)</option>
+              <option value="3weeks">Next 3 Weeks</option>
+              <option value="4weeks">Next 4 Weeks</option>
+            </select>
+          </div>
+
           <!-- Ministry Filter Dropdown -->
           <div style="margin-bottom: 10px;">
             <label for="weekly-ministry-filter" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
@@ -1029,12 +1043,24 @@
 
     // Weekly View button
     btnWeekly.addEventListener('click', () => {
+      // Get week range selection
+      const weekRange = document.getElementById('weekly-range-select').value;
+
       // Get ministry filter selection
       const ministryFilter = document.getElementById('weekly-ministry-filter').value;
       const ministryFilterArray = ministryFilter ? [ministryFilter] : null;
 
+      // Build friendly message
+      const rangeText = {
+        'current': 'this week',
+        'next': 'next week',
+        '2weeks': 'next 2 weeks',
+        '3weeks': 'next 3 weeks',
+        '4weeks': 'next 4 weeks'
+      }[weekRange] || 'this week';
+
       const filterText = ministryFilter ? ` (${ministryFilter} only)` : '';
-      const msg = `Generating weekly view${filterText}...`;
+      const msg = `Generating weekly view for ${rangeText}${filterText}...`;
       showLoading(msg);
 
       google.script.run
@@ -1043,7 +1069,10 @@
           markStepComplete('weekly');
         })
         .withFailureHandler((error) => showError(error, 'print'))
-        .generateWeeklyView(null, { ministryFilter: ministryFilterArray });
+        .generateWeeklyView(null, {
+          ministryFilter: ministryFilterArray,
+          weekRange: weekRange
+        });
     });
 
     // Publish All Ministries button

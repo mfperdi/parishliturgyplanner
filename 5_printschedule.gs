@@ -1039,6 +1039,7 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
  * @param {Array} options.ministryFilter - Array of ministry names to filter (e.g., ['Lector'])
  * @param {string} options.sheetName - Target sheet name (default: 'WeeklyView')
  * @param {boolean} options.includeColors - Use background colors (default: false for email compatibility)
+ * @param {string} options.weekRange - Week range ('current', 'next', '2weeks', '3weeks', '4weeks')
  * @returns {string} Success message
  *
  * @example
@@ -1048,16 +1049,26 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
  * // Generate with ministry filter
  * generateWeeklyView(null, { ministryFilter: ['Lector'] });
  *
+ * // Generate next 2 weeks
+ * generateWeeklyView(null, { weekRange: '2weeks' });
+ *
  * // Generate specific week
  * generateWeeklyView(new Date(2026, 0, 5)); // Week of Jan 5-11, 2026
  */
 function generateWeeklyView(weekStartDate = null, options = {}) {
   try {
-    // Calculate week boundaries (defaults to current week)
+    // Calculate week boundaries based on range option
     let weekBounds;
+    const weekRange = options.weekRange || 'current';
+
     if (weekStartDate) {
+      // Specific date provided - use single week
       weekBounds = HELPER_getCurrentWeekBounds(weekStartDate);
+    } else if (weekRange) {
+      // Use multi-week range helper
+      weekBounds = HELPER_getWeekRangeBounds(weekRange);
     } else {
+      // Default to current week
       weekBounds = HELPER_getCurrentWeekBounds();
     }
 
