@@ -1195,9 +1195,19 @@ function buildWeeklyScheduleData(weekStart, weekEnd, config) {
       if (a.date.getTime() !== b.date.getTime()) {
         return a.date.getTime() - b.date.getTime();
       }
+
+      // Handle time comparison (can be Date object or string)
       if (a.time !== b.time) {
-        return a.time.localeCompare(b.time);
+        const timeA = a.time instanceof Date ? a.time.getTime() : a.time;
+        const timeB = b.time instanceof Date ? b.time.getTime() : b.time;
+
+        if (typeof timeA === 'number' && typeof timeB === 'number') {
+          return timeA - timeB; // Numeric comparison for Date objects
+        } else if (typeof timeA === 'string' && typeof timeB === 'string') {
+          return timeA.localeCompare(timeB); // String comparison for time strings
+        }
       }
+
       return a.role.localeCompare(b.role);
     });
 
