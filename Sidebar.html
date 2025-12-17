@@ -529,6 +529,32 @@
         <div class="step-icon" style="background-color: #1e8e3e;">9</div>
         <div class="step-content">
           <div class="step-title">
+            Generate Weekly View
+            <span id="completion-weekly" class="completion-badge hidden">✓ Complete</span>
+          </div>
+          <div class="step-description">Create email-friendly weekly schedule (auto-updates on open)</div>
+
+          <!-- Ministry Filter Dropdown -->
+          <div style="margin-bottom: 10px;">
+            <label for="weekly-ministry-filter" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
+              Filter by Ministry (optional):
+            </label>
+            <select id="weekly-ministry-filter" class="month-select" style="width: 100%; padding: 8px;">
+              <option value="">All Ministries</option>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
+          <button id="btn-weekly" class="btn btn-outline" disabled>
+            📅 Refresh Weekly View
+          </button>
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1e8e3e;">10</div>
+        <div class="step-content">
+          <div class="step-title">
             Publish Schedule
             <span id="completion-publish" class="completion-badge hidden">✓ Complete</span>
           </div>
@@ -624,6 +650,7 @@
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
     const btnPrint = document.getElementById('btn-print');
+    const btnWeekly = document.getElementById('btn-weekly');
     const btnPublishAll = document.getElementById('btn-publish-all');
     const btnPublishMinistry = document.getElementById('btn-publish-ministry');
     const publishMinistryFilter = document.getElementById('publish-ministry-filter');
@@ -733,6 +760,7 @@
 
       // Completion phase buttons (enable after assignment)
       btnPrint.disabled = !hasCalendar || !hasMonthSelected;
+      btnWeekly.disabled = !hasCalendar; // Weekly view doesn't require month selection (always shows current week)
       btnPublishAll.disabled = !hasCalendar || !hasMonthSelected;
 
       // Publish ministry button enabled when ministry selected AND month selected
@@ -802,15 +830,19 @@
     
     function onMinistriesLoaded(ministries) {
       const ministryFilter = document.getElementById('ministry-filter');
+      const weeklyMinistryFilter = document.getElementById('weekly-ministry-filter');
       const publishMinistryFilter = document.getElementById('publish-ministry-filter');
 
       // Populate print filter dropdown
       ministryFilter.innerHTML = '<option value="">All Ministries</option>';
 
+      // Populate weekly filter dropdown
+      weeklyMinistryFilter.innerHTML = '<option value="">All Ministries</option>';
+
       // Populate publish filter dropdown
       publishMinistryFilter.innerHTML = '<option value="">Select ministry...</option>';
 
-      // Add ministry options to both dropdowns
+      // Add ministry options to all dropdowns
       ministries.forEach(ministry => {
         // Add to print filter dropdown
         const option1 = document.createElement('option');
@@ -818,11 +850,17 @@
         option1.textContent = ministry;
         ministryFilter.appendChild(option1);
 
-        // Add to publish filter dropdown
+        // Add to weekly filter dropdown
         const option2 = document.createElement('option');
         option2.value = ministry;
         option2.textContent = ministry;
-        publishMinistryFilter.appendChild(option2);
+        weeklyMinistryFilter.appendChild(option2);
+
+        // Add to publish filter dropdown
+        const option3 = document.createElement('option');
+        option3.value = ministry;
+        option3.textContent = ministry;
+        publishMinistryFilter.appendChild(option3);
       });
 
       console.log(`Loaded ${ministries.length} ministries for filter dropdowns`);
@@ -987,6 +1025,25 @@
         })
         .withFailureHandler((error) => showError(error, 'print'))
         .generatePrintableSchedule(selectedMonth, { ministryFilter: ministryFilterArray });
+    });
+
+    // Weekly View button
+    btnWeekly.addEventListener('click', () => {
+      // Get ministry filter selection
+      const ministryFilter = document.getElementById('weekly-ministry-filter').value;
+      const ministryFilterArray = ministryFilter ? [ministryFilter] : null;
+
+      const filterText = ministryFilter ? ` (${ministryFilter} only)` : '';
+      const msg = `Generating weekly view${filterText}...`;
+      showLoading(msg);
+
+      google.script.run
+        .withSuccessHandler((message) => {
+          showSuccess(message);
+          markStepComplete('weekly');
+        })
+        .withFailureHandler((error) => showError(error, 'print'))
+        .generateWeeklyView(null, { ministryFilter: ministryFilterArray });
     });
 
     // Publish All Ministries button
