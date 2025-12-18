@@ -1101,11 +1101,18 @@ function generateWeeklyView(weekStartDate = null, options = {}) {
 
     Logger.log(`Found ${scheduleData.assignments.length} assignments for the week`);
 
+    // If range was extended due to vigil spillover, regenerate week string
+    let finalWeekString = weekString;
+    if (scheduleData.rangeExtended) {
+      finalWeekString = HELPER_getWeekString(scheduleData.weekStart, scheduleData.weekEnd);
+      Logger.log(`Week string updated to reflect extended range: ${finalWeekString}`);
+    }
+
     // Determine number of columns (5 for email-friendly format)
     const numColumns = 5; // Date | Time | Mass | Role | Volunteer
 
     // Generate the schedule
-    let currentRow = createWeeklyScheduleHeader(weeklySheet, scheduleData, weekString, config, numColumns);
+    let currentRow = createWeeklyScheduleHeader(weeklySheet, scheduleData, finalWeekString, config, numColumns);
     currentRow = createWeeklyScheduleContent(weeklySheet, scheduleData, currentRow, config, numColumns);
 
     // Apply simple formatting (email-friendly)
@@ -1115,7 +1122,9 @@ function generateWeeklyView(weekStartDate = null, options = {}) {
     trimSheet(weeklySheet, numColumns);
 
     Logger.log(`Weekly view created successfully in '${config.sheetName}' sheet`);
-    return `Weekly view for ${weekString} has been created in the '${config.sheetName}' sheet. Ready to copy into email.`;
+
+    // Use finalWeekString in success message (reflects any range extension)
+    return `Weekly view for ${finalWeekString} has been created in the '${config.sheetName}' sheet. Ready to copy into email.`;
 
   } catch (e) {
     Logger.log(`ERROR in generateWeeklyView: ${e.message}`);
@@ -1169,12 +1178,67 @@ function buildWeeklyScheduleData(weekStart, weekEnd, config) {
       }
     }
 
-    // Filter to week range
-    assignments = assignments.filter(a =>
+    // Filter to week range (initial pass)
+    let filteredAssignments = assignments.filter(a =>
       HELPER_isDateInWeek(a.date, weekStart, weekEnd)
     );
 
-    Logger.log(`Found ${assignments.length} assignments in week range`);
+    Logger.log(`Found ${filteredAssignments.length} assignments in initial week range`);
+
+    // SMART LITURGICAL COMPLETION: Check for vigil spillover on last day
+    // If week ends with a vigil Mass, extend range to include the following day
+    let extendedEnd = new Date(weekEnd.getTime());
+    let rangeExtended = false;
+
+    // Check if last day has any vigil masses
+    const lastDayStart = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 0, 0, 0);
+    const lastDayEnd = new Date(weekEnd.getFullYear(), weekEnd.getMonth(), weekEnd.getDate(), 23, 59, 59);
+
+    const hasVigilOnLastDay = filteredAssignments.some(a => {
+      const assignmentDate = new Date(a.date.getFullYear(), a.date.getMonth(), a.date.getDate());
+      const lastDay = new Date(lastDayStart.getFullYear(), lastDayStart.getMonth(), lastDayStart.getDate());
+      return assignmentDate.getTime() === lastDay.getTime() && a.isAnticipated === true;
+    });
+
+    if (hasVigilOnLastDay) {
+      // Extend range to include the following day (Sunday or liturgical celebration)
+      const nextDay = new Date(weekEnd.getTime());
+      nextDay.setDate(nextDay.getDate() + 1);
+      nextDay.setHours(23, 59, 59, 999);
+
+      extendedEnd = nextDay;
+      rangeExtended = true;
+
+      Logger.log(`✅ VIGIL SPILLOVER DETECTED on ${HELPER_formatDate(weekEnd, 'default')}`);
+      Logger.log(`   Extending range to ${HELPER_formatDate(nextDay, 'default')} to complete liturgical celebration`);
+
+      // Check if we need to read from next month
+      const nextDayMonthString = `${nextDay.getFullYear()}-${(nextDay.getMonth() + 1).toString().padStart(2, '0')}`;
+      if (!monthStrings.includes(nextDayMonthString)) {
+        try {
+          Logger.log(`   Reading additional month: ${nextDayMonthString}`);
+          const nextMonthAssignments = getAssignmentDataForMonth(nextDayMonthString);
+          assignments = assignments.concat(nextMonthAssignments);
+          monthStrings.push(nextDayMonthString);
+        } catch (e) {
+          Logger.log(`   Warning: Could not read next month for spillover: ${e.message}`);
+        }
+      }
+
+      // Add assignments from the extended day
+      const nextDayAssignments = assignments.filter(a => {
+        const assignmentDate = new Date(a.date.getFullYear(), a.date.getMonth(), a.date.getDate());
+        const targetDate = new Date(nextDay.getFullYear(), nextDay.getMonth(), nextDay.getDate());
+        return assignmentDate.getTime() === targetDate.getTime();
+      });
+
+      filteredAssignments = filteredAssignments.concat(nextDayAssignments);
+      Logger.log(`   Added ${nextDayAssignments.length} assignments from ${HELPER_formatDate(nextDay, 'default')}`);
+    }
+
+    // Use filtered assignments
+    assignments = filteredAssignments;
+    Logger.log(`Total assignments after liturgical completion: ${assignments.length}`);
 
     // Apply ministry filter if specified
     if (config.ministryFilter && config.ministryFilter.length > 0) {
@@ -1211,15 +1275,15 @@ function buildWeeklyScheduleData(weekStart, weekEnd, config) {
       return a.role.localeCompare(b.role);
     });
 
-    // Build liturgical data map for the week
+    // Build liturgical data map for the week (use extended range if applicable)
     const liturgicalData = new Map();
     for (const monthString of monthStrings) {
       try {
         const monthLiturgicalData = buildLiturgicalDataMap(monthString);
         for (const [key, value] of monthLiturgicalData) {
-          // Only include if date is in week range
+          // Only include if date is in week range (use extended end if range was extended)
           const datesInWeek = value.dates.filter(d =>
-            HELPER_isDateInWeek(d, weekStart, weekEnd)
+            HELPER_isDateInWeek(d, weekStart, extendedEnd)
           );
           if (datesInWeek.length > 0) {
             liturgicalData.set(key, {
@@ -1238,7 +1302,9 @@ function buildWeeklyScheduleData(weekStart, weekEnd, config) {
       assignments,
       liturgicalData,
       weekStart,
-      weekEnd,
+      weekEnd: extendedEnd,  // Use extended end date
+      originalWeekEnd: weekEnd,  // Keep original for reference
+      rangeExtended: rangeExtended,  // Flag indicating if range was extended
       ministryFilterText: config.ministryFilter ? config.ministryFilter.join(', ') : 'All Ministries'
     };
 
@@ -1279,17 +1345,26 @@ function createWeeklyScheduleHeader(sheet, scheduleData, weekString, config, num
     sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
     currentRow++;
 
-    // Row 3: Generation timestamp
+    // Row 3: Extension footnote (if range was extended for vigil completion)
+    if (scheduleData.rangeExtended) {
+      const footnote = `* Extended to include ${HELPER_formatDate(scheduleData.weekEnd, 'default')} to complete vigil Mass celebration`;
+      sheet.getRange(currentRow, 1, 1, numColumns).merge();
+      sheet.getRange(currentRow, 1).setValue(footnote);
+      sheet.getRange(currentRow, 1).setFontSize(9).setFontStyle('italic').setHorizontalAlignment('center').setFontColor('#666666');
+      currentRow++;
+    }
+
+    // Row 4 (or 3 if no extension): Generation timestamp
     const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'long')}`;
     sheet.getRange(currentRow, 1, 1, numColumns).merge();
     sheet.getRange(currentRow, 1).setValue(timestamp);
     sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('center');
     currentRow++;
 
-    // Row 4: Blank separator
+    // Blank separator
     currentRow++;
 
-    return currentRow; // Row 5 is where content starts
+    return currentRow; // Content starts after blank separator
 
   } catch (e) {
     Logger.log(`ERROR in createWeeklyScheduleHeader: ${e.message}`);
