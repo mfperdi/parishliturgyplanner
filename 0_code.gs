@@ -11,9 +11,9 @@
  * - 1b_calendarseasons.gs - Seasonal celebrations
  * - 2_schedulelogic.gs - Mass schedule generation
  * - 3_assignmentlogic.gs - Volunteer auto-assignment
- * - 4_timeoffslogic.gs - Timeoff request management
+ * - 4_timeoff-form.gs - Timeoff request management
  * - 5_printschedule.gs - Enhanced liturgical print schedules
- * - debug.gs - Diagnostic and testing functions
+ * - 0_debug.gs - Diagnostic and testing functions
  * - sidebar.html - Enhanced user interface
  */
 

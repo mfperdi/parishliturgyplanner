@@ -316,7 +316,7 @@ function SCHEDULE_buildLiturgicalMap(month, year) {
  * Helper function to check if a date falls within a start/end range.
  * Handles blank dates as "all year".
  * @param {Date} dateToCheck The date of the mass being scheduled.
- *_@param {Date | string} startDate The start date from the rule (can be invalid/blank)._
+ * @param {Date | string} startDate The start date from the rule (can be invalid/blank).
  * @param {Date | string} endDate The end date from the rule (can be invalid/blank).
  * @returns {boolean} True if the mass should be scheduled.
  */
