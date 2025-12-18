@@ -1339,22 +1339,13 @@ function createWeeklyScheduleHeader(sheet, scheduleData, weekString, config, num
     sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
     currentRow++;
 
-    // Row 2: Week range
+    // Row 2: Week range (automatically extended if vigil spillover detected)
     sheet.getRange(currentRow, 1, 1, numColumns).merge();
     sheet.getRange(currentRow, 1).setValue(weekString);
     sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
     currentRow++;
 
-    // Row 3: Extension footnote (if range was extended for vigil completion)
-    if (scheduleData.rangeExtended) {
-      const footnote = `* Extended to include ${HELPER_formatDate(scheduleData.weekEnd, 'default')} to complete vigil Mass celebration`;
-      sheet.getRange(currentRow, 1, 1, numColumns).merge();
-      sheet.getRange(currentRow, 1).setValue(footnote);
-      sheet.getRange(currentRow, 1).setFontSize(9).setFontStyle('italic').setHorizontalAlignment('center').setFontColor('#666666');
-      currentRow++;
-    }
-
-    // Row 4 (or 3 if no extension): Generation timestamp
+    // Row 3: Generation timestamp
     const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'long')}`;
     sheet.getRange(currentRow, 1, 1, numColumns).merge();
     sheet.getRange(currentRow, 1).setValue(timestamp);
