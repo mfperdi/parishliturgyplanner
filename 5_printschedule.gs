@@ -1513,15 +1513,10 @@ function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRo
 
     // Write assignments for this Mass (indented)
     for (const assignment of mass.assignments) {
-      const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || 'UNASSIGNED';
+      const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || '**NEEDED**';
       const assignmentText = `  ${assignment.role}: ${volunteerName}`;
 
       sheet.getRange(currentRow, 1).setValue(assignmentText);
-
-      // Highlight unassigned
-      if (volunteerName === 'UNASSIGNED') {
-        sheet.getRange(currentRow, 1).setBackground('#fce8e6');
-      }
 
       currentRow++;
     }
@@ -1590,7 +1585,7 @@ function createWeekdayTableSection(sheet, weekdayAssignments, startRow) {
 
     for (let i = 0; i < massAssignments.length; i++) {
       const assignment = massAssignments[i];
-      const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || 'UNASSIGNED';
+      const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || '**NEEDED**';
 
       const rowData = [
         i === 0 ? HELPER_formatDate(mass.date, 'default') : '',
@@ -1602,11 +1597,6 @@ function createWeekdayTableSection(sheet, weekdayAssignments, startRow) {
 
       for (let col = 0; col < rowData.length; col++) {
         sheet.getRange(currentRow, col + 1).setValue(rowData[col]);
-      }
-
-      // Highlight unassigned
-      if (volunteerName === 'UNASSIGNED') {
-        sheet.getRange(currentRow, 5).setBackground('#fce8e6');
       }
 
       currentRow++;
