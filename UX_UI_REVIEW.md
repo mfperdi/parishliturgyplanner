@@ -200,7 +200,7 @@ The Parish Liturgical Scheduler has a **well-structured, modern interface** with
          // Could write to a temporary sheet cell that sidebar polls
        };
 
-       return ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString, updateProgress);
+       return ASSIGNMENT_autoAssignRolesForMonth(monthString, updateProgress);
      }
      ```
    - **Priority**: Medium

@@ -53,7 +53,7 @@ Sidebar.html  - User interface
 | `1a_calendardates.gs` | Moveable feast date calculations | `CALENDAR_calculateLiturgicalDates()` |
 | `1b_calendarseasons.gs` | Seasonal celebration logic | `CALENDAR_getSeasonalCelebration()` |
 | `2_schedulelogic.gs` | Mass schedule generation with 3-layer logic | `SCHEDULE_generateScheduleForMonth()` |
-| `3_assignmentlogic.gs` | Volunteer auto-assignment algorithm | `ASSIGNMENT_autoAssignRolesForMonthOptimized()` |
+| `3_assignmentlogic.gs` | Volunteer auto-assignment algorithm | `ASSIGNMENT_autoAssignRolesForMonth()` |
 | `4_timeoff-form.gs` | Timeoff request handling | `TIMEOFFS_*()` functions |
 | `5_printschedule.gs` | Print schedule generation | `generatePrintableSchedule()` |
 | `6_archivelogic.gs` | Archive completed schedules | Archive functions |
@@ -236,7 +236,7 @@ Layer 3 (Yearly):
 
 **Trigger**: User clicks "Auto-Assign Volunteers"
 
-**Process** (`ASSIGNMENT_autoAssignRolesForMonthOptimized()`):
+**Process** (`ASSIGNMENT_autoAssignRolesForMonth()`):
 1. Read volunteers with ministry qualifications (Active and Ministry Sponsor status)
 2. **Build skill-to-ministry mapping** from Ministries sheet:
    - Maps specific skills (e.g., "1st reading") to general ministry categories (e.g., "Lector")
@@ -828,7 +828,7 @@ This ensures Saturday vigil Masses are properly labeled with Sunday's liturgy.
 **Common modifications**:
 - Changing scoring algorithm: Update `HELPER_calculateVolunteerScore()` in 0b_helper.gs
 - Adding eligibility rules: Modify `filterCandidates()`
-- Handling new preference types: Update `buildVolunteerMapOptimized()`
+- Handling new preference types: Update `buildVolunteerMap()`
 
 **Key points**:
 - Preferences read from columns 11-12 (see CONSTANTS.COLS.VOLUNTEERS)

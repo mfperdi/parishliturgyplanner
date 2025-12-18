@@ -7,9 +7,9 @@
  */
 
 /**
- * Optimized main assignment function with better error handling
+ * Main assignment function with better error handling
  */
-function ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString) {
+function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
   Logger.log(`Starting assignment process for ${monthString}`);
   
   try {
@@ -30,7 +30,7 @@ function ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString) {
     });
     
   } catch (e) {
-    Logger.log(`ERROR in ASSIGNMENT_autoAssignRolesForMonthOptimized: ${e.message}`);
+    Logger.log(`ERROR in ASSIGNMENT_autoAssignRolesForMonth: ${e.message}`);
     Logger.log(`Stack trace: ${e.stack}`);
     throw new Error(`Assignment failed: ${e.message}`);
   }
@@ -52,9 +52,9 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
   const timeoffData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.TIMEOFFS);
 
   // Build optimized data structures
-  const volunteers = buildVolunteerMapOptimized(volunteerData);
+  const volunteers = buildVolunteerMap(volunteerData);
   // Pass monthString to enable spillover date detection
-  const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, scheduleYear, monthString);
+  const timeoffMaps = buildTimeoffMap(timeoffData, month, scheduleYear, monthString);
 
   // CRITICAL: Build skill-to-ministry mapping from MassTemplates
   const skillToMinistryMap = buildSkillToMinistryMap();
@@ -121,10 +121,10 @@ function buildSkillToMinistryMap() {
 }
 
 /**
- * Optimized volunteer map building with CORRECTED preference reading
+ * Build volunteer map with corrected preference reading
  * UPDATED: Include "Ministry Sponsor" status for group assignments
  */
-function buildVolunteerMapOptimized(volunteerData) {
+function buildVolunteerMap(volunteerData) {
   const volMap = new Map();
   const cols = CONSTANTS.COLS.VOLUNTEERS;
 
@@ -195,7 +195,7 @@ function parseListField(fieldValue, toLowerCase = true) {
 }
 
 /**
- * Optimized timeoff map building (DATE-BASED SYSTEM)
+ * Build timeoff map (DATE-BASED SYSTEM)
  * Returns object with two maps: blacklist, whitelist
  * NEW: Uses date checkboxes from form - no more Event IDs
  *
@@ -207,7 +207,7 @@ function parseListField(fieldValue, toLowerCase = true) {
  * @param {number} year Year (e.g., 2026)
  * @param {string} monthString Optional month string (e.g., "2026-01") for spillover detection
  */
-function buildTimeoffMapOptimized(timeoffData, month, year, monthString = null) {
+function buildTimeoffMap(timeoffData, month, year, monthString = null) {
   const result = {
     blacklist: new Map(),        // Not Available: volunteer => Map<dateString, Set<{vigil|non-vigil}>>
     whitelist: new Map()         // Only Available: volunteer => Map<dateString, Set<{vigil|non-vigil}>>
@@ -1277,25 +1277,4 @@ function formatAssignmentResults(results, monthString) {
   }
 
   return message;
-}
-
-/**
- * Legacy wrapper function for backward compatibility
- */
-function ASSIGNMENT_autoAssignRolesForMonth(monthString) {
-  return ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString);
-}
-
-/**
- * Legacy function to build volunteer map (for substitute finding)
- */
-function ASSIGNMENT_buildVolunteerMap(volunteerData) {
-  return buildVolunteerMapOptimized(volunteerData);
-}
-
-/**
- * Legacy function to build timeoff map
- */
-function ASSIGNMENT_buildTimeoffMap(timeoffData, month, year, monthString = null) {
-  return buildTimeoffMapOptimized(timeoffData, month, year, monthString);
 }

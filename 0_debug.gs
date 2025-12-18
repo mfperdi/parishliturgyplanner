@@ -244,7 +244,7 @@ function DEBUG_analyzeTimeoffEnforcement() {
 
   // Step 1: Build timeoff maps (same as production code)
   const timeoffData = HELPER_readSheetData(CONSTANTS.SHEETS.TIMEOFFS);
-  const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, year);
+  const timeoffMaps = buildTimeoffMap(timeoffData, month, year);
 
   Logger.log(`\n--- STEP 1: Timeoff Maps Built ---`);
   Logger.log(`Blacklists: ${timeoffMaps.blacklist.size} volunteers`);
@@ -355,8 +355,8 @@ function DEBUG_traceFilterLogic() {
   // Build same data structures as auto-assignment
   const volunteerData = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
   const timeoffData = HELPER_readSheetData(CONSTANTS.SHEETS.TIMEOFFS);
-  const volunteers = buildVolunteerMapOptimized(volunteerData);
-  const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, year);
+  const volunteers = buildVolunteerMap(volunteerData);
+  const timeoffMaps = buildTimeoffMap(timeoffData, month, year);
 
   Logger.log(`Volunteers map size: ${volunteers.size}`);
   Logger.log(`Blacklist map size: ${timeoffMaps.blacklist.size}`);
@@ -457,8 +457,8 @@ function DEBUG_testTimeoffsIntegration() {
       
       const timeoffData = HELPER_readSheetData(CONSTANTS.SHEETS.TIMEOFFS);
       Logger.log(`Read ${timeoffData.length} timeoff rows`);
-      
-      const timeoffMap = ASSIGNMENT_buildTimeoffMap(timeoffData, testMonth, year);
+
+      const timeoffMap = buildTimeoffMap(timeoffData, testMonth, year);
       Logger.log(`✓ Built timeoff map with ${timeoffMap.size} volunteers`);
       
       if (timeoffMap.size > 0) {

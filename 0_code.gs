@@ -78,7 +78,6 @@ function onOpen(e) {
           .addSeparator()
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
-          .addItem('Setup Assignment Validation', 'ONEDIT_setupConditionalFormatting')
           .addItem('Format Assignment Checkboxes', 'setupAssignmentCheckboxes')
           .addSeparator()
           .addItem('Update Timeoff Form', 'promptUpdateTimeoffForm')
@@ -562,7 +561,7 @@ function setupAssignmentCheckboxes() {
  * @returns {string} A success message.
  */
 function triggerAssignment(monthString) {
-  return ASSIGNMENT_autoAssignRolesForMonthOptimized(monthString);
+  return ASSIGNMENT_autoAssignRolesForMonth(monthString);
 }
 
 /**
@@ -608,7 +607,7 @@ function findSubstituteAssignments(monthString) {
     assignData.shift(); // Remove header
     
     const volunteerData = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
-    const volunteers = buildVolunteerMapOptimized(volunteerData);
+    const volunteers = buildVolunteerMap(volunteerData);
     
     const substituteData = [];
     
