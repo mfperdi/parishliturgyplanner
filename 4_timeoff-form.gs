@@ -518,11 +518,13 @@ Thank you for serving our parish community! 🙏`;
 
     } else {
       // Update existing questions to preserve column mapping
-      Logger.log(`Found ${items.length} existing questions - updating choices only`);
+      Logger.log(`Found ${items.length} existing questions - updating choices and help text`);
 
       // Question 1: Your Name (list)
       if (items.length > 0 && items[0].getType() === FormApp.ItemType.LIST) {
         const volunteerQuestion = items[0].asListItem();
+        volunteerQuestion.setTitle('Your Name');
+        volunteerQuestion.setHelpText(`Select your name from the list. If you don't see your name, contact ${coordinator}.`);
         volunteerQuestion.setChoiceValues(volunteerNames);
         Logger.log(`Updated volunteer name dropdown with ${volunteerNames.length} names`);
       } else {
@@ -532,6 +534,8 @@ Thank you for serving our parish community! 🙏`;
       // Question 2: Type (list)
       if (items.length > 1 && items[1].getType() === FormApp.ItemType.LIST) {
         const typeQuestion = items[1].asListItem();
+        typeQuestion.setTitle('What type of availability change is this?');
+        typeQuestion.setHelpText('Choose carefully:\n\n• "I CANNOT serve" = You are unavailable on specific dates\n  Example: Vacation, family event, work conflict, illness\n\n• "I can ONLY serve" = You can ONLY be scheduled for specific dates (not available any other dates this month)\n  Example: "I can only help Feb 8 and Feb 15 - no other Sundays"');
         typeQuestion.setChoiceValues(types);
         Logger.log('Updated type dropdown');
       } else {
@@ -541,15 +545,20 @@ Thank you for serving our parish community! 🙏`;
       // Question 3: Dates (checkbox)
       if (items.length > 2 && items[2].getType() === FormApp.ItemType.CHECKBOX) {
         const dateQuestion = items[2].asCheckboxItem();
+        dateQuestion.setTitle('Select the dates that apply to your request');
+        dateQuestion.setHelpText('Check ALL dates that apply (listed in chronological order):\n\n• WEEKENDS: Checking a weekend blocks you from ALL masses that weekend (Saturday vigil + all Sunday masses) unless you specify otherwise in "Additional Details" below\n\n• SPECIAL LITURGICAL DAYS: Checking these blocks you from all masses that day\n\n• For "I CANNOT serve": Check every date/weekend you are unavailable\n\n• For "I can ONLY serve": Check ONLY the dates/weekends you can serve');
         dateQuestion.setChoiceValues(dateOptions);
         Logger.log(`Updated date checkboxes with ${dateOptions.length} dates`);
       } else {
         Logger.log('WARNING: Question 3 is not a checkbox item or does not exist');
       }
 
-      // Question 4: Notes (paragraph) - no choices to update, just verify it exists
+      // Question 4: Notes (paragraph) - update title and help text
       if (items.length > 3 && items[3].getType() === FormApp.ItemType.PARAGRAPH_TEXT) {
-        Logger.log('Notes field verified');
+        const notesQuestion = items[3].asParagraphTextItem();
+        notesQuestion.setTitle('Additional details or restrictions (Optional)');
+        notesQuestion.setHelpText('Use this field for:\n\n• MASS TIME RESTRICTIONS for weekends: "Weekend 2/7: Saturday vigil only" or "Weekend 2/14: Sunday 10am only"\n\n• Special circumstances: "Available for lector only, not Eucharistic Minister"\n\n• Context: "Family wedding" or "Surgery recovery"\n\n• Questions or clarifications for the scheduler\n\nLeave blank if your request is straightforward (unavailable for all masses on the dates you checked).');
+        Logger.log('Updated notes field');
       } else {
         Logger.log('WARNING: Question 4 is not a paragraph text item or does not exist');
       }
