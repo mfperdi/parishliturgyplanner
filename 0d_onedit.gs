@@ -443,23 +443,3 @@ function ONEDIT_showValidationDialog(volunteerName, warnings) {
     { type: 'warning' }
   );
 }
-
-/**
- * DEPRECATED: Notes column removed - validation shown in formula columns M-O
- * Sets up conditional formatting to highlight assignments with validation warnings
- * Call this once from menu or manually to set up the formatting rules
- */
-function ONEDIT_setupConditionalFormatting() {
-  Logger.log('ONEDIT_setupConditionalFormatting: Notes column removed, conditional formatting no longer applies');
-  HELPER_showAlert(
-    'Conditional Formatting Updated',
-    'The Notes-based conditional formatting has been removed.\n\n' +
-    'Validation warnings are now shown directly in helper columns:\n' +
-    '• Column M: Qualified?\n' +
-    '• Column N: Active?\n' +
-    '• Column O: Free?\n\n' +
-    'You can manually add conditional formatting based on these columns if desired.',
-    'info'
-  );
-  return;
-}

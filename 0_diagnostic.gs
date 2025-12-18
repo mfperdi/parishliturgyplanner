@@ -207,7 +207,7 @@ function DIAGNOSTIC_checkAssignmentReadiness(monthString) {
     } else {
       const timeoffData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.TIMEOFFS);
       const { year, month } = HELPER_validateMonthString(monthString);
-      const timeoffMaps = buildTimeoffMapOptimized(timeoffData, month, year);
+      const timeoffMaps = buildTimeoffMap(timeoffData, month, year);
 
       const blacklistCount = timeoffMaps.blacklist.size;
       const whitelistCount = timeoffMaps.whitelist.size;
