@@ -446,19 +446,6 @@ function ONEDIT_showValidationDialog(volunteerName, warnings) {
 
 /**
  * DEPRECATED: Notes column removed - validation shown in formula columns M-O
- * @param {Sheet} sheet - The Assignments sheet
- * @param {number} row - Row number
- * @param {array} warnings - Array of warning messages
- * @param {string} currentNotes - Current notes content
- */
-function ONEDIT_addWarningNote(sheet, row, warnings, currentNotes) {
-  // Function no longer needed - Notes column removed
-  // Validation warnings now displayed in formula helper columns (Qualified?, Active?, Free?)
-  Logger.log('ONEDIT_addWarningNote called but Notes column has been removed');
-}
-
-/**
- * DEPRECATED: Notes column removed - validation shown in formula columns M-O
  * Sets up conditional formatting to highlight assignments with validation warnings
  * Call this once from menu or manually to set up the formatting rules
  */
