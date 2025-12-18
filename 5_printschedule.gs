@@ -1471,7 +1471,13 @@ function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRo
     if (a.date.getTime() !== b.date.getTime()) {
       return a.date.getTime() - b.date.getTime();
     }
-    return a.time.localeCompare(b.time);
+    // Handle time comparison (can be Date object or string)
+    if (a.time instanceof Date && b.time instanceof Date) {
+      return a.time.getTime() - b.time.getTime();
+    } else if (typeof a.time === 'string' && typeof b.time === 'string') {
+      return a.time.localeCompare(b.time);
+    }
+    return 0; // Fallback if types don't match
   });
 
   // Get weekend date range and liturgical celebration
@@ -1578,7 +1584,13 @@ function createWeekdayTableSection(sheet, weekdayAssignments, startRow) {
     if (a.date.getTime() !== b.date.getTime()) {
       return a.date.getTime() - b.date.getTime();
     }
-    return a.time.localeCompare(b.time);
+    // Handle time comparison (can be Date object or string)
+    if (a.time instanceof Date && b.time instanceof Date) {
+      return a.time.getTime() - b.time.getTime();
+    } else if (typeof a.time === 'string' && typeof b.time === 'string') {
+      return a.time.localeCompare(b.time);
+    }
+    return 0; // Fallback if types don't match
   });
 
   // Write table rows
