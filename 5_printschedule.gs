@@ -1416,7 +1416,7 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
       sheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold');
       currentRow += 2;
 
-      currentRow = createWeekdayTableSection(sheet, weekdayAssignments, currentRow);
+      currentRow = createWeekdayTableSection(sheet, weekdayAssignments, scheduleData.liturgicalData, currentRow);
     }
 
     return currentRow;
@@ -1496,7 +1496,25 @@ function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRo
     .setFontSize(12)
     .setFontWeight('bold')
     .setBackground('#e8f0fe');
-  currentRow += 2;
+  currentRow++;
+
+  // Add liturgical information line (rank, season, color)
+  // Get liturgical info from the Sunday celebration (or Saturday vigil if no Sunday)
+  const liturgicalCelebration = sundayMass ? sundayMass.liturgicalCelebration : (saturdayMass ? saturdayMass.liturgicalCelebration : null);
+  if (liturgicalCelebration && liturgicalData && liturgicalData.has(liturgicalCelebration)) {
+    const liturgyInfo = liturgicalData.get(liturgicalCelebration);
+    const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
+
+    sheet.getRange(currentRow, 1, 1, 5).merge();
+    sheet.getRange(currentRow, 1).setValue(rankInfo);
+    sheet.getRange(currentRow, 1)
+      .setFontSize(10)
+      .setFontStyle('italic')
+      .setBackground('#e8f0fe');
+    currentRow++;
+  }
+
+  currentRow++; // Blank line before Mass times
 
   // Write each Mass
   for (const mass of masses) {
@@ -1538,84 +1556,137 @@ function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRo
  *
  * @param {Sheet} sheet - Target sheet
  * @param {Array} weekdayAssignments - Weekday assignments
+ * @param {Map} liturgicalData - Liturgical celebration data
  * @param {number} startRow - Starting row number
  * @returns {number} Final row number
  */
-function createWeekdayTableSection(sheet, weekdayAssignments, startRow) {
+function createWeekdayTableSection(sheet, weekdayAssignments, liturgicalData, startRow) {
   let currentRow = startRow;
 
-  // Table headers
-  const headers = ['Date', 'Time', 'Mass', 'Role', 'Volunteer'];
-  for (let col = 0; col < headers.length; col++) {
-    sheet.getRange(currentRow, col + 1).setValue(headers[col]);
-  }
-  sheet.getRange(currentRow, 1, 1, 5)
-    .setFontWeight('bold')
-    .setBackground('#f0f0f0')
-    .setHorizontalAlignment('center');
-  currentRow++;
-
-  // Group by Mass
-  const massesByDateTime = new Map();
+  // Group assignments by liturgical celebration first
+  const assignmentsByCelebration = new Map();
   for (const assignment of weekdayAssignments) {
-    const massKey = `${assignment.date.getTime()}_${assignment.time}`;
-    if (!massesByDateTime.has(massKey)) {
-      massesByDateTime.set(massKey, {
-        date: assignment.date,
-        time: assignment.time,
-        description: assignment.description,
-        assignments: []
-      });
+    const celebration = assignment.liturgicalCelebration || 'Other';
+    if (!assignmentsByCelebration.has(celebration)) {
+      assignmentsByCelebration.set(celebration, []);
     }
-    massesByDateTime.get(massKey).assignments.push(assignment);
+    assignmentsByCelebration.get(celebration).push(assignment);
   }
 
-  // Sort masses by date, then time
-  const masses = Array.from(massesByDateTime.values()).sort((a, b) => {
-    if (a.date.getTime() !== b.date.getTime()) {
-      return a.date.getTime() - b.date.getTime();
-    }
-    // Handle time comparison (can be Date object or string)
-    if (a.time instanceof Date && b.time instanceof Date) {
-      return a.time.getTime() - b.time.getTime();
-    } else if (typeof a.time === 'string' && typeof b.time === 'string') {
-      return a.time.localeCompare(b.time);
-    }
-    return 0; // Fallback if types don't match
+  // Sort celebrations chronologically (by first assignment date)
+  const sortedCelebrations = Array.from(assignmentsByCelebration.keys()).sort((a, b) => {
+    const aFirstDate = assignmentsByCelebration.get(a)[0].date.getTime();
+    const bFirstDate = assignmentsByCelebration.get(b)[0].date.getTime();
+    return aFirstDate - bFirstDate;
   });
 
-  // Write table rows
-  for (const mass of masses) {
-    const massAssignments = mass.assignments;
+  // Process each liturgical celebration
+  for (const celebration of sortedCelebrations) {
+    const celebrationAssignments = assignmentsByCelebration.get(celebration);
 
-    for (let i = 0; i < massAssignments.length; i++) {
-      const assignment = massAssignments[i];
-      const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || 'UNASSIGNED';
-
-      const rowData = [
-        i === 0 ? HELPER_formatDate(mass.date, 'default') : '',
-        i === 0 ? formatTimeDisplay(mass.time) : '',
-        i === 0 ? mass.description : '',
-        assignment.role,
-        volunteerName
-      ];
-
-      for (let col = 0; col < rowData.length; col++) {
-        sheet.getRange(currentRow, col + 1).setValue(rowData[col]);
-      }
-
-      // Highlight unassigned
-      if (volunteerName === 'UNASSIGNED') {
-        sheet.getRange(currentRow, 5).setBackground('#fce8e6');
-      }
-
+    // Celebration header with liturgical information
+    if (celebration && celebration !== 'Other') {
+      sheet.getRange(currentRow, 1, 1, 5).merge();
+      sheet.getRange(currentRow, 1).setValue(celebration);
+      sheet.getRange(currentRow, 1)
+        .setFontSize(11)
+        .setFontWeight('bold')
+        .setBackground('#f3f3f3');
       currentRow++;
-    }
-  }
 
-  // Apply borders to table
-  const tableRange = sheet.getRange(startRow - 1, 1, currentRow - startRow + 1, 5);
-  tableRange.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+      // Add liturgical information line (rank, season, color)
+      if (liturgicalData && liturgicalData.has(celebration)) {
+        const liturgyInfo = liturgicalData.get(celebration);
+        const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
+
+        sheet.getRange(currentRow, 1, 1, 5).merge();
+        sheet.getRange(currentRow, 1).setValue(rankInfo);
+        sheet.getRange(currentRow, 1)
+          .setFontSize(9)
+          .setFontStyle('italic')
+          .setBackground('#f3f3f3');
+        currentRow++;
+      }
+
+      currentRow++; // Blank line before table
+    }
+
+    // Table headers
+    const headers = ['Date', 'Time', 'Mass', 'Role', 'Volunteer'];
+    for (let col = 0; col < headers.length; col++) {
+      sheet.getRange(currentRow, col + 1).setValue(headers[col]);
+    }
+    sheet.getRange(currentRow, 1, 1, 5)
+      .setFontWeight('bold')
+      .setBackground('#f0f0f0')
+      .setHorizontalAlignment('center');
+    currentRow++;
+
+    // Group by Mass within this celebration
+    const massesByDateTime = new Map();
+    for (const assignment of celebrationAssignments) {
+      const massKey = `${assignment.date.getTime()}_${assignment.time}`;
+      if (!massesByDateTime.has(massKey)) {
+        massesByDateTime.set(massKey, {
+          date: assignment.date,
+          time: assignment.time,
+          description: assignment.description,
+          assignments: []
+        });
+      }
+      massesByDateTime.get(massKey).assignments.push(assignment);
+    }
+
+    // Sort masses by date, then time
+    const masses = Array.from(massesByDateTime.values()).sort((a, b) => {
+      if (a.date.getTime() !== b.date.getTime()) {
+        return a.date.getTime() - b.date.getTime();
+      }
+      // Handle time comparison (can be Date object or string)
+      if (a.time instanceof Date && b.time instanceof Date) {
+        return a.time.getTime() - b.time.getTime();
+      } else if (typeof a.time === 'string' && typeof b.time === 'string') {
+        return a.time.localeCompare(b.time);
+      }
+      return 0; // Fallback if types don't match
+    });
+
+    // Write table rows
+    const tableStartRow = currentRow;
+    for (const mass of masses) {
+      const massAssignments = mass.assignments;
+
+      for (let i = 0; i < massAssignments.length; i++) {
+        const assignment = massAssignments[i];
+        const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || 'UNASSIGNED';
+
+        const rowData = [
+          i === 0 ? HELPER_formatDate(mass.date, 'default') : '',
+          i === 0 ? formatTimeDisplay(mass.time) : '',
+          i === 0 ? mass.description : '',
+          assignment.role,
+          volunteerName
+        ];
+
+        for (let col = 0; col < rowData.length; col++) {
+          sheet.getRange(currentRow, col + 1).setValue(rowData[col]);
+        }
+
+        // Highlight unassigned
+        if (volunteerName === 'UNASSIGNED') {
+          sheet.getRange(currentRow, 5).setBackground('#fce8e6');
+        }
+
+        currentRow++;
+      }
+    }
+
+    // Apply borders to table
+    const tableRange = sheet.getRange(tableStartRow - 1, 1, currentRow - tableStartRow + 1, 5);
+    tableRange.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+
+    currentRow += 2; // Spacing between celebrations
+  }
 
   return currentRow;
 }
