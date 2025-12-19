@@ -1477,10 +1477,16 @@ function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRo
 
   let weekendTitle = 'Weekend Masses';
   if (saturdayMass && sundayMass) {
+    // Format: Weekend of M/D - M/D/YYYY - Celebration
     const satDate = HELPER_formatDate(saturdayMass.date, 'default');
     const sunDate = HELPER_formatDate(sundayMass.date, 'default');
     const celebration = sundayMass.liturgicalCelebration || saturdayMass.liturgicalCelebration;
-    weekendTitle = `Weekend of ${satDate.split('/')[0]}-${sunDate} - ${celebration}`;
+
+    // Extract M/D from Saturday (remove year)
+    const satDateParts = satDate.split('/');
+    const satMonthDay = `${satDateParts[0]}/${satDateParts[1]}`;
+
+    weekendTitle = `Weekend of ${satMonthDay} - ${sunDate} - ${celebration}`;
   } else if (sundayMass) {
     const celebration = sundayMass.liturgicalCelebration;
     weekendTitle = `${HELPER_formatDate(sundayMass.date, 'default')} - ${celebration}`;
