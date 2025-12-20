@@ -35,165 +35,359 @@ function doGet(e) {
         <!-- Bootstrap 5 CSS -->
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
+        <!-- Google Fonts - Traditional serif for headings -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
         <!-- Custom styles -->
         <style>
+          :root {
+            --burgundy: #6B2C2C;
+            --gold: #C4A053;
+            --cream: #F5F1E8;
+            --slate: #4A4A4A;
+            --light-slate: #858585;
+            --warm-white: #FDFCFA;
+            --border-color: #D4C5B0;
+          }
+
           body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            background: var(--cream);
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: var(--slate);
+            padding: 20px 10px;
+            line-height: 1.6;
           }
 
-          .card {
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            border: none;
-            border-radius: 15px;
+          .container {
+            max-width: 900px;
           }
 
-          .card-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          /* Header - Church-inspired */
+          .page-header {
+            background: var(--warm-white);
+            border: 1px solid var(--border-color);
+            border-radius: 0;
+            padding: 2rem 1.5rem 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(107, 44, 44, 0.08);
+            position: relative;
+          }
+
+          .page-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--burgundy) 0%, var(--gold) 50%, var(--burgundy) 100%);
+          }
+
+          .page-title {
+            font-family: 'Crimson Text', Georgia, serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--burgundy);
+            margin: 0 0 0.5rem 0;
+            letter-spacing: 0.5px;
+          }
+
+          .page-subtitle {
+            font-family: 'Crimson Text', Georgia, serif;
+            font-size: 1.1rem;
+            color: var(--light-slate);
+            font-style: italic;
+            margin: 0 0 1rem 0;
+          }
+
+          .user-info {
+            background: var(--cream);
+            border-left: 3px solid var(--gold);
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            color: var(--slate);
+            margin-top: 1rem;
+          }
+
+          .user-info strong {
+            color: var(--burgundy);
+          }
+
+          /* Main content card */
+          .content-card {
+            background: var(--warm-white);
+            border: 1px solid var(--border-color);
+            border-radius: 0;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(107, 44, 44, 0.06);
+          }
+
+          .content-card h2 {
+            font-family: 'Crimson Text', Georgia, serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--burgundy);
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--cream);
+            padding-bottom: 0.5rem;
+          }
+
+          /* Buttons - Traditional parish aesthetic */
+          .btn-parish {
+            background: var(--burgundy);
             color: white;
-            border-radius: 15px 15px 0 0 !important;
-            padding: 20px;
-          }
-
-          .user-badge {
-            background: rgba(255,255,255,0.2);
-            padding: 10px 15px;
-            border-radius: 8px;
-            display: inline-block;
-            margin-top: 10px;
-          }
-
-          .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
-            padding: 12px 30px;
-            border-radius: 8px;
+            padding: 0.75rem 2rem;
             font-weight: 500;
-            transition: transform 0.2s;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+            border-radius: 0;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(107, 44, 44, 0.2);
           }
 
-          .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+          .btn-parish:hover {
+            background: #582424;
+            color: white;
+            box-shadow: 0 4px 8px rgba(107, 44, 44, 0.3);
+            transform: translateY(-1px);
           }
 
-          .loading {
-            text-align: center;
-            padding: 20px;
-            color: #6c757d;
+          .btn-outline-parish {
+            background: transparent;
+            color: var(--burgundy);
+            border: 2px solid var(--burgundy);
+            padding: 0.75rem 2rem;
+            font-weight: 500;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+            border-radius: 0;
+            transition: all 0.2s ease;
           }
 
-          .spinner-border {
-            width: 1.5rem;
-            height: 1.5rem;
-            border-width: 0.2em;
+          .btn-outline-parish:hover {
+            background: var(--burgundy);
+            color: white;
           }
 
-          #result {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            max-height: 400px;
-            overflow-y: auto;
+          /* Status badge */
+          .status-badge {
+            display: inline-block;
+            padding: 0.4rem 1rem;
+            border-radius: 2px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+          }
+
+          .status-badge.active {
+            background: #2C5F2D;
+            color: white;
+          }
+
+          .status-badge.inactive {
+            background: var(--light-slate);
+            color: white;
+          }
+
+          .status-badge.sponsor {
+            background: var(--gold);
+            color: var(--slate);
+          }
+
+          /* Volunteer list - clean, readable */
+          .volunteer-list {
+            background: var(--cream);
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+            margin-top: 1rem;
           }
 
           .volunteer-item {
-            background: white;
-            border-left: 4px solid #667eea;
-            padding: 12px 15px;
-            margin-bottom: 10px;
-            border-radius: 5px;
-            transition: transform 0.2s;
+            background: var(--warm-white);
+            border-left: 3px solid var(--gold);
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            transition: all 0.2s ease;
           }
 
           .volunteer-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            border-left-color: var(--burgundy);
+            box-shadow: 0 2px 6px rgba(107, 44, 44, 0.1);
           }
 
-          .badge {
-            font-weight: 500;
+          .volunteer-item:last-child {
+            margin-bottom: 0;
           }
 
-          .success-message {
-            background: #d4edda;
-            color: #155724;
-            padding: 12px;
-            border-radius: 8px;
-            border-left: 4px solid #28a745;
-            margin-bottom: 15px;
+          .volunteer-name {
+            font-weight: 600;
+            color: var(--burgundy);
+            font-size: 1.05rem;
+            margin-bottom: 0.25rem;
+          }
+
+          .volunteer-email {
+            color: var(--light-slate);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+          }
+
+          .volunteer-ministry {
+            color: var(--slate);
+            font-size: 0.9rem;
+          }
+
+          .volunteer-ministry strong {
+            color: var(--burgundy);
+          }
+
+          /* Info boxes */
+          .info-box {
+            background: #FFF9E6;
+            border-left: 4px solid var(--gold);
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+            color: var(--slate);
+          }
+
+          .info-box-title {
+            font-weight: 600;
+            color: var(--burgundy);
+            margin-bottom: 0.5rem;
+          }
+
+          .info-box ul {
+            margin: 0.5rem 0 0 0;
+            padding-left: 1.25rem;
+          }
+
+          .info-box li {
+            margin-bottom: 0.25rem;
+          }
+
+          /* Loading state */
+          .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--light-slate);
+            font-style: italic;
+          }
+
+          .loading-spinner {
+            border: 3px solid var(--cream);
+            border-top: 3px solid var(--burgundy);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+          }
+
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+
+          /* Footer */
+          .page-footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--light-slate);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 2rem;
+          }
+
+          /* Responsive */
+          @media (max-width: 768px) {
+            .page-title {
+              font-size: 1.5rem;
+            }
+
+            .content-card {
+              padding: 1.5rem 1rem;
+            }
+
+            .btn-parish,
+            .btn-outline-parish {
+              width: 100%;
+              margin-bottom: 0.5rem;
+            }
           }
         </style>
       </head>
 
       <body>
-        <div class="container" style="max-width: 800px;">
-          <!-- Main Card -->
-          <div class="card">
-            <div class="card-header text-center">
-              <h1 class="mb-0">🎉 Parish Scheduler Web App</h1>
-              <p class="mb-0 mt-2">Proof of Concept</p>
-              <div class="user-badge" id="userBadge">
-                <small>Loading user...</small>
-              </div>
-            </div>
+        <div class="container">
 
-            <div class="card-body">
-              <!-- Success Message -->
-              <div class="success-message">
-                <strong>✅ Success!</strong> Your web app is running. This proves the architecture works!
-              </div>
-
-              <!-- Instructions -->
-              <div class="alert alert-info">
-                <h6 class="alert-heading">What This Demonstrates:</h6>
-                <ul class="mb-0">
-                  <li>✅ Web app deployment working</li>
-                  <li>✅ User authentication (Google login)</li>
-                  <li>✅ Data access from Google Sheets</li>
-                  <li>✅ Bootstrap UI (mobile-responsive)</li>
-                  <li>✅ Client-server communication</li>
-                </ul>
-              </div>
-
-              <!-- Load Volunteers Button -->
-              <div class="text-center mb-4">
-                <button class="btn btn-primary btn-lg" onclick="loadVolunteers()">
-                  📋 Load Volunteers
-                </button>
-                <p class="text-muted small mt-2">
-                  This will fetch the first 5 volunteers from your Volunteers sheet
-                </p>
-              </div>
-
-              <!-- Results Area -->
-              <div id="result"></div>
-            </div>
-
-            <div class="card-footer text-muted text-center">
-              <small>
-                Parish Liturgical Scheduler • Web App Proof of Concept
-                <br>
-                Powered by Google Apps Script
-              </small>
+          <!-- Header -->
+          <div class="page-header text-center">
+            <h1 class="page-title">Parish Liturgical Scheduler</h1>
+            <p class="page-subtitle">Ministry Coordination Platform</p>
+            <div class="user-info" id="userBadge">
+              <small>Connecting...</small>
             </div>
           </div>
 
-          <!-- Next Steps Card -->
-          <div class="card mt-4">
-            <div class="card-body">
-              <h5 class="card-title">🚀 Next Steps</h5>
-              <p class="card-text">
-                This proof-of-concept works! Now you can build the full app by following the 9-week roadmap in <code>CRUD_APP_PLAN.md</code>.
+          <!-- Main Content -->
+          <div class="content-card">
+            <h2>System Status</h2>
+
+            <div class="info-box">
+              <div class="info-box-title">✓ Web Application Active</div>
+              <p style="margin: 0; font-size: 0.9rem;">
+                The scheduling platform is successfully deployed and ready for use.
               </p>
-              <div class="d-grid gap-2">
-                <a href="#" class="btn btn-outline-primary" onclick="alert('Check CRUD_APP_PLAN.md in your repository for the full implementation roadmap!'); return false;">
-                  📖 View Full Implementation Plan
-                </a>
-              </div>
+            </div>
+
+            <div class="info-box">
+              <div class="info-box-title">Current Capabilities</div>
+              <ul>
+                <li>Secure user authentication via Google accounts</li>
+                <li>Direct access to volunteer database</li>
+                <li>Real-time data synchronization</li>
+                <li>Mobile-responsive interface</li>
+                <li>Server-side data processing</li>
+              </ul>
+            </div>
+
+            <div class="text-center" style="margin: 2rem 0;">
+              <button class="btn-parish" onclick="loadVolunteers()">
+                View Ministry Volunteers
+              </button>
+              <p style="margin-top: 0.75rem; color: var(--light-slate); font-size: 0.9rem;">
+                Retrieves active volunteers from your database
+              </p>
+            </div>
+
+            <!-- Results Area -->
+            <div id="result"></div>
+          </div>
+
+          <!-- Next Steps -->
+          <div class="content-card">
+            <h2>Implementation Roadmap</h2>
+            <p style="color: var(--slate); margin-bottom: 1.5rem;">
+              This proof-of-concept confirms the technical foundation. The full application
+              follows a structured 9-week development plan with three distinct phases.
+            </p>
+            <div class="text-center">
+              <button class="btn-outline-parish" onclick="alert('Detailed implementation plan available in CRUD_APP_PLAN.md'); return false;">
+                Review Development Plan
+              </button>
             </div>
           </div>
+
+          <!-- Footer -->
+          <div class="page-footer">
+            Parish Liturgical Scheduler &middot; Proof of Concept<br>
+            Powered by Google Apps Script
+          </div>
+
         </div>
 
         <!-- Bootstrap JS (optional, for future interactive components) -->
@@ -212,7 +406,7 @@ function doGet(e) {
            */
           function displayUser(email) {
             document.getElementById('userBadge').innerHTML =
-              '<i class="bi bi-person-circle"></i> Logged in as: <strong>' + email + '</strong>';
+              'Authenticated as: <strong>' + email + '</strong>';
           }
 
           /**
@@ -221,7 +415,7 @@ function doGet(e) {
           function loadVolunteers() {
             // Show loading state
             document.getElementById('result').innerHTML =
-              '<div class="loading"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Loading volunteers...</p></div>';
+              '<div class="loading"><div class="loading-spinner"></div><p>Retrieving volunteer records...</p></div>';
 
             // Call server function
             google.script.run
@@ -236,40 +430,48 @@ function doGet(e) {
           function displayVolunteers(data) {
             if (!data || data.length === 0) {
               document.getElementById('result').innerHTML =
-                '<div class="alert alert-warning">No volunteers found. Make sure you have data in the Volunteers sheet.</div>';
+                '<div class="info-box" style="background: #FFF3CD; border-left-color: #856404;">' +
+                '<div class="info-box-title" style="color: #856404;">No Records Found</div>' +
+                '<p style="margin: 0;">No volunteer data available in the Volunteers sheet.</p>' +
+                '</div>';
               return;
             }
 
-            let html = '<h5 class="mb-3">📋 Volunteers (First 5)</h5>';
+            let html = '<div class="volunteer-list">';
+            html += '<h3 style="font-family: \'Crimson Text\', serif; color: var(--burgundy); margin-bottom: 1.5rem; font-size: 1.3rem;">Ministry Volunteers</h3>';
 
             data.forEach(function(volunteer, index) {
               const status = volunteer.status || 'Unknown';
-              const ministries = volunteer.ministries || 'None';
-              const email = volunteer.email || 'No email';
+              const ministries = volunteer.ministries || 'Not assigned';
+              const email = volunteer.email || 'No email on file';
 
-              // Color-code status badges
-              let statusColor = 'secondary';
-              if (status === 'Active') statusColor = 'success';
-              else if (status === 'Inactive') statusColor = 'danger';
-              else if (status === 'Ministry Sponsor') statusColor = 'primary';
+              // Status badge class
+              let statusClass = '';
+              if (status === 'Active') statusClass = 'active';
+              else if (status === 'Inactive') statusClass = 'inactive';
+              else if (status === 'Ministry Sponsor') statusClass = 'sponsor';
+              else statusClass = 'inactive';
 
               html += \`
                 <div class="volunteer-item">
-                  <div class="d-flex justify-content-between align-items-start">
-                    <div>
-                      <h6 class="mb-1">\${volunteer.fullName || 'Unknown'}</h6>
-                      <small class="text-muted">\${email}</small>
+                  <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
+                    <div style="flex: 1;">
+                      <div class="volunteer-name">\${volunteer.fullName || 'Unknown'}</div>
+                      <div class="volunteer-email">\${email}</div>
                     </div>
-                    <span class="badge bg-\${statusColor}">\${status}</span>
+                    <span class="status-badge \${statusClass}">\${status}</span>
                   </div>
-                  <div class="mt-2">
-                    <small><strong>Ministries:</strong> \${ministries}</small>
+                  <div class="volunteer-ministry">
+                    <strong>Ministries:</strong> \${ministries}
                   </div>
                 </div>
               \`;
             });
 
-            html += '<div class="text-center mt-3"><small class="text-muted">Showing first 5 of ' + data.length + ' volunteers</small></div>';
+            html += '<div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color); color: var(--light-slate); font-size: 0.9rem;">';
+            html += 'Displaying first 5 records from database';
+            html += '</div>';
+            html += '</div>';
 
             document.getElementById('result').innerHTML = html;
           }
@@ -280,7 +482,10 @@ function doGet(e) {
           function handleError(error) {
             console.error('Error:', error);
             document.getElementById('result').innerHTML =
-              '<div class="alert alert-danger"><strong>Error:</strong> ' + error.message + '</div>';
+              '<div class="info-box" style="background: #F8D7DA; border-left-color: #842029;">' +
+              '<div class="info-box-title" style="color: #842029;">System Error</div>' +
+              '<p style="margin: 0; color: #58151C;">' + error.message + '</p>' +
+              '</div>';
           }
         </script>
       </body>
