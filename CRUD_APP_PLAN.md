@@ -253,6 +253,12 @@ Existing Apps Script functions (reuse all logic)
 - [ ] Bulk operations (assign multiple, approve multiple timeoffs)
 - [ ] Audit log (sheet-based logging)
 - [ ] Role-based permissions (check Session.getActiveUser())
+- [ ] Mass configuration management
+  - [ ] View/edit Weekly Masses
+  - [ ] View/edit Monthly Masses
+  - [ ] View/edit Yearly Masses
+  - [ ] Mass Templates dropdown
+  - [ ] Event ID validation (no duplicates)
 
 ---
 
@@ -520,6 +526,30 @@ WEBAPP_getUpcomingMasses(days)    // Get next N days of masses
 **Public Access (no auth)**
 ```javascript
 WEBAPP_getPublicSchedule(month)   // Get public schedule (read-only)
+```
+
+**Mass Configuration (Phase 2)**
+```javascript
+// Weekly Masses
+WEBAPP_getWeeklyMasses()          // Get all weekly masses
+WEBAPP_createWeeklyMass(data)     // Create new weekly mass
+WEBAPP_updateWeeklyMass(eventId, data) // Update weekly mass
+WEBAPP_deleteWeeklyMass(eventId)  // Delete (deactivate) weekly mass
+
+// Monthly Masses
+WEBAPP_getMonthlyMasses()         // Get all monthly masses
+WEBAPP_createMonthlyMass(data)    // Create new monthly mass
+WEBAPP_updateMonthlyMass(eventId, data) // Update monthly mass
+WEBAPP_deleteMonthlyMass(eventId) // Delete (deactivate) monthly mass
+
+// Yearly Masses
+WEBAPP_getYearlyMasses()          // Get all yearly masses
+WEBAPP_createYearlyMass(data)     // Create new yearly mass
+WEBAPP_updateYearlyMass(eventId, data) // Update yearly mass
+WEBAPP_deleteYearlyMass(eventId)  // Delete (deactivate) yearly mass
+
+// Mass Templates
+WEBAPP_getMassTemplates()         // Get all templates (for dropdowns)
 ```
 
 ---
@@ -884,7 +914,7 @@ function WEBAPP_getAssignmentsSummary(month) {
   - [ ] Monthly assignment counts
   - [ ] Trend graphs
 
-**Week 7: Admin Tools**
+**Week 7: Admin Tools & Mass Configuration**
 - [ ] Conflict detection
   - [ ] Highlight volunteers assigned multiple roles same mass
   - [ ] Highlight volunteers assigned despite timeoff
@@ -898,6 +928,14 @@ function WEBAPP_getAssignmentsSummary(month) {
   - [ ] Bulk assign to volunteer
   - [ ] Bulk unassign
   - [ ] Bulk approve timeoffs
+- [ ] Mass Configuration page
+  - [ ] Tabbed interface (Weekly/Monthly/Yearly)
+  - [ ] Tables showing configured masses
+  - [ ] Add/Edit modals with forms
+  - [ ] Delete (deactivate) functionality
+  - [ ] Event ID validation
+  - [ ] Mass Templates dropdown integration
+  - [ ] `WEBAPP_getWeeklyMasses()`, `WEBAPP_createWeeklyMass()`, etc.
 
 **Deliverable**: Full-featured app with volunteer portal and admin tools
 
