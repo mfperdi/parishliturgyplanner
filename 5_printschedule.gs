@@ -1721,7 +1721,7 @@ function formatTimeDisplay(time) {
 function applyWeeklyScheduleFormatting(sheet, numColumns) {
   try {
     // Set column widths (optimized for email)
-    sheet.setColumnWidth(1, 120); // Date
+    sheet.setColumnWidth(1, 500); // Date/Content (wide for weekend list format)
     sheet.setColumnWidth(2, 80);  // Time
     sheet.setColumnWidth(3, 200); // Mass
     sheet.setColumnWidth(4, 150); // Role
