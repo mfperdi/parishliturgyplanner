@@ -911,7 +911,7 @@ function applyScheduleFormatting(sheet, config) {
   if (config.columnWidths === 'auto' || !config.columnWidths) {
     sheet.setColumnWidth(1, 100);  // Date
     sheet.setColumnWidth(2, 90);   // Time
-    sheet.setColumnWidth(3, 200);  // Description
+    sheet.setColumnWidth(3, 500);  // Description
 
     if (showMinistryColumn) {
       // 6 columns: Date, Time, Description, Ministry, Role, Volunteer
@@ -1723,7 +1723,7 @@ function applyWeeklyScheduleFormatting(sheet, numColumns) {
     // Set column widths (optimized for email)
     sheet.setColumnWidth(1, 120); // Date
     sheet.setColumnWidth(2, 80);  // Time
-    sheet.setColumnWidth(3, 200); // Mass
+    sheet.setColumnWidth(3, 500); // Mass
     sheet.setColumnWidth(4, 150); // Role
     sheet.setColumnWidth(5, 150); // Volunteer
 
