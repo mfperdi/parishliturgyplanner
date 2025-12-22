@@ -1,582 +1,1060 @@
 /**
  * ====================================================================
- * WEB APP - PROOF OF CONCEPT
+ * PARISH SCHEDULER - ADMIN WEB APP
  * ====================================================================
- * Simple web app to demonstrate the architecture and test deployment.
+ * Modern web application for parish administrators to manage
+ * liturgical schedules, volunteers, and ministry assignments.
  *
- * Features:
- * - Shows logged-in user email
- * - Loads volunteer data from existing Volunteers sheet
- * - Bootstrap UI with responsive design
- * - Works on desktop and mobile
+ * Architecture:
+ * - Left sidebar navigation
+ * - Card-based dashboard
+ * - Multi-page routing
+ * - Direct Google Sheets integration
  *
- * To Deploy:
- * 1. Click "Deploy" > "New deployment"
- * 2. Type: Web app
- * 3. Execute as: Me
- * 4. Access: Anyone with link (or Organization only)
- * 5. Click "Deploy"
- * 6. Copy the URL and open in browser
+ * Pages:
+ * - Dashboard (home)
+ * - Calendar (schedule view)
+ * - Assignments (manage assignments)
+ * - Volunteers (manage volunteers)
+ * - Ministries (manage ministry roles)
+ * - Schedules (generate schedules)
+ * - Settings (configuration)
  */
 
 /**
- * Main entry point for web app
- * Serves the HTML page when user visits the web app URL
+ * Main entry point - serves HTML based on page parameter
  */
 function doGet(e) {
-  return HtmlService.createHtmlOutput(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Parish Scheduler - Proof of Concept</title>
+  const page = e.parameter.page || 'dashboard';
 
-        <!-- Bootstrap 5 CSS -->
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  // Check authentication
+  try {
+    const auth = WEBAPP_checkAuth();
+    return renderPage(page, auth);
+  } catch (error) {
+    return renderErrorPage(error.message);
+  }
+}
 
-        <!-- Google Fonts - Traditional serif for headings -->
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+/**
+ * Check if user is authorized admin
+ */
+function WEBAPP_checkAuth() {
+  const email = Session.getActiveUser().getEmail().toLowerCase();
 
-        <!-- Custom styles -->
-        <style>
-          :root {
-            --burgundy: #6B2C2C;
-            --gold: #C4A053;
-            --cream: #F5F1E8;
-            --slate: #4A4A4A;
-            --light-slate: #858585;
-            --warm-white: #FDFCFA;
-            --border-color: #D4C5B0;
-          }
+  // Read admin emails from Config sheet
+  const config = HELPER_readConfigSafe();
+  const adminEmailsStr = config['Admin Emails'] || '';
 
-          body {
-            background: var(--cream);
-            font-family: 'Inter', -apple-system, sans-serif;
-            color: var(--slate);
-            padding: 20px 10px;
-            line-height: 1.6;
-          }
+  if (!adminEmailsStr) {
+    throw new Error('No admin emails configured. Please add "Admin Emails" to Config sheet.');
+  }
 
-          .container {
-            max-width: 900px;
-          }
+  const adminEmails = adminEmailsStr.split(',').map(e => e.trim().toLowerCase());
 
-          /* Header - Church-inspired */
-          .page-header {
-            background: var(--warm-white);
-            border: 1px solid var(--border-color);
-            border-radius: 0;
-            padding: 2rem 1.5rem 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 8px rgba(107, 44, 44, 0.08);
-            position: relative;
-          }
+  if (!adminEmails.includes(email)) {
+    throw new Error('Access denied. You must be a parish administrator to access this application.');
+  }
 
-          .page-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--burgundy) 0%, var(--gold) 50%, var(--burgundy) 100%);
-          }
+  return {
+    email: email,
+    isAdmin: true,
+    userName: email.split('@')[0] // Simple name from email
+  };
+}
 
-          .page-title {
-            font-family: 'Crimson Text', Georgia, serif;
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--burgundy);
-            margin: 0 0 0.5rem 0;
-            letter-spacing: 0.5px;
-          }
+/**
+ * Render the requested page
+ */
+function renderPage(page, auth) {
+  let content = '';
+  let pageTitle = 'Dashboard';
 
-          .page-subtitle {
-            font-family: 'Crimson Text', Georgia, serif;
-            font-size: 1.1rem;
-            color: var(--light-slate);
-            font-style: italic;
-            margin: 0 0 1rem 0;
-          }
+  switch(page) {
+    case 'dashboard':
+      content = renderDashboard(auth);
+      pageTitle = 'Dashboard';
+      break;
+    case 'calendar':
+      content = renderCalendar(auth);
+      pageTitle = 'Calendar';
+      break;
+    case 'assignments':
+      content = renderAssignments(auth);
+      pageTitle = 'Assignments';
+      break;
+    case 'volunteers':
+      content = renderVolunteers(auth);
+      pageTitle = 'Volunteers';
+      break;
+    case 'ministries':
+      content = renderMinistries(auth);
+      pageTitle = 'Ministries';
+      break;
+    case 'schedules':
+      content = renderSchedules(auth);
+      pageTitle = 'Schedules';
+      break;
+    case 'settings':
+      content = renderSettings(auth);
+      pageTitle = 'Settings';
+      break;
+    default:
+      content = renderDashboard(auth);
+      pageTitle = 'Dashboard';
+  }
 
-          .user-info {
-            background: var(--cream);
-            border-left: 3px solid var(--gold);
-            padding: 0.75rem 1rem;
-            font-size: 0.9rem;
-            color: var(--slate);
-            margin-top: 1rem;
-          }
-
-          .user-info strong {
-            color: var(--burgundy);
-          }
-
-          /* Main content card */
-          .content-card {
-            background: var(--warm-white);
-            border: 1px solid var(--border-color);
-            border-radius: 0;
-            padding: 2rem;
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 8px rgba(107, 44, 44, 0.06);
-          }
-
-          .content-card h2 {
-            font-family: 'Crimson Text', Georgia, serif;
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--burgundy);
-            margin-bottom: 1rem;
-            border-bottom: 2px solid var(--cream);
-            padding-bottom: 0.5rem;
-          }
-
-          /* Buttons - Traditional parish aesthetic */
-          .btn-parish {
-            background: var(--burgundy);
-            color: white;
-            border: none;
-            padding: 0.75rem 2rem;
-            font-weight: 500;
-            font-size: 0.95rem;
-            letter-spacing: 0.5px;
-            border-radius: 0;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(107, 44, 44, 0.2);
-          }
-
-          .btn-parish:hover {
-            background: #582424;
-            color: white;
-            box-shadow: 0 4px 8px rgba(107, 44, 44, 0.3);
-            transform: translateY(-1px);
-          }
-
-          .btn-outline-parish {
-            background: transparent;
-            color: var(--burgundy);
-            border: 2px solid var(--burgundy);
-            padding: 0.75rem 2rem;
-            font-weight: 500;
-            font-size: 0.95rem;
-            letter-spacing: 0.5px;
-            border-radius: 0;
-            transition: all 0.2s ease;
-          }
-
-          .btn-outline-parish:hover {
-            background: var(--burgundy);
-            color: white;
-          }
-
-          /* Status badge */
-          .status-badge {
-            display: inline-block;
-            padding: 0.4rem 1rem;
-            border-radius: 2px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-          }
-
-          .status-badge.active {
-            background: #2C5F2D;
-            color: white;
-          }
-
-          .status-badge.inactive {
-            background: var(--light-slate);
-            color: white;
-          }
-
-          .status-badge.sponsor {
-            background: var(--gold);
-            color: var(--slate);
-          }
-
-          /* Volunteer list - clean, readable */
-          .volunteer-list {
-            background: var(--cream);
-            border: 1px solid var(--border-color);
-            padding: 1.5rem;
-            margin-top: 1rem;
-          }
-
-          .volunteer-item {
-            background: var(--warm-white);
-            border-left: 3px solid var(--gold);
-            padding: 1rem 1.25rem;
-            margin-bottom: 1rem;
-            transition: all 0.2s ease;
-          }
-
-          .volunteer-item:hover {
-            border-left-color: var(--burgundy);
-            box-shadow: 0 2px 6px rgba(107, 44, 44, 0.1);
-          }
-
-          .volunteer-item:last-child {
-            margin-bottom: 0;
-          }
-
-          .volunteer-name {
-            font-weight: 600;
-            color: var(--burgundy);
-            font-size: 1.05rem;
-            margin-bottom: 0.25rem;
-          }
-
-          .volunteer-email {
-            color: var(--light-slate);
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-          }
-
-          .volunteer-ministry {
-            color: var(--slate);
-            font-size: 0.9rem;
-          }
-
-          .volunteer-ministry strong {
-            color: var(--burgundy);
-          }
-
-          /* Info boxes */
-          .info-box {
-            background: #FFF9E6;
-            border-left: 4px solid var(--gold);
-            padding: 1rem 1.25rem;
-            margin: 1.5rem 0;
-            color: var(--slate);
-          }
-
-          .info-box-title {
-            font-weight: 600;
-            color: var(--burgundy);
-            margin-bottom: 0.5rem;
-          }
-
-          .info-box ul {
-            margin: 0.5rem 0 0 0;
-            padding-left: 1.25rem;
-          }
-
-          .info-box li {
-            margin-bottom: 0.25rem;
-          }
-
-          /* Loading state */
-          .loading {
-            text-align: center;
-            padding: 2rem;
-            color: var(--light-slate);
-            font-style: italic;
-          }
-
-          .loading-spinner {
-            border: 3px solid var(--cream);
-            border-top: 3px solid var(--burgundy);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 1rem;
-          }
-
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-
-          /* Footer */
-          .page-footer {
-            text-align: center;
-            padding: 1.5rem;
-            color: var(--light-slate);
-            font-size: 0.85rem;
-            border-top: 1px solid var(--border-color);
-            margin-top: 2rem;
-          }
-
-          /* Responsive */
-          @media (max-width: 768px) {
-            .page-title {
-              font-size: 1.5rem;
-            }
-
-            .content-card {
-              padding: 1.5rem 1rem;
-            }
-
-            .btn-parish,
-            .btn-outline-parish {
-              width: 100%;
-              margin-bottom: 0.5rem;
-            }
-          }
-        </style>
-      </head>
-
-      <body>
-        <div class="container">
-
-          <!-- Header -->
-          <div class="page-header text-center">
-            <h1 class="page-title">Parish Liturgical Scheduler</h1>
-            <p class="page-subtitle">Ministry Coordination Platform</p>
-            <div class="user-info" id="userBadge">
-              <small>Connecting...</small>
-            </div>
-          </div>
-
-          <!-- Main Content -->
-          <div class="content-card">
-            <h2>System Status</h2>
-
-            <div class="info-box">
-              <div class="info-box-title">✓ Web Application Active</div>
-              <p style="margin: 0; font-size: 0.9rem;">
-                The scheduling platform is successfully deployed and ready for use.
-              </p>
-            </div>
-
-            <div class="info-box">
-              <div class="info-box-title">Current Capabilities</div>
-              <ul>
-                <li>Secure user authentication via Google accounts</li>
-                <li>Direct access to volunteer database</li>
-                <li>Real-time data synchronization</li>
-                <li>Mobile-responsive interface</li>
-                <li>Server-side data processing</li>
-              </ul>
-            </div>
-
-            <div class="text-center" style="margin: 2rem 0;">
-              <button class="btn-parish" onclick="loadVolunteers()">
-                View Ministry Volunteers
-              </button>
-              <p style="margin-top: 0.75rem; color: var(--light-slate); font-size: 0.9rem;">
-                Retrieves active volunteers from your database
-              </p>
-            </div>
-
-            <!-- Results Area -->
-            <div id="result"></div>
-          </div>
-
-          <!-- Next Steps -->
-          <div class="content-card">
-            <h2>Implementation Roadmap</h2>
-            <p style="color: var(--slate); margin-bottom: 1.5rem;">
-              This proof-of-concept confirms the technical foundation. The full application
-              follows a structured 9-week development plan with three distinct phases.
-            </p>
-            <div class="text-center">
-              <button class="btn-outline-parish" onclick="alert('Detailed implementation plan available in CRUD_APP_PLAN.md'); return false;">
-                Review Development Plan
-              </button>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="page-footer">
-            Parish Liturgical Scheduler &middot; Proof of Concept<br>
-            Powered by Google Apps Script
-          </div>
-
-        </div>
-
-        <!-- Bootstrap JS (optional, for future interactive components) -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-        <!-- App JavaScript -->
-        <script>
-          // Load user email on page load
-          google.script.run
-            .withSuccessHandler(displayUser)
-            .withFailureHandler(handleError)
-            .getUserEmail();
-
-          /**
-           * Display logged-in user email
-           */
-          function displayUser(email) {
-            document.getElementById('userBadge').innerHTML =
-              'Authenticated as: <strong>' + email + '</strong>';
-          }
-
-          /**
-           * Load volunteers from Volunteers sheet
-           */
-          function loadVolunteers() {
-            // Show loading state
-            document.getElementById('result').innerHTML =
-              '<div class="loading"><div class="loading-spinner"></div><p>Retrieving volunteer records...</p></div>';
-
-            // Call server function
-            google.script.run
-              .withSuccessHandler(displayVolunteers)
-              .withFailureHandler(handleError)
-              .getVolunteersData();
-          }
-
-          /**
-           * Display volunteer data in formatted cards
-           */
-          function displayVolunteers(data) {
-            if (!data || data.length === 0) {
-              document.getElementById('result').innerHTML =
-                '<div class="info-box" style="background: #FFF3CD; border-left-color: #856404;">' +
-                '<div class="info-box-title" style="color: #856404;">No Records Found</div>' +
-                '<p style="margin: 0;">No volunteer data available in the Volunteers sheet.</p>' +
-                '</div>';
-              return;
-            }
-
-            let html = '<div class="volunteer-list">';
-            html += '<h3 style="font-family: \'Crimson Text\', serif; color: var(--burgundy); margin-bottom: 1.5rem; font-size: 1.3rem;">Ministry Volunteers</h3>';
-
-            data.forEach(function(volunteer, index) {
-              const status = volunteer.status || 'Unknown';
-              const ministries = volunteer.ministries || 'Not assigned';
-              const email = volunteer.email || 'No email on file';
-
-              // Status badge class
-              let statusClass = '';
-              if (status === 'Active') statusClass = 'active';
-              else if (status === 'Inactive') statusClass = 'inactive';
-              else if (status === 'Ministry Sponsor') statusClass = 'sponsor';
-              else statusClass = 'inactive';
-
-              html += \`
-                <div class="volunteer-item">
-                  <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.5rem;">
-                    <div style="flex: 1;">
-                      <div class="volunteer-name">\${volunteer.fullName || 'Unknown'}</div>
-                      <div class="volunteer-email">\${email}</div>
-                    </div>
-                    <span class="status-badge \${statusClass}">\${status}</span>
-                  </div>
-                  <div class="volunteer-ministry">
-                    <strong>Ministries:</strong> \${ministries}
-                  </div>
-                </div>
-              \`;
-            });
-
-            html += '<div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color); color: var(--light-slate); font-size: 0.9rem;">';
-            html += 'Displaying first 5 records from database';
-            html += '</div>';
-            html += '</div>';
-
-            document.getElementById('result').innerHTML = html;
-          }
-
-          /**
-           * Handle errors
-           */
-          function handleError(error) {
-            console.error('Error:', error);
-            document.getElementById('result').innerHTML =
-              '<div class="info-box" style="background: #F8D7DA; border-left-color: #842029;">' +
-              '<div class="info-box-title" style="color: #842029;">System Error</div>' +
-              '<p style="margin: 0; color: #58151C;">' + error.message + '</p>' +
-              '</div>';
-          }
-        </script>
-      </body>
-    </html>
-  `)
-    .setTitle('Parish Scheduler - Web App')
+  return HtmlService.createHtmlOutput(renderLayout(content, page, pageTitle, auth))
+    .setTitle('Parish Scheduler - ' + pageTitle)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /**
- * Get the email of the currently logged-in user
- * @returns {string} User's email address
+ * Main layout with sidebar navigation
  */
-function getUserEmail() {
-  try {
-    const email = Session.getActiveUser().getEmail();
+function renderLayout(content, activePage, pageTitle, auth) {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parish Scheduler - ${pageTitle}</title>
 
-    if (!email) {
-      throw new Error('Unable to get user email. Make sure you are logged in.');
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary-gold: #E5A855;
+      --primary-gold-hover: #D49543;
+      --text-dark: #1A1A1A;
+      --text-medium: #4A4A4A;
+      --text-light: #6B6B6B;
+      --bg-cream: #FAF8F5;
+      --bg-white: #FFFFFF;
+      --border-light: #E5E5E5;
+      --sidebar-width: 260px;
+      --green-success: #2C5F2D;
+      --red-alert: #C53030;
     }
 
-    return email;
-  } catch (e) {
-    Logger.log('Error in getUserEmail: ' + e.message);
-    throw new Error('Could not retrieve user email: ' + e.message);
-  }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-cream);
+      color: var(--text-dark);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--bg-white);
+      border-right: 1px solid var(--border-light);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 1000;
+    }
+
+    .sidebar-header {
+      padding: 1.5rem 1.25rem;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: var(--text-dark);
+    }
+
+    .sidebar-logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--primary-gold);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+    }
+
+    .sidebar-logo-text {
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 1rem 0;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      display: block;
+      padding: 0.75rem 1.25rem;
+      color: var(--text-medium);
+      text-decoration: none;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-cream);
+      color: var(--text-dark);
+    }
+
+    .nav-item.active {
+      background: #FFF9EF;
+      color: var(--text-dark);
+      border-left: 3px solid var(--primary-gold);
+      padding-left: calc(1.25rem - 3px);
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      background: var(--text-dark);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .user-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-dark);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-email {
+      font-size: 0.75rem;
+      color: var(--text-light);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Main Content */
+    .main-content {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      padding: 2rem;
+      max-width: 1400px;
+    }
+
+    .page-header {
+      margin-bottom: 2rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .page-subtitle {
+      color: var(--text-light);
+      font-size: 1rem;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg-white);
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--bg-white);
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: var(--text-light);
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .stat-value {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      line-height: 1;
+    }
+
+    .stat-value.alert {
+      color: var(--red-alert);
+    }
+
+    .stat-description {
+      font-size: 0.8rem;
+      color: var(--text-medium);
+      margin-top: 0.5rem;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      background: var(--primary-gold);
+      border: none;
+      color: var(--text-dark);
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-gold-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(229, 168, 85, 0.3);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-light);
+      color: var(--text-dark);
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+
+    .btn-outline:hover {
+      border-color: var(--primary-gold);
+      color: var(--primary-gold);
+    }
+
+    /* Date Badge */
+    .date-badge {
+      background: #FFF9EF;
+      border: 1px solid #F5E6C8;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .date-icon {
+      width: 48px;
+      height: 48px;
+      background: var(--primary-gold);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .date-info h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .date-info p {
+      font-size: 0.875rem;
+      color: var(--text-light);
+      margin: 0;
+    }
+
+    .liturgical-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .liturgical-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--green-success);
+      border-radius: 50%;
+    }
+
+    /* Getting Started */
+    .getting-started {
+      background: var(--bg-white);
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 2rem;
+    }
+
+    .getting-started h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .getting-started-subtitle {
+      color: var(--text-light);
+      margin-bottom: 2rem;
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+    }
+
+    .step-card {
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+
+    .step-icon {
+      width: 40px;
+      height: 40px;
+      background: #FFF9EF;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .step-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    .step-description {
+      color: var(--text-light);
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .step-action {
+      display: inline-block;
+      color: var(--primary-gold);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.15s ease;
+    }
+
+    .step-action:hover {
+      color: var(--primary-gold-hover);
+      text-decoration: underline;
+    }
+
+    /* Mobile Header */
+    .mobile-header {
+      display: none;
+      background: var(--bg-white);
+      border-bottom: 1px solid var(--border-light);
+      padding: 1rem;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1001;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .menu-btn {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      color: var(--text-dark);
+    }
+
+    .mobile-logo {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text-dark);
+    }
+
+    /* Sidebar Overlay */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+    }
+
+    .sidebar-overlay.active {
+      display: block;
+    }
+
+    .sidebar-close {
+      display: none;
+      position: absolute;
+      top: 1.25rem;
+      right: 1rem;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-medium);
+      padding: 0.25rem;
+      line-height: 1;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .mobile-header {
+        display: flex;
+      }
+
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+      }
+
+      .sidebar.active {
+        transform: translateX(0);
+      }
+
+      .sidebar-close {
+        display: block;
+      }
+
+      .main-content {
+        margin-left: 0;
+        margin-top: 60px;
+        padding: 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .steps-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .date-badge {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .date-badge .btn-primary {
+        width: 100%;
+      }
+
+      .page-title {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Mobile Header (shows only on mobile) -->
+  <div class="mobile-header">
+    <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+    <div class="mobile-logo">Acutis Planner</div>
+    <div style="width: 40px;"></div>
+  </div>
+
+  <!-- Sidebar Overlay (mobile only) -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <button class="sidebar-close" onclick="closeSidebar()">✕</button>
+    <div class="sidebar-header">
+      <a href="?page=dashboard" class="sidebar-logo">
+        <div class="sidebar-logo-icon">⛪</div>
+        <div class="sidebar-logo-text">Acutis Planner</div>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="?page=dashboard" class="nav-item ${activePage === 'dashboard' ? 'active' : ''}">
+        <span class="nav-icon">📊</span>
+        Dashboard
+      </a>
+      <a href="?page=calendar" class="nav-item ${activePage === 'calendar' ? 'active' : ''}">
+        <span class="nav-icon">📅</span>
+        Calendar
+      </a>
+      <a href="?page=assignments" class="nav-item ${activePage === 'assignments' ? 'active' : ''}">
+        <span class="nav-icon">📋</span>
+        Assignments
+      </a>
+      <a href="?page=volunteers" class="nav-item ${activePage === 'volunteers' ? 'active' : ''}">
+        <span class="nav-icon">👥</span>
+        Volunteers
+      </a>
+      <a href="?page=ministries" class="nav-item ${activePage === 'ministries' ? 'active' : ''}">
+        <span class="nav-icon">🛡️</span>
+        Ministries
+      </a>
+      <a href="?page=schedules" class="nav-item ${activePage === 'schedules' ? 'active' : ''}">
+        <span class="nav-icon">🔄</span>
+        Schedules
+      </a>
+      <a href="?page=settings" class="nav-item ${activePage === 'settings' ? 'active' : ''}">
+        <span class="nav-icon">⚙️</span>
+        Settings
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-profile">
+        <div class="user-avatar">${auth.userName.charAt(0).toUpperCase()}</div>
+        <div class="user-info">
+          <div class="user-name">Parish Admin</div>
+          <div class="user-email">${auth.email}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    ${content}
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // Mobile sidebar toggle
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+
+      sidebar.classList.toggle('active');
+      overlay.classList.toggle('active');
+    }
+
+    function closeSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+    }
+
+    // Close sidebar when clicking nav links on mobile
+    if (window.innerWidth <= 768) {
+      const navLinks = document.querySelectorAll('.nav-item');
+      navLinks.forEach(link => {
+        link.addEventListener('click', closeSidebar);
+      });
+    }
+  </script>
+</body>
+</html>
+  `;
 }
 
 /**
- * Get volunteers data from the Volunteers sheet
- * Returns first 5 volunteers as proof-of-concept
- * @returns {Array<Object>} Array of volunteer objects
+ * Dashboard page with stats and getting started
  */
-function getVolunteersData() {
+function renderDashboard(auth) {
+  return `
+    <div class="page-header">
+      <h1 class="page-title">Welcome, Parish Admin!</h1>
+      <p class="page-subtitle">Here's your parish at a glance.</p>
+    </div>
+
+    <!-- Current Date -->
+    <div class="date-badge">
+      <div class="date-icon">📅</div>
+      <div class="date-info" style="flex: 1;">
+        <h3 id="currentDate">Loading...</h3>
+        <p>
+          <span class="liturgical-badge">
+            <span class="liturgical-dot"></span>
+            <span id="liturgicalSeason">Ordinary Time</span>
+          </span>
+          <span style="color: var(--text-light); margin: 0 0.5rem;">|</span>
+          <span id="liturgicalDay">Weekday | Ordinary Time</span>
+        </p>
+      </div>
+      <button class="btn-primary" onclick="window.location.href='?page=calendar'">Go to Calendar</button>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Upcoming Masses</div>
+        <div class="stat-value" id="upcomingMasses">--</div>
+        <div class="stat-description">Next 7 days</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Active Volunteers</div>
+        <div class="stat-value" id="activeVolunteers">--</div>
+        <div class="stat-description">Ready to serve</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">Open Positions</div>
+        <div class="stat-value alert" id="openPositions">--</div>
+        <div class="stat-description">Needs immediate attention</div>
+      </div>
+    </div>
+
+    <!-- Getting Started -->
+    <div class="getting-started">
+      <h2>Getting Started</h2>
+      <p class="getting-started-subtitle">New to Acutis Planner? Here's how to begin building your parish schedule.</p>
+
+      <div class="steps-grid">
+        <div class="step-card">
+          <div class="step-icon">👥</div>
+          <h3 class="step-title">Step 1: Add Volunteers</h3>
+          <p class="step-description">Build your roster by adding all the volunteers who serve your parish community.</p>
+          <a href="?page=volunteers" class="step-action">Manage Volunteers →</a>
+        </div>
+
+        <div class="step-card">
+          <div class="step-icon">⚙️</div>
+          <h3 class="step-title">Step 2: Define Ministries</h3>
+          <p class="step-description">Set up all the ministries your parish offers, like Lectors, Ushers, and Altar Servers.</p>
+          <a href="?page=ministries" class="step-action">Manage Ministries →</a>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Load dashboard stats
+      (function() {
+        // Format current date
+        const now = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', options);
+
+        // Load stats from server
+        google.script.run
+          .withSuccessHandler(function(stats) {
+            document.getElementById('upcomingMasses').textContent = stats.upcomingMasses || 0;
+            document.getElementById('activeVolunteers').textContent = stats.activeVolunteers || 0;
+            document.getElementById('openPositions').textContent = stats.openPositions || 0;
+
+            if (stats.liturgicalSeason) {
+              document.getElementById('liturgicalSeason').textContent = stats.liturgicalSeason;
+            }
+            if (stats.liturgicalDay) {
+              document.getElementById('liturgicalDay').textContent = stats.liturgicalDay;
+            }
+          })
+          .withFailureHandler(function(error) {
+            console.error('Failed to load stats:', error);
+          })
+          .WEBAPP_getDashboardStats();
+      })();
+    </script>
+  `;
+}
+
+/**
+ * Placeholder pages (to be built in later weeks)
+ */
+function renderCalendar(auth) {
+  return `
+    <div class="page-header">
+      <h1 class="page-title">Calendar</h1>
+      <p class="page-subtitle">View and manage your parish schedule.</p>
+    </div>
+    <div class="card">
+      <p>Calendar view coming in Week 2...</p>
+    </div>
+  `;
+}
+
+function renderAssignments(auth) {
+  return `
+    <div class="page-header">
+      <h1 class="page-title">Assignments</h1>
+      <p class="page-subtitle">Manage volunteer assignments.</p>
+    </div>
+    <div class="card">
+      <p>Assignment management coming in Week 3...</p>
+    </div>
+  `;
+}
+
+function renderVolunteers(auth) {
+  return `
+    <div class="page-header">
+      <h1 class="page-title">Volunteers</h1>
+      <p class="page-subtitle">Manage your volunteer roster.</p>
+    </div>
+    <div class="card">
+      <p>Volunteer management coming in Week 4...</p>
+    </div>
+  `;
+}
+
+function renderMinistries(auth) {
+  return `
+    <div class="page-header">
+      <h1 class="page-title">Ministries</h1>
+      <p class="page-subtitle">Configure ministry roles and templates.</p>
+    </div>
+    <div class="card">
+      <p>Ministry management coming in Week 5...</p>
+    </div>
+  `;
+}
+
+function renderSchedules(auth) {
+  return `
+    <div class="page-header">
+      <h1 class="page-title">Schedules</h1>
+      <p class="page-subtitle">Generate and manage schedules.</p>
+    </div>
+    <div class="card">
+      <p>Schedule generation coming in Week 6...</p>
+    </div>
+  `;
+}
+
+function renderSettings(auth) {
+  return `
+    <div class="page-header">
+      <h1 class="page-title">Settings</h1>
+      <p class="page-subtitle">Configure application settings.</p>
+    </div>
+    <div class="card">
+      <p>Settings coming soon...</p>
+    </div>
+  `;
+}
+
+/**
+ * Error page for unauthorized access
+ */
+function renderErrorPage(message) {
+  return HtmlService.createHtmlOutput(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Access Denied</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+      <style>
+        body {
+          font-family: 'Inter', sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          background: #FAF8F5;
+          margin: 0;
+          padding: 1rem;
+        }
+        .error-card {
+          background: white;
+          border: 1px solid #E5E5E5;
+          border-radius: 8px;
+          padding: 3rem 2rem;
+          max-width: 480px;
+          text-align: center;
+        }
+        .error-icon {
+          font-size: 4rem;
+          margin-bottom: 1rem;
+        }
+        h1 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin-bottom: 1rem;
+          color: #1A1A1A;
+        }
+        p {
+          color: #6B6B6B;
+          line-height: 1.6;
+          margin-bottom: 2rem;
+        }
+        .contact {
+          background: #FFF9EF;
+          border: 1px solid #F5E6C8;
+          border-radius: 6px;
+          padding: 1rem;
+          font-size: 0.9rem;
+          color: #4A4A4A;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="error-card">
+        <div class="error-icon">🔒</div>
+        <h1>Access Denied</h1>
+        <p>${message}</p>
+        <div class="contact">
+          <strong>Need access?</strong><br>
+          Contact your parish administrator to be added to the authorized users list.
+        </div>
+      </div>
+    </body>
+    </html>
+  `).setTitle('Access Denied');
+}
+
+/**
+ * Get dashboard statistics
+ */
+function WEBAPP_getDashboardStats() {
   try {
-    // Check if HELPER_readSheetData exists (from existing codebase)
-    if (typeof HELPER_readSheetData !== 'function') {
-      throw new Error('HELPER_readSheetData function not found. Make sure all code files are loaded.');
-    }
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-    // Check if CONSTANTS exists
-    if (typeof CONSTANTS === 'undefined') {
-      throw new Error('CONSTANTS not found. Make sure 0a_constants.gs is loaded.');
-    }
+    // Count active volunteers
+    const volunteers = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
+    const activeVolunteers = volunteers.filter(row =>
+      row[CONSTANTS.COLS.VOLUNTEERS.STATUS - 1] === 'Active'
+    ).length;
 
-    // Read volunteers data
-    const data = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
-
-    if (!data || data.length === 0) {
-      return [];
-    }
-
-    // Get column indices
-    const cols = CONSTANTS.COLS.VOLUNTEERS;
-
-    // Transform first 5 rows into objects
-    const volunteers = data.slice(0, 5).map(function(row) {
-      return {
-        id: HELPER_safeArrayAccess(row, cols.VOLUNTEER_ID - 1, ''),
-        firstName: HELPER_safeArrayAccess(row, cols.FIRST_NAME - 1, ''),
-        lastName: HELPER_safeArrayAccess(row, cols.LAST_NAME - 1, ''),
-        fullName: HELPER_safeArrayAccess(row, cols.FULL_NAME - 1, ''),
-        email: HELPER_safeArrayAccess(row, cols.EMAIL - 1, ''),
-        status: HELPER_safeArrayAccess(row, cols.STATUS - 1, ''),
-        ministries: HELPER_safeArrayAccess(row, cols.MINISTRY_ROLE - 1, '')
-      };
+    // Count upcoming masses (next 7 days)
+    const assignments = HELPER_readSheetData(CONSTANTS.SHEETS.ASSIGNMENTS);
+    const upcomingMasses = new Set();
+    assignments.forEach(row => {
+      const dateStr = row[CONSTANTS.COLS.ASSIGNMENTS.DATE - 1];
+      if (dateStr) {
+        const date = new Date(dateStr);
+        if (date >= now && date <= sevenDaysFromNow) {
+          const key = dateStr + '-' + row[CONSTANTS.COLS.ASSIGNMENTS.TIME - 1];
+          upcomingMasses.add(key);
+        }
+      }
     });
 
-    Logger.log('Successfully retrieved ' + volunteers.length + ' volunteers');
-    return volunteers;
+    // Count open positions (unassigned)
+    const openPositions = assignments.filter(row => {
+      const dateStr = row[CONSTANTS.COLS.ASSIGNMENTS.DATE - 1];
+      const volunteerId = row[CONSTANTS.COLS.ASSIGNMENTS.ASSIGNED_VOLUNTEER_ID - 1];
+      if (dateStr && !volunteerId) {
+        const date = new Date(dateStr);
+        return date >= now && date <= sevenDaysFromNow;
+      }
+      return false;
+    }).length;
+
+    // Get current liturgical info (simplified)
+    const liturgicalCal = HELPER_readSheetData(CONSTANTS.SHEETS.CALENDAR);
+    let liturgicalSeason = 'Ordinary Time';
+    let liturgicalDay = 'Weekday | Ordinary Time';
+
+    const todayStr = HELPER_formatDate(now, 'default');
+    const todayRow = liturgicalCal.find(row =>
+      HELPER_formatDate(new Date(row[CONSTANTS.COLS.CALENDAR.DATE - 1]), 'default') === todayStr
+    );
+
+    if (todayRow) {
+      liturgicalSeason = todayRow[CONSTANTS.COLS.CALENDAR.SEASON - 1] || 'Ordinary Time';
+      const weekday = todayRow[CONSTANTS.COLS.CALENDAR.WEEKDAY - 1] || 'Weekday';
+      liturgicalDay = weekday + ' | ' + liturgicalSeason;
+    }
+
+    return {
+      upcomingMasses: upcomingMasses.size,
+      activeVolunteers: activeVolunteers,
+      openPositions: openPositions,
+      liturgicalSeason: liturgicalSeason,
+      liturgicalDay: liturgicalDay
+    };
 
   } catch (e) {
-    Logger.log('Error in getVolunteersData: ' + e.message);
-    Logger.log('Stack trace: ' + e.stack);
-    throw new Error('Could not load volunteers: ' + e.message);
+    Logger.log('Error in WEBAPP_getDashboardStats: ' + e.message);
+    return {
+      upcomingMasses: 0,
+      activeVolunteers: 0,
+      openPositions: 0,
+      liturgicalSeason: 'Ordinary Time',
+      liturgicalDay: 'Weekday | Ordinary Time'
+    };
   }
 }
 
 /**
- * Test function to verify web app functions work
- * Run this from Script Editor to test before deploying
+ * Test function
  */
-function TEST_webAppFunctions() {
-  Logger.log('Testing getUserEmail...');
-  const email = getUserEmail();
-  Logger.log('Email: ' + email);
+function TEST_webApp() {
+  Logger.log('Testing authentication...');
+  const auth = WEBAPP_checkAuth();
+  Logger.log('Auth: ' + JSON.stringify(auth));
 
-  Logger.log('Testing getVolunteersData...');
-  const volunteers = getVolunteersData();
-  Logger.log('Found ' + volunteers.length + ' volunteers');
-  Logger.log('Sample: ' + JSON.stringify(volunteers[0], null, 2));
+  Logger.log('Testing dashboard stats...');
+  const stats = WEBAPP_getDashboardStats();
+  Logger.log('Stats: ' + JSON.stringify(stats));
 
   Logger.log('All tests passed! ✅');
 }
