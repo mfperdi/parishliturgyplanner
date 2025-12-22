@@ -599,23 +599,11 @@ function renderLayout(content, activePage, pageTitle, auth) {
       line-height: 1;
     }
 
-    /* DESKTOP OVERRIDE - Show sidebar, hide mobile header (min-width: 769px) */
+    /* DESKTOP OVERRIDE - Handled by critical CSS above */
+    /* Desktop layout (sidebar visible, mobile header hidden) is set in critical CSS */
+    /* Only desktop-specific sizing adjustments go in media queries below */
     @media (min-width: 769px) {
-      .mobile-header {
-        display: none;
-      }
-
-      .sidebar {
-        transform: translateX(0);
-      }
-
-      .sidebar-close {
-        display: none;
-      }
-
       .main-content {
-        margin-left: var(--sidebar-width);
-        margin-top: 0;
         padding: 2rem;
       }
     }
