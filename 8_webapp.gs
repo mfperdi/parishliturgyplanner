@@ -121,6 +121,23 @@ function renderLayout(content, activePage, pageTitle, auth) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Parish Scheduler - ${pageTitle}</title>
 
+  <!-- CRITICAL CSS - Prevents flash of desktop layout on mobile -->
+  <style>
+    /* Load mobile layout IMMEDIATELY before any other CSS */
+    .mobile-header { display: flex !important; }
+    .sidebar { transform: translateX(-100%) !important; }
+    .main-content { margin-left: 0 !important; margin-top: 60px !important; }
+    .sidebar-close { display: block !important; }
+
+    /* Desktop override */
+    @media (min-width: 769px) {
+      .mobile-header { display: none !important; }
+      .sidebar { transform: translateX(0) !important; }
+      .main-content { margin-left: 260px !important; margin-top: 0 !important; }
+      .sidebar-close { display: none !important; }
+    }
+  </style>
+
   <!-- Bootstrap 5 -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
