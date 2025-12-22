@@ -121,6 +121,9 @@ function renderLayout(content, activePage, pageTitle, auth) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Parish Scheduler - ${pageTitle}</title>
 
+  <!-- VERSION: 2025-12-22 Mobile-First with Critical CSS -->
+  <!-- If you see this comment, the latest code is deployed! -->
+
   <!-- CRITICAL CSS - Prevents flash of desktop layout on mobile -->
   <style>
     /* Load mobile layout IMMEDIATELY before any other CSS */
@@ -888,6 +891,13 @@ function renderLayout(content, activePage, pageTitle, auth) {
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
+    // VERSION CHECK - Verify deployment
+    console.log('%c✅ Acutis Planner - Version 2025-12-22', 'color: #E5A855; font-weight: bold; font-size: 14px;');
+    console.log('%cMobile-First CSS with Critical Inline Styles', 'color: #666; font-size: 12px;');
+    console.log('Screen width:', window.innerWidth + 'px');
+    console.log('Mobile header visible:', window.getComputedStyle(document.querySelector('.mobile-header')).display !== 'none');
+    console.log('Sidebar position:', window.getComputedStyle(document.querySelector('.sidebar')).transform);
+
     // Mobile sidebar toggle
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
