@@ -525,6 +525,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
       z-index: 1001;
       align-items: center;
       justify-content: space-between;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
     .menu-btn {
@@ -572,8 +573,51 @@ function renderLayout(content, activePage, pageTitle, auth) {
       line-height: 1;
     }
 
-    /* Responsive */
-    @media (max-width: 768px) {
+    /* Responsive - Large Tablet/Small Desktop (1024px - 1280px) */
+    @media (max-width: 1280px) and (min-width: 1025px) {
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    /* Responsive - Tablet (769px - 1024px) */
+    @media (max-width: 1024px) and (min-width: 769px) {
+      /* Keep sidebar visible but reduce content padding */
+      .main-content {
+        padding: 1.5rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+      }
+
+      .steps-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .date-badge {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
+      .date-info {
+        flex: 1;
+        min-width: 250px;
+      }
+
+      .getting-started {
+        padding: 1.75rem;
+      }
+
+      .card {
+        padding: 1.5rem;
+      }
+    }
+
+    /* Responsive - Small Tablet/Large Phone (481px - 768px) */
+    @media (max-width: 768px) and (min-width: 481px) {
       .mobile-header {
         display: flex;
       }
@@ -595,28 +639,159 @@ function renderLayout(content, activePage, pageTitle, auth) {
       .main-content {
         margin-left: 0;
         margin-top: 60px;
-        padding: 1rem;
+        padding: 1.25rem;
       }
 
       .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.25rem;
+      }
+
+      .stat-card {
+        padding: 1.5rem;
       }
 
       .steps-grid {
         grid-template-columns: 1fr;
+        gap: 1.25rem;
+      }
+
+      .date-badge {
+        padding: 1.25rem;
+        gap: 1rem;
+      }
+    }
+
+    /* Responsive - Mobile (max 480px) */
+    @media (max-width: 480px) {
+      .mobile-header {
+        display: flex;
+        padding: 0.875rem 1rem;
+      }
+
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+      }
+
+      .sidebar.active {
+        transform: translateX(0);
+      }
+
+      .sidebar-close {
+        display: block;
+      }
+
+      .main-content {
+        margin-left: 0;
+        margin-top: 55px;
+        padding: 0.75rem;
+      }
+
+      .page-header {
+        margin-bottom: 1.25rem;
+      }
+
+      .page-title {
+        font-size: 1.25rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .page-subtitle {
+        font-size: 0.85rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .stat-card {
+        padding: 1.125rem;
+      }
+
+      .stat-value {
+        font-size: 1.75rem;
+      }
+
+      .stat-label {
+        font-size: 0.8rem;
+      }
+
+      .stat-description {
+        font-size: 0.75rem;
+      }
+
+      .steps-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .step-card {
+        padding: 1.125rem;
+      }
+
+      .step-title {
+        font-size: 1rem;
+      }
+
+      .step-description {
+        font-size: 0.85rem;
+      }
+
+      .getting-started {
+        padding: 1.25rem;
+      }
+
+      .getting-started h2 {
+        font-size: 1.125rem;
+      }
+
+      .getting-started-subtitle {
+        font-size: 0.85rem;
+        margin-bottom: 1.25rem;
       }
 
       .date-badge {
         flex-direction: column;
         text-align: center;
+        padding: 0.875rem;
+        gap: 0.625rem;
+      }
+
+      .date-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1.125rem;
+      }
+
+      .date-info h3 {
+        font-size: 0.9rem;
+      }
+
+      .date-info p {
+        font-size: 0.75rem;
       }
 
       .date-badge .btn-primary {
         width: 100%;
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
       }
 
-      .page-title {
-        font-size: 1.5rem;
+      .card {
+        padding: 1.125rem;
+        margin-bottom: 1rem;
+      }
+
+      .mobile-logo {
+        font-size: 1rem;
+      }
+
+      .menu-btn {
+        font-size: 1.375rem;
       }
     }
   </style>
