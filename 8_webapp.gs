@@ -666,7 +666,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
     @media (max-width: 480px) {
       .mobile-header {
         display: flex;
-        padding: 0.875rem 1rem;
+        padding: 1rem;
       }
 
       .sidebar {
@@ -685,113 +685,132 @@ function renderLayout(content, activePage, pageTitle, auth) {
 
       .main-content {
         margin-left: 0;
-        margin-top: 55px;
-        padding: 0.75rem;
+        margin-top: 60px;
+        padding: 1rem;
       }
 
       .page-header {
-        margin-bottom: 1.25rem;
+        margin-bottom: 1.5rem;
       }
 
       .page-title {
-        font-size: 1.25rem;
-        margin-bottom: 0.25rem;
+        font-size: 1.375rem;
+        margin-bottom: 0.5rem;
+        line-height: 1.3;
       }
 
       .page-subtitle {
-        font-size: 0.85rem;
+        font-size: 0.9rem;
+        line-height: 1.5;
       }
 
       .stats-grid {
         grid-template-columns: 1fr;
-        gap: 1rem;
-        margin-bottom: 1.25rem;
+        gap: 1.25rem;
+        margin-bottom: 1.75rem;
       }
 
       .stat-card {
-        padding: 1.125rem;
+        padding: 1.5rem;
       }
 
       .stat-value {
-        font-size: 1.75rem;
+        font-size: 2rem;
+        margin: 0.5rem 0;
       }
 
       .stat-label {
-        font-size: 0.8rem;
+        font-size: 0.875rem;
+        margin-bottom: 0.75rem;
       }
 
       .stat-description {
-        font-size: 0.75rem;
+        font-size: 0.8rem;
+        margin-top: 0.75rem;
       }
 
       .steps-grid {
         grid-template-columns: 1fr;
-        gap: 1rem;
+        gap: 1.25rem;
       }
 
       .step-card {
-        padding: 1.125rem;
+        padding: 1.5rem;
       }
 
       .step-title {
-        font-size: 1rem;
+        font-size: 1.0625rem;
+        margin-bottom: 1rem;
       }
 
       .step-description {
-        font-size: 0.85rem;
+        font-size: 0.875rem;
+        line-height: 1.6;
+        margin-bottom: 1.25rem;
+      }
+
+      .step-icon {
+        margin-bottom: 1.25rem;
       }
 
       .getting-started {
-        padding: 1.25rem;
+        padding: 1.5rem;
       }
 
       .getting-started h2 {
-        font-size: 1.125rem;
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
       }
 
       .getting-started-subtitle {
-        font-size: 0.85rem;
-        margin-bottom: 1.25rem;
+        font-size: 0.875rem;
+        margin-bottom: 1.75rem;
+        line-height: 1.6;
       }
 
       .date-badge {
         flex-direction: column;
         text-align: center;
-        padding: 0.875rem;
-        gap: 0.625rem;
+        padding: 1.25rem;
+        gap: 1rem;
+        margin-bottom: 1.75rem;
       }
 
       .date-icon {
-        width: 36px;
-        height: 36px;
-        font-size: 1.125rem;
+        width: 40px;
+        height: 40px;
+        font-size: 1.25rem;
       }
 
       .date-info h3 {
-        font-size: 0.9rem;
+        font-size: 0.9375rem;
+        margin-bottom: 0.5rem;
       }
 
       .date-info p {
-        font-size: 0.75rem;
+        font-size: 0.8125rem;
+        line-height: 1.5;
       }
 
       .date-badge .btn-primary {
         width: 100%;
-        padding: 0.625rem 1rem;
-        font-size: 0.875rem;
+        padding: 0.75rem 1.25rem;
+        font-size: 0.9375rem;
+        margin-top: 0.5rem;
       }
 
       .card {
-        padding: 1.125rem;
-        margin-bottom: 1rem;
+        padding: 1.5rem;
+        margin-bottom: 1.25rem;
       }
 
       .mobile-logo {
-        font-size: 1rem;
+        font-size: 1.0625rem;
       }
 
       .menu-btn {
-        font-size: 1.375rem;
+        font-size: 1.5rem;
+        padding: 0.5rem;
       }
     }
   </style>
