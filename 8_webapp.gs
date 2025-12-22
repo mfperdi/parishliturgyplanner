@@ -178,7 +178,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
       min-height: 100vh;
     }
 
-    /* Sidebar - HIDDEN BY DEFAULT (mobile-first) */
+    /* Sidebar - Positioned fixed (critical CSS handles show/hide) */
     .sidebar {
       width: var(--sidebar-width);
       background: var(--bg-white);
@@ -190,12 +190,12 @@ function renderLayout(content, activePage, pageTitle, auth) {
       top: 0;
       bottom: 0;
       z-index: 1000;
-      transform: translateX(-100%);
+      /* transform handled by critical CSS */
       transition: transform 0.3s ease;
     }
 
     .sidebar.active {
-      transform: translateX(0);
+      transform: translateX(0) !important;
     }
 
     .sidebar-header {
@@ -310,10 +310,9 @@ function renderLayout(content, activePage, pageTitle, auth) {
       text-overflow: ellipsis;
     }
 
-    /* Main Content - NO SIDEBAR MARGIN BY DEFAULT (mobile-first) */
+    /* Main Content - margin handled by critical CSS */
     .main-content {
-      margin-left: 0;
-      margin-top: 60px;
+      /* margin-left and margin-top handled by critical CSS */
       flex: 1;
       padding: 1rem;
       max-width: 1400px;
@@ -539,9 +538,9 @@ function renderLayout(content, activePage, pageTitle, auth) {
       text-decoration: underline;
     }
 
-    /* Mobile Header - SHOWN BY DEFAULT (mobile-first) */
+    /* Mobile Header - display handled by critical CSS */
     .mobile-header {
-      display: flex;
+      /* display handled by critical CSS */
       background: var(--bg-white);
       border-bottom: 1px solid var(--border-light);
       padding: 1rem;
@@ -587,7 +586,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
     }
 
     .sidebar-close {
-      display: block;
+      /* display handled by critical CSS */
       position: absolute;
       top: 1.25rem;
       right: 1rem;
