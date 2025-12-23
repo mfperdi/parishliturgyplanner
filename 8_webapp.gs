@@ -173,7 +173,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--deep-teal);
+      background: var(--bg-cream);
       color: var(--text-dark);
       min-height: 100vh;
     }
@@ -919,7 +919,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
     console.log('Mobile header visible:', window.getComputedStyle(document.querySelector('.mobile-header')).display !== 'none');
     console.log('Sidebar position:', window.getComputedStyle(document.querySelector('.sidebar')).transform);
 
-    const MOBILE_BREAKPOINT = 768;
+    const MOBILE_BREAKPOINT = 1024;
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     const menuButton = document.querySelector('.menu-btn');
