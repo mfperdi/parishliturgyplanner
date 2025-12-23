@@ -133,7 +133,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
     .sidebar-close { display: block !important; }
 
     /* Desktop override */
-    @media (min-width: 1025px) {
+    @media (min-width: 769px) {
       .mobile-header { display: none !important; }
       .sidebar { transform: translateX(0) !important; }
       .main-content { margin-left: 260px !important; margin-top: 0 !important; }
@@ -173,7 +173,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--deep-teal);
+      background: var(--bg-cream);
       color: var(--text-dark);
       min-height: 100vh;
     }
@@ -628,7 +628,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
     /* DESKTOP OVERRIDE - Handled by critical CSS above */
     /* Desktop layout (sidebar visible, mobile header hidden) is set in critical CSS */
     /* Only desktop-specific sizing adjustments go in media queries below */
-    @media (min-width: 1025px) {
+    @media (min-width: 769px) {
       .main-content {
         max-width: none;
         margin: 0;
@@ -638,51 +638,18 @@ function renderLayout(content, activePage, pageTitle, auth) {
       }
     }
 
-    /* Responsive - Large Tablet/Small Desktop (1024px - 1280px) */
-    @media (max-width: 1280px) and (min-width: 1025px) {
+    /* Responsive - Tablet/Desktop (769px+) - Keep 3-col layout for larger screens */
+    @media (max-width: 1280px) and (min-width: 769px) {
       .stats-grid {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(2, 1fr);
       }
     }
 
-    /* Responsive - Tablet (769px - 1024px) */
-    @media (max-width: 1024px) and (min-width: 769px) {
-      /* Keep sidebar visible but reduce content padding */
+    /* Responsive - Mobile landscape (481px - 768px) */
+    @media (max-width: 768px) and (min-width: 481px) {
       .main-content {
         padding: 1.5rem;
       }
-
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1.25rem;
-      }
-
-      .steps-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
-      }
-
-      .date-badge {
-        flex-wrap: wrap;
-        gap: 0.75rem;
-      }
-
-      .date-info {
-        flex: 1;
-        min-width: 250px;
-      }
-
-      .getting-started {
-        padding: 1.75rem;
-      }
-
-      .card {
-        padding: 1.5rem;
-      }
-    }
-
-    /* Responsive - Large Phone/Small Tablet (481px - 768px) */
-    @media (max-width: 768px) and (min-width: 481px) {
       .stats-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 1.25rem;
