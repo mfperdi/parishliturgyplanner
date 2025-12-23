@@ -133,7 +133,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
     .sidebar-close { display: block !important; }
 
     /* Desktop override */
-    @media (min-width: 769px) {
+    @media (min-width: 1025px) {
       .mobile-header { display: none !important; }
       .sidebar { transform: translateX(0) !important; }
       .main-content { margin-left: 260px !important; margin-top: 0 !important; }
@@ -162,6 +162,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
       --sidebar-width: 260px;
       --green-success: #2C5F2D;
       --red-alert: #C53030;
+      --deep-teal: #0f3538;
     }
 
     * {
@@ -172,9 +173,8 @@ function renderLayout(content, activePage, pageTitle, auth) {
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg-cream);
+      background: var(--deep-teal);
       color: var(--text-dark);
-      display: flex;
       min-height: 100vh;
     }
 
@@ -196,6 +196,32 @@ function renderLayout(content, activePage, pageTitle, auth) {
 
     .sidebar.active {
       transform: translateX(0) !important;
+    }
+
+    /* Main content shell */
+    .main-content {
+      width: 100%;
+      max-width: 620px;
+      margin: 60px auto 2rem;
+      padding: 1.25rem;
+      background: transparent;
+    }
+
+    .page-header {
+      margin-bottom: 1.25rem;
+    }
+
+    .page-title {
+      font-size: 1.9rem;
+      font-weight: 800;
+      line-height: 1.2;
+      margin-bottom: 0.35rem;
+    }
+
+    .page-subtitle {
+      font-size: 1.05rem;
+      color: var(--text-light);
+      margin: 0;
     }
 
     .sidebar-header {
@@ -602,9 +628,13 @@ function renderLayout(content, activePage, pageTitle, auth) {
     /* DESKTOP OVERRIDE - Handled by critical CSS above */
     /* Desktop layout (sidebar visible, mobile header hidden) is set in critical CSS */
     /* Only desktop-specific sizing adjustments go in media queries below */
-    @media (min-width: 769px) {
+    @media (min-width: 1025px) {
       .main-content {
+        max-width: none;
+        margin: 0;
         padding: 2rem;
+        margin-left: 260px !important;
+        margin-top: 0 !important;
       }
     }
 
