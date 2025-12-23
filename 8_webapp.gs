@@ -711,18 +711,22 @@ function renderLayout(content, activePage, pageTitle, auth) {
     @media (max-width: 480px) {
       /* Mobile header and sidebar already set as defaults */
 
+      body {
+        font-size: 1.05rem;
+      }
+
       .page-header {
         margin-bottom: 1.5rem;
       }
 
       .page-title {
-        font-size: 1.375rem;
+        font-size: 1.55rem;
         margin-bottom: 0.5rem;
         line-height: 1.3;
       }
 
       .page-subtitle {
-        font-size: 0.9rem;
+        font-size: 1rem;
         line-height: 1.5;
       }
 
@@ -737,17 +741,17 @@ function renderLayout(content, activePage, pageTitle, auth) {
       }
 
       .stat-value {
-        font-size: 2rem;
+        font-size: 2.2rem;
         margin: 0.5rem 0;
       }
 
       .stat-label {
-        font-size: 0.875rem;
+        font-size: 0.95rem;
         margin-bottom: 0.75rem;
       }
 
       .stat-description {
-        font-size: 0.8rem;
+        font-size: 0.9rem;
         margin-top: 0.75rem;
       }
 
@@ -761,12 +765,12 @@ function renderLayout(content, activePage, pageTitle, auth) {
       }
 
       .step-title {
-        font-size: 1.0625rem;
+        font-size: 1.18rem;
         margin-bottom: 1rem;
       }
 
       .step-description {
-        font-size: 0.875rem;
+        font-size: 0.95rem;
         line-height: 1.6;
         margin-bottom: 1.25rem;
       }
@@ -780,12 +784,12 @@ function renderLayout(content, activePage, pageTitle, auth) {
       }
 
       .getting-started h2 {
-        font-size: 1.25rem;
+        font-size: 1.35rem;
         margin-bottom: 0.75rem;
       }
 
       .getting-started-subtitle {
-        font-size: 0.875rem;
+        font-size: 0.95rem;
         margin-bottom: 1.75rem;
         line-height: 1.6;
       }
@@ -915,7 +919,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
     console.log('Mobile header visible:', window.getComputedStyle(document.querySelector('.mobile-header')).display !== 'none');
     console.log('Sidebar position:', window.getComputedStyle(document.querySelector('.sidebar')).transform);
 
-    const MOBILE_BREAKPOINT = 1024;
+    const MOBILE_BREAKPOINT = 768;
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     const menuButton = document.querySelector('.menu-btn');
