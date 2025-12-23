@@ -128,7 +128,7 @@ function renderLayout(content, activePage, pageTitle, auth) {
   <style>
     /* Load mobile layout IMMEDIATELY before any other CSS */
     .mobile-header { display: flex !important; }
-    .sidebar { transform: translateX(-100%) !important; }
+    .sidebar { transform: translateX(-260px) !important; }
     .main-content { margin-left: 0 !important; margin-top: 60px !important; }
     .sidebar-close { display: block !important; }
 
@@ -945,6 +945,68 @@ function renderLayout(content, activePage, pageTitle, auth) {
 
     // Initialize state on first paint
     syncSidebarStateToViewport();
+
+    // DIAGNOSTIC OVERLAY - Shows viewport and media query info
+    // Remove this after testing!
+    (function addDiagnostics() {
+      const overlay = document.createElement('div');
+      overlay.id = 'diagnostic-overlay';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        right: 0;
+        background: rgba(255, 0, 0, 0.9);
+        color: white;
+        padding: 12px;
+        font-family: monospace;
+        font-size: 11px;
+        line-height: 1.6;
+        z-index: 999999;
+        border-bottom-left-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        min-width: 200px;
+      `;
+
+      function updateDiagnostics() {
+        const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+        const matches769 = window.matchMedia('(min-width: 769px)').matches;
+        const sidebarEl = document.querySelector('.sidebar');
+        const mobileHeaderEl = document.querySelector('.mobile-header');
+
+        overlay.innerHTML = `
+          <strong>📱 DIAGNOSTICS</strong><br>
+          ────────────────<br>
+          Inner Width: <strong>${window.innerWidth}px</strong><br>
+          Outer Width: ${window.outerWidth}px<br>
+          Screen Width: ${window.screen.width}px<br>
+          ────────────────<br>
+          Should be mobile?: <strong>${isMobile ? 'YES' : 'NO'}</strong><br>
+          Media 769+ match?: <strong>${matches769 ? 'YES' : 'NO'}</strong><br>
+          ────────────────<br>
+          Mobile header display:<br>
+          <strong>${mobileHeaderEl ? window.getComputedStyle(mobileHeaderEl).display : 'N/A'}</strong><br>
+          Sidebar transform:<br>
+          <strong>${sidebarEl ? window.getComputedStyle(sidebarEl).transform : 'N/A'}</strong><br>
+          ────────────────<br>
+          <span style="font-size: 9px;">Breakpoint: ${MOBILE_BREAKPOINT}px</span>
+        `;
+      }
+
+      document.body.appendChild(overlay);
+      updateDiagnostics();
+
+      // Update on resize
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(updateDiagnostics, 100);
+      });
+
+      // Click to remove
+      overlay.addEventListener('click', () => {
+        overlay.remove();
+      });
+    })();
   </script>
 </body>
 </html>
