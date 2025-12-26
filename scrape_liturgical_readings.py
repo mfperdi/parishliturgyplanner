@@ -265,13 +265,6 @@ class LiturgicalReadingScraper:
         if not self.is_sunday_reading(celebration_raw, date_col):
             return None
 
-        # DEBUG: ALWAYS print first 10 readings to diagnose cycle extraction
-        if len(self.readings_data) < 10:
-            print(f"\n  DEBUG Reading #{len(self.readings_data) + 1}:")
-            print(f"    celebration_raw: '{celebration_raw}'")
-            print(f"    last 10 chars: {repr(celebration_raw[-10:])}")
-            print(f"    last 10 bytes: {celebration_raw[-10:].encode('utf-8')}")
-
         # Extract celebration name and reading type
         celebration, reading_type = self.extract_reading_type(celebration_raw)
 
@@ -292,18 +285,7 @@ class LiturgicalReadingScraper:
             # Re-extract reading type from cleaned celebration
             celebration, reading_type = self.extract_reading_type(celebration)
 
-            if len(self.readings_data) < 10:
-                print(f"    ✓ Regex matched! Cycle: {year_indicator}")
-                print(f"    ✓ Cleaned name: '{celebration}'")
-        else:
-            if len(self.readings_data) < 10:
-                print(f"    ✗ Regex NO MATCH")
-                print(f"    ✗ Testing pattern: {cycle_pattern}")
-
         cycle = self.determine_cycle(year_indicator)
-
-        if len(self.readings_data) < 10:
-            print(f"    → Final cycle: {cycle}")
 
         # Handle ABC (Fixed) celebrations - create one entry
         if cycle == 'Fixed':
