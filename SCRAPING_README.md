@@ -47,7 +47,10 @@ mkdir html_files
 #      - 1998USL-Christmas.htm
 #      - 1998USL-Lent.htm
 #      - 1998USL-Easter.htm
-#      - 1998USL-OrdinaryTime.htm
+#      - 1998USL-OrdinaryA.htm
+#      - 1998USL-OrdinaryB.htm
+#      - 1998USL-OrdinaryC.htm
+#      - 1998USL-Solemnities.htm
 #    Save them to the html_files/ directory
 
 # 3. Run scraper in offline mode
@@ -86,7 +89,10 @@ The scraper extracts readings from these pages:
 - **Christmas** - 1998USL-Christmas.htm
 - **Lent** - 1998USL-Lent.htm
 - **Easter** - 1998USL-Easter.htm
-- **Ordinary Time** - 1998USL-OrdinaryTime.htm
+- **Ordinary Time Cycle A** - 1998USL-OrdinaryA.htm
+- **Ordinary Time Cycle B** - 1998USL-OrdinaryB.htm
+- **Ordinary Time Cycle C** - 1998USL-OrdinaryC.htm
+- **Solemnities** - 1998USL-Solemnities.htm
 
 **Includes**:
 - All Sundays (Cycle A, B, C)
