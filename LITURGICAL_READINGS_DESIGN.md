@@ -60,13 +60,15 @@ The system **already knows** the liturgical year cycle (A/B/C or I/II) for any g
 
 **Structure:** New sheet "LiturgicalReadings" with columns:
 1. Liturgical Celebration (text key, e.g., "3rd Sunday in Ordinary Time")
-2. Cycle (A, B, C, I, II, or "Fixed" for solemnities)
-3. First Reading (e.g., "Jonah 3:1-5, 10")
-4. Responsorial Psalm (e.g., "Psalm 25:4-5, 6-7, 8-9")
-5. Second Reading (e.g., "1 Corinthians 7:29-31")
-6. Gospel Acclamation (e.g., "Mark 1:15")
-7. Gospel (e.g., "Mark 1:14-20")
-8. Notes (alternate readings, optional memorials)
+2. Cycle (A, B, C for Sundays, I, II for weekdays, or "Fixed" for solemnities)
+3. **Lectionary Number** (official reference, e.g., "68")
+4. Reading Type (Standard, OT Reading 1-7, Vigil, Day, Long, Short, etc.)
+5. First Reading (e.g., "Jonah 3:1-5, 10")
+6. Responsorial Psalm (e.g., "Psalm 25:4-5, 6-7, 8-9")
+7. Second Reading (e.g., "1 Corinthians 7:29-31")
+8. Gospel Acclamation (e.g., "Mark 1:15")
+9. Gospel (e.g., "Mark 1:14-20")
+10. Notes (alternate readings, optional memorials)
 
 **Pros:**
 - ✅ Clean separation of concerns
@@ -129,22 +131,26 @@ The system **already knows** the liturgical year cycle (A/B/C or I/II) for any g
 |--------|------|-------------|---------|
 | A | Liturgical Celebration | Celebration name (matches LiturgicalCalendar) | "3rd Sunday in Ordinary Time" |
 | B | Cycle | A, B, C (Sundays), I, II (Weekdays), or "Fixed" | "B" |
-| C | First Reading | Book chapter:verses | "Jonah 3:1-5, 10" |
-| D | Responsorial Psalm | Psalm with verses | "Psalm 25:4-5, 6-7, 8-9" |
-| E | Second Reading | Book chapter:verses (blank for weekdays) | "1 Corinthians 7:29-31" |
-| F | Gospel Acclamation | Reference or text | "Mark 1:15" |
-| G | Gospel | Book chapter:verses | "Mark 1:14-20" |
-| H | Notes | Alternate readings, options | "Or: Jonah 3:1-10" |
+| C | **Lectionary Number** | Official lectionary reference number | "68" |
+| D | Reading Type | Standard, OT Reading 1-7, Vigil, Day, etc. | "Standard" |
+| E | First Reading | Book chapter:verses | "Jonah 3:1-5, 10" |
+| F | Responsorial Psalm | Psalm with verses | "Psalm 25:4-5, 6-7, 8-9" |
+| G | Second Reading | Book chapter:verses (blank for weekdays) | "1 Corinthians 7:29-31" |
+| H | Gospel Acclamation | Reference or text | "Mark 1:15" |
+| I | Gospel | Book chapter:verses | "Mark 1:14-20" |
+| J | Notes | Alternate readings, options | "Or: 1 Cor 12:12-14, 27" |
 
 ### Sample Data
 
 ```
-Liturgical Celebration              | Cycle | First Reading    | Resp. Psalm           | Second Reading         | Gospel Accl. | Gospel      | Notes
-3rd Sunday in Ordinary Time         | A     | Isaiah 8:23-9:3  | Psalm 27:1, 4, 13-14  | 1 Cor 1:10-13, 17     | Matt 4:23    | Matt 4:12-23|
-3rd Sunday in Ordinary Time         | B     | Jonah 3:1-5, 10  | Psalm 25:4-5, 6-7, 8-9| 1 Cor 7:29-31         | Mark 1:15    | Mark 1:14-20|
-3rd Sunday in Ordinary Time         | C     | Neh 8:2-4a, 5-6  | Psalm 19:8, 9, 10, 15 | 1 Cor 12:12-30        | Luke 1:1-2   | Luke 1:1-4  | Or: 1 Cor 12:12-14, 27
-The Nativity of the Lord (Christmas)| Fixed | Isaiah 52:7-10   | Psalm 98:1-6          | Hebrews 1:1-6         | John 1:1-2   | John 1:1-18 | Daytime Mass
-Ash Wednesday                       | Fixed | Joel 2:12-18     | Psalm 51:3-6, 12-14   | 2 Cor 5:20-6:2        | Matt 4:4     | Matt 6:1-6  |
+Celebration                         | Cycle | Lect# | Type     | First Reading    | Resp. Psalm           | Second Reading   | Gospel Accl. | Gospel        | Notes
+3rd Sunday in Ordinary Time         | A     | 67    | Standard | Isaiah 8:23-9:3  | Psalm 27:1,4,13-14   | 1 Cor 1:10-13,17 | Matt 4:23    | Matt 4:12-23  |
+3rd Sunday in Ordinary Time         | B     | 68    | Standard | Jonah 3:1-5,10   | Psalm 25:4-5,6-7,8-9 | 1 Cor 7:29-31    | Mark 1:15    | Mark 1:14-20  |
+3rd Sunday in Ordinary Time         | C     | 69    | Standard | Neh 8:2-4a,5-6   | Psalm 19:8,9,10,15   | 1 Cor 12:12-30   | Luke 1:1-2   | Luke 1:1-4... | Or: 1 Cor 12:12-14,27
+The Nativity of the Lord            | Fixed | 16    | Day      | Isaiah 52:7-10   | Psalm 98:1-6         | Hebrews 1:1-6    | John 1:1-2   | John 1:1-18   | Daytime Mass
+Ash Wednesday                       | Fixed | 219   | Standard | Joel 2:12-18     | Psalm 51:3-6,12-14   | 2 Cor 5:20-6:2   | Matt 4:4     | Matt 6:1-6... |
+Easter Vigil                        | Fixed | 41    | OT Rdg 3 | Exodus 14:15-31  | Exod 15:1-6          |                  |              |               | Red Sea (required)
+Easter Vigil                        | Fixed | 41    | Gospel   |                  |                      |                  |              | Matt 28:1-10  | Year A
 ```
 
 ### Key Concepts
@@ -164,6 +170,28 @@ Ash Wednesday                       | Fixed | Joel 2:12-18     | Psalm 51:3-6, 1
 - **Vigil Masses:** Usually use readings from following day (system already handles this with `isAnticipated` flag)
 - **Special Circumstances:** Weddings, funerals use different lectionary (out of scope)
 
+**Lectionary Numbers:**
+- Unique reference number for each set of readings in the official Lectionary book
+- **Sunday Lectionary**: Numbered sequentially through Year A, B, C (e.g., #67-69 for 3rd Sunday OT)
+- **Weekday Lectionary**: Separate numbering system (e.g., #317 for Monday Week 3 OT)
+- **Solemnities**: Fixed numbers regardless of day (e.g., #16 for Christmas Day)
+- **What lectors actually use** to find readings in the physical Lectionary book
+
+**Reading Types:**
+Used to handle celebrations with multiple readings or Mass variations:
+- **Standard**: Normal Sunday/weekday Mass (most common, ~95% of entries)
+- **OT Reading 1-7**: Easter Vigil's seven Old Testament readings
+- **Vigil, Day, Evening**: Different Masses for same celebration (e.g., Christmas)
+- **Long, Short**: Optional Gospel forms
+- **Option A, Option B**: When multiple readings are permitted
+
+**Multiple Readings Handling:**
+Some celebrations (Easter Vigil, Pentecost Vigil, Christmas) have multiple rows:
+- All rows share same Celebration + Cycle + Lectionary Number
+- Reading Type distinguishes which reading/Mass
+- Lookup helper returns array instead of single object
+- Print schedule displays all options or selected subset
+
 ---
 
 ## Implementation Plan
@@ -182,12 +210,14 @@ Add to `CONSTANTS.COLS`:
 READINGS: {
   LITURGICAL_CELEBRATION: 1,
   CYCLE: 2,
-  FIRST_READING: 3,
-  RESPONSORIAL_PSALM: 4,
-  SECOND_READING: 5,
-  GOSPEL_ACCLAMATION: 6,
-  GOSPEL: 7,
-  NOTES: 8
+  LECTIONARY_NUMBER: 3,
+  READING_TYPE: 4,
+  FIRST_READING: 5,
+  RESPONSORIAL_PSALM: 6,
+  SECOND_READING: 7,
+  GOSPEL_ACCLAMATION: 8,
+  GOSPEL: 9,
+  NOTES: 10
 }
 ```
 
@@ -196,38 +226,52 @@ READINGS: {
 ```javascript
 /**
  * Get liturgical readings for a specific celebration and cycle.
+ * Returns single object for normal masses, or array for celebrations with multiple readings.
  * @param {string} celebration - Liturgical celebration name
  * @param {string} cycle - Liturgical cycle (A, B, C, I, II, or Fixed)
- * @returns {object} Readings object with all reading references
+ * @param {string} readingType - Optional filter (e.g., "Standard", "Vigil", "OT Reading 3")
+ * @returns {object|array|null} Readings object, array of readings, or null if not found
  */
-function HELPER_getReadingsForCelebration(celebration, cycle) {
+function HELPER_getReadingsForCelebration(celebration, cycle, readingType = null) {
   try {
     const readingsData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.READINGS);
     const readingsCols = CONSTANTS.COLS.READINGS;
+    const allMatches = [];
 
-    // Search for matching celebration and cycle
+    // Search for all matching rows (may be multiple for Easter Vigil, Christmas, etc.)
     for (const row of readingsData) {
       const rowCelebration = row[readingsCols.LITURGICAL_CELEBRATION - 1];
       const rowCycle = row[readingsCols.CYCLE - 1];
+      const rowReadingType = row[readingsCols.READING_TYPE - 1] || 'Standard';
 
-      if (rowCelebration === celebration) {
-        // Fixed celebrations match regardless of cycle
-        if (rowCycle === 'Fixed' || rowCycle === cycle) {
-          return {
-            firstReading: row[readingsCols.FIRST_READING - 1] || '',
-            psalm: row[readingsCols.RESPONSORIAL_PSALM - 1] || '',
-            secondReading: row[readingsCols.SECOND_READING - 1] || '',
-            gospelAcclamation: row[readingsCols.GOSPEL_ACCLAMATION - 1] || '',
-            gospel: row[readingsCols.GOSPEL - 1] || '',
-            notes: row[readingsCols.NOTES - 1] || ''
-          };
+      if (rowCelebration === celebration && (rowCycle === 'Fixed' || rowCycle === cycle)) {
+        // If specific reading type requested, filter to that
+        if (readingType && rowReadingType !== readingType) {
+          continue;
         }
+
+        allMatches.push({
+          lectionaryNumber: row[readingsCols.LECTIONARY_NUMBER - 1] || '',
+          readingType: rowReadingType,
+          firstReading: row[readingsCols.FIRST_READING - 1] || '',
+          psalm: row[readingsCols.RESPONSORIAL_PSALM - 1] || '',
+          secondReading: row[readingsCols.SECOND_READING - 1] || '',
+          gospelAcclamation: row[readingsCols.GOSPEL_ACCLAMATION - 1] || '',
+          gospel: row[readingsCols.GOSPEL - 1] || '',
+          notes: row[readingsCols.NOTES - 1] || ''
+        });
       }
     }
 
-    // No readings found
-    Logger.log(`No readings found for: ${celebration} (Cycle ${cycle})`);
-    return null;
+    // Return based on number of matches
+    if (allMatches.length === 0) {
+      Logger.log(`No readings found for: ${celebration} (Cycle ${cycle})`);
+      return null;
+    } else if (allMatches.length === 1) {
+      return allMatches[0];  // Single object for normal cases
+    } else {
+      return allMatches;     // Array for multiple readings
+    }
 
   } catch (e) {
     Logger.log(`Error fetching readings: ${e.message}`);
@@ -240,23 +284,65 @@ function HELPER_getReadingsForCelebration(celebration, cycle) {
 
 ```javascript
 /**
- * Determine liturgical cycle for a specific date.
+ * Determine liturgical cycle for a specific date and celebration.
  * @param {Date} date - Target date
- * @param {string} celebrationType - 'sunday' or 'weekday'
- * @returns {string} Cycle letter (A, B, C for Sundays; I, II for weekdays)
+ * @param {string} celebration - Liturgical celebration name
+ * @returns {string} Cycle letter (A, B, C for Sundays; I, II for weekdays; Fixed for solemnities)
  */
-function HELPER_getLiturgicalCycle(date, celebrationType = 'sunday') {
+function HELPER_getLiturgicalCycle(date, celebration) {
+  // Check if it's a fixed celebration (solemnities, major feasts)
+  if (HELPER_isFixedCelebration(celebration)) {
+    return 'Fixed';
+  }
+
   // Get liturgical year (Advent-based)
   const liturgicalYear = determineLiturgicalYear([{date: date}]);
 
-  if (celebrationType === 'sunday') {
-    // Sunday Cycle: A, B, C
+  // Determine if Sunday or weekday based on day of week and celebration type
+  const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+
+  if (dayOfWeek === 0 || HELPER_isSundayEquivalent(celebration)) {
+    // Sunday Cycle: A, B, C (3-year rotation)
     const remainder = liturgicalYear % 3;
     return remainder === 1 ? 'A' : (remainder === 2 ? 'B' : 'C');
   } else {
-    // Weekday Cycle: I (odd years), II (even years)
+    // Weekday Cycle: I (odd liturgical years), II (even liturgical years)
     return liturgicalYear % 2 === 1 ? 'I' : 'II';
   }
+}
+
+/**
+ * Check if celebration always uses fixed readings (not cycle-dependent).
+ */
+function HELPER_isFixedCelebration(celebration) {
+  const fixedCelebrations = [
+    'The Nativity of the Lord',
+    'Ash Wednesday',
+    'Easter Sunday',
+    'The Assumption',
+    'All Saints',
+    'The Immaculate Conception',
+    'Pentecost Sunday',
+    'The Ascension',
+    'Holy Thursday',
+    'Good Friday',
+    'Easter Vigil'
+    // Add more as needed
+  ];
+  return fixedCelebrations.some(fixed => celebration.includes(fixed));
+}
+
+/**
+ * Check if celebration is treated as Sunday equivalent (Holy Days on weekdays).
+ */
+function HELPER_isSundayEquivalent(celebration) {
+  // Some solemnities use Sunday cycle even when falling on weekdays
+  const sundayEquivalents = [
+    'The Most Holy Trinity',
+    'The Most Holy Body and Blood of Christ',
+    'Our Lord Jesus Christ, King of the Universe'
+  ];
+  return sundayEquivalents.some(equiv => celebration.includes(equiv));
 }
 ```
 
@@ -271,47 +357,57 @@ Modify `createCelebrationSection()` in `5_printschedule.gs` to include readings:
 ```javascript
 // After rank info row (around line 657)
 if (config.showReadings !== false) {  // Default: show readings
-  const cycle = HELPER_getLiturgicalCycle(
-    liturgyInfo.dates[0],
-    liturgyInfo.dates[0].getDay() === 0 ? 'sunday' : 'weekday'
-  );
-
+  const cycle = HELPER_getLiturgicalCycle(liturgyInfo.dates[0], celebration);
   const readings = HELPER_getReadingsForCelebration(celebration, cycle);
 
-  if (readings && readings.firstReading) {
-    const readingsText = formatReadingsText(readings);
+  if (readings) {
+    // Handle single reading or array of readings
+    const readingsArray = Array.isArray(readings) ? readings : [readings];
 
-    // Add readings row
-    sheet.getRange(currentRow, 1, 1, numColumns).merge();
-    sheet.getRange(currentRow, 1).setValue(readingsText);
-    sheet.getRange(currentRow, 1)
-      .setFontSize(10)
-      .setFontStyle('italic')
-      .setBackground(bgColor);
-    currentRow++;
+    for (const reading of readingsArray) {
+      if (reading.firstReading || reading.gospel) {
+        const readingsText = formatReadingsText(reading);
+
+        // Add readings row
+        sheet.getRange(currentRow, 1, 1, numColumns).merge();
+        sheet.getRange(currentRow, 1).setValue(readingsText);
+        sheet.getRange(currentRow, 1)
+          .setFontSize(10)
+          .setFontStyle('italic')
+          .setBackground(bgColor);
+        currentRow++;
+      }
+    }
   }
 }
 
 /**
- * Format readings into display text.
+ * Format readings into display text with lectionary number.
  */
-function formatReadingsText(readings) {
-  let text = `📖 Readings: ${readings.firstReading}`;
+function formatReadingsText(reading) {
+  let text = `📖 Lectionary #${reading.lectionaryNumber}`;
 
-  if (readings.psalm) {
-    text += ` • Psalm ${readings.psalm}`;
+  // Add reading type if not standard
+  if (reading.readingType && reading.readingType !== 'Standard') {
+    text += ` (${reading.readingType})`;
   }
 
-  if (readings.secondReading) {
-    text += ` • ${readings.secondReading}`;
+  text += `: ${reading.firstReading || ''}`;
+
+  if (reading.psalm) {
+    text += ` • Psalm ${reading.psalm}`;
   }
 
-  if (readings.gospel) {
-    text += ` • Gospel: ${readings.gospel}`;
+  if (reading.secondReading) {
+    text += ` • ${reading.secondReading}`;
   }
 
-  if (readings.notes) {
-    text += ` (${readings.notes})`;
+  if (reading.gospel) {
+    text += ` • Gospel: ${reading.gospel}`;
+  }
+
+  if (reading.notes) {
+    text += ` (${reading.notes})`;
   }
 
   return text;
@@ -356,11 +452,14 @@ When auto-assigning or sending schedules:
 ```
 Dear John,
 
-You are assigned to proclaim the First Reading at the 10:00 AM Mass on Sunday, January 26, 2025 (3rd Sunday in Ordinary Time, Year B).
+You are assigned to proclaim the First Reading at the 10:00 AM Mass on
+Sunday, January 26, 2025 (3rd Sunday in Ordinary Time, Year B).
 
+Lectionary #68
 Reading: Jonah 3:1-5, 10
 
-Please prepare this reading in advance. May God bless your proclamation of His Word.
+Please practice this reading from the Lectionary in the sacristy before Mass.
+May God bless your proclamation of His Word.
 ```
 
 **3.3 Weekly View Integration**
@@ -442,6 +541,8 @@ function VALIDATE_readings() {
       const row = readingsData[i];
       const celebration = row[readingsCols.LITURGICAL_CELEBRATION - 1];
       const cycle = row[readingsCols.CYCLE - 1];
+      const lectionaryNumber = row[readingsCols.LECTIONARY_NUMBER - 1];
+      const readingType = row[readingsCols.READING_TYPE - 1] || 'Standard';
       const firstReading = row[readingsCols.FIRST_READING - 1];
       const gospel = row[readingsCols.GOSPEL - 1];
 
@@ -450,20 +551,29 @@ function VALIDATE_readings() {
         errors.push(`Row ${i + 2}: Celebration and Cycle are required`);
       }
 
-      if (!firstReading || !gospel) {
-        warnings.push(`Row ${i + 2}: Missing First Reading or Gospel for ${celebration}`);
+      if (!lectionaryNumber) {
+        warnings.push(`Row ${i + 2}: Missing Lectionary Number for ${celebration}`);
       }
 
-      // Check for duplicates
-      const combo = `${celebration}|${cycle}`;
+      if (!firstReading && !gospel) {
+        warnings.push(`Row ${i + 2}: Missing both First Reading and Gospel for ${celebration}`);
+      }
+
+      // Check for duplicates (same celebration + cycle + reading type)
+      const combo = `${celebration}|${cycle}|${readingType}`;
       if (seenCombos.has(combo)) {
-        errors.push(`Row ${i + 2}: Duplicate entry for ${celebration} (Cycle ${cycle})`);
+        errors.push(`Row ${i + 2}: Duplicate entry for ${celebration} (Cycle ${cycle}, Type ${readingType})`);
       }
       seenCombos.add(combo);
 
       // Validate cycle values
       if (!['A', 'B', 'C', 'I', 'II', 'Fixed'].includes(cycle)) {
         errors.push(`Row ${i + 2}: Invalid cycle '${cycle}'. Must be A, B, C, I, II, or Fixed`);
+      }
+
+      // Validate lectionary number is numeric
+      if (lectionaryNumber && isNaN(parseInt(lectionaryNumber))) {
+        errors.push(`Row ${i + 2}: Lectionary Number must be numeric, got '${lectionaryNumber}'`);
       }
     }
 
@@ -481,19 +591,33 @@ function VALIDATE_readings() {
 1. **Test reading lookup for known celebration:**
    ```javascript
    const readings = HELPER_getReadingsForCelebration("3rd Sunday in Ordinary Time", "B");
-   // Should return Jonah 3:1-5, 10 and Mark 1:14-20
+   // Should return object with:
+   //   lectionaryNumber: "68"
+   //   firstReading: "Jonah 3:1-5, 10"
+   //   gospel: "Mark 1:14-20"
    ```
 
 2. **Test cycle determination:**
    ```javascript
-   const cycle = HELPER_getLiturgicalCycle(new Date(2026, 0, 25), 'sunday');
+   const cycle = HELPER_getLiturgicalCycle(new Date(2026, 0, 25), "3rd Sunday in Ordinary Time");
    // Jan 25, 2026 is 3rd Sunday OT in Year B → should return "B"
+
+   const cycle2 = HELPER_getLiturgicalCycle(new Date(2026, 2, 18), "Ash Wednesday");
+   // Ash Wednesday → should return "Fixed"
    ```
 
-3. **Test print schedule with readings:**
+3. **Test multiple readings (Easter Vigil):**
+   ```javascript
+   const readings = HELPER_getReadingsForCelebration("Easter Vigil", "Fixed");
+   // Should return array with 9-10 objects (7 OT readings + Epistle + Gospel)
+   // Each with different readingType
+   ```
+
+4. **Test print schedule with readings:**
    - Generate print schedule for January 2026
-   - Verify readings appear under each celebration
-   - Verify correct cycle is used
+   - Verify readings appear under each celebration with lectionary numbers
+   - Verify correct cycle is used (B for Year 2026)
+   - Verify reading type shows for non-standard readings
 
 ---
 
@@ -559,7 +683,7 @@ Add setup step:
 
 If you want reading references on schedules:
 1. Create "LiturgicalReadings" sheet
-2. Add column headers: Liturgical Celebration, Cycle, First Reading, Responsorial Psalm, Second Reading, Gospel Acclamation, Gospel, Notes
+2. Add column headers: Liturgical Celebration, Cycle, Lectionary Number, Reading Type, First Reading, Responsorial Psalm, Second Reading, Gospel Acclamation, Gospel, Notes
 3. Enter reading data (see LITURGICAL_READINGS_DATA_TEMPLATE.md for sample data)
 4. Validate: Admin Tools → Validate Data
 5. Enable in sidebar when generating print schedules
@@ -635,14 +759,14 @@ See separate file: `LITURGICAL_READINGS_DATA_TEMPLATE.md` (to be created)
 Sample rows for common celebrations:
 
 ```csv
-Liturgical Celebration,Cycle,First Reading,Responsorial Psalm,Second Reading,Gospel Acclamation,Gospel,Notes
-1st Sunday of Advent,A,Isaiah 2:1-5,Psalm 122:1-9,Romans 13:11-14,Psalm 85:8,Matthew 24:37-44,
-1st Sunday of Advent,B,Isaiah 63:16b-17,Psalm 80:2-3,1 Corinthians 1:3-9,Psalm 85:8,Mark 13:33-37,
-1st Sunday of Advent,C,Jeremiah 33:14-16,Psalm 25:4-5,1 Thessalonians 3:12-4:2,Psalm 85:8,Luke 21:25-28,
-The Nativity of the Lord (Vigil),Fixed,Isaiah 62:1-5,Psalm 89:4-5,Acts 13:16-17,Matthew 1:18,Matthew 1:1-25,Vigil Mass
-The Nativity of the Lord (Night),Fixed,Isaiah 9:1-6,Psalm 96:1-3,Titus 2:11-14,Luke 2:10-11,Luke 2:1-14,Midnight Mass
-The Nativity of the Lord (Dawn),Fixed,Isaiah 62:11-12,Psalm 97:1-12,Titus 3:4-7,Luke 2:14,Luke 2:15-20,Dawn Mass
-The Nativity of the Lord (Day),Fixed,Isaiah 52:7-10,Psalm 98:1-6,Hebrews 1:1-6,John 1:1-2,John 1:1-18,Daytime Mass
+Liturgical Celebration,Cycle,Lectionary Number,Reading Type,First Reading,Responsorial Psalm,Second Reading,Gospel Acclamation,Gospel,Notes
+1st Sunday of Advent,A,1,Standard,Isaiah 2:1-5,Psalm 122:1-9,Romans 13:11-14,Psalm 85:8,Matthew 24:37-44,
+1st Sunday of Advent,B,2,Standard,Isaiah 63:16b-17,Psalm 80:2-3,1 Corinthians 1:3-9,Psalm 85:8,Mark 13:33-37,
+1st Sunday of Advent,C,3,Standard,Jeremiah 33:14-16,Psalm 25:4-5,1 Thessalonians 3:12-4:2,Psalm 85:8,Luke 21:25-28,
+The Nativity of the Lord,Fixed,13,Vigil,Isaiah 62:1-5,Psalm 89:4-5,Acts 13:16-17,Matthew 1:18,Matthew 1:1-25,Vigil Mass
+The Nativity of the Lord,Fixed,14,Night,Isaiah 9:1-6,Psalm 96:1-3,Titus 2:11-14,Luke 2:10-11,Luke 2:1-14,Midnight Mass
+The Nativity of the Lord,Fixed,15,Dawn,Isaiah 62:11-12,Psalm 97:1-12,Titus 3:4-7,Luke 2:14,Luke 2:15-20,Dawn Mass
+The Nativity of the Lord,Fixed,16,Day,Isaiah 52:7-10,Psalm 98:1-6,Hebrews 1:1-6,John 1:1-2,John 1:1-18,Daytime Mass
 ```
 
 ---
