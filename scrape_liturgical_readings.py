@@ -266,35 +266,21 @@ class LiturgicalReadingScraper:
         celebration, reading_type = self.extract_reading_type(celebration_raw)
 
         # Determine cycle from celebration_raw (e.g., "1stSunday of Advent - A")
-        # The cycle is usually at the end after a hyphen
+        # The cycle is usually at the end after a hyphen or en-dash
         year_indicator = 'ABC'  # Default to fixed
 
-        # Check if celebration_raw ends with cycle indicator
-        if celebration_raw.endswith('- A') or celebration_raw.endswith('-A'):
-            year_indicator = 'A'
-            # Remove cycle suffix from celebration name
-            celebration = celebration.replace('- A', '').replace('-A', '').strip()
-        elif celebration_raw.endswith('- B') or celebration_raw.endswith('-B'):
-            year_indicator = 'B'
-            celebration = celebration.replace('- B', '').replace('-B', '').strip()
-        elif celebration_raw.endswith('- C') or celebration_raw.endswith('-C'):
-            year_indicator = 'C'
-            celebration = celebration.replace('- C', '').replace('-C', '').strip()
-        elif celebration_raw.endswith('- ABC') or celebration_raw.endswith('-ABC'):
-            year_indicator = 'ABC'
-            celebration = celebration.replace('- ABC', '').replace('-ABC', '').strip()
-        elif celebration_raw.endswith('â€" A'):  # Handle en-dash
-            year_indicator = 'A'
-            celebration = celebration.replace('â€" A', '').strip()
-        elif celebration_raw.endswith('â€" B'):
-            year_indicator = 'B'
-            celebration = celebration.replace('â€" B', '').strip()
-        elif celebration_raw.endswith('â€" C'):
-            year_indicator = 'C'
-            celebration = celebration.replace('â€" C', '').strip()
-        elif celebration_raw.endswith('â€" ABC'):
-            year_indicator = 'ABC'
-            celebration = celebration.replace('â€" ABC', '').strip()
+        # Use regex to extract cycle suffix more robustly
+        # Matches: " - A", "- A", " – A", "– A", etc. (handles various dash types and spacing)
+        # Try to find cycle pattern at end: any dash type, optional spaces, then A/B/C/ABC
+        cycle_pattern = r'[\s\-–—]*([ABC]{1,3})$'
+        match = re.search(cycle_pattern, celebration_raw)
+
+        if match:
+            year_indicator = match.group(1)
+            # Remove the entire matched suffix from celebration name
+            celebration = celebration_raw[:match.start()].strip()
+            # Re-extract reading type from cleaned celebration
+            celebration, reading_type = self.extract_reading_type(celebration)
 
         cycle = self.determine_cycle(year_indicator)
 
