@@ -170,17 +170,22 @@ def test_parse_christmas_data():
         elif 'Holy Innocents' in celebration:
             celebration = 'The Holy Innocents, Martyrs'
 
-        # Determine cycle
-        if '- ABC' in celebration_raw:
-            cycle = 'Fixed'
-        elif '- A' in celebration_raw:
+        # Determine cycle from celebration_raw (e.g., "1stSunday of Advent - A")
+        if celebration_raw.endswith('- A') or celebration_raw.endswith('-A'):
             cycle = 'A'
-        elif '- B' in celebration_raw:
+            celebration = celebration.replace('- A', '').replace('-A', '').strip()
+        elif celebration_raw.endswith('- B') or celebration_raw.endswith('-B'):
             cycle = 'B'
-        elif '- C' in celebration_raw:
+            celebration = celebration.replace('- B', '').replace('-B', '').strip()
+        elif celebration_raw.endswith('- C') or celebration_raw.endswith('-C'):
             cycle = 'C'
+            celebration = celebration.replace('- C', '').replace('-C', '').strip()
+        elif celebration_raw.endswith('- ABC') or celebration_raw.endswith('-ABC'):
+            cycle = 'Fixed'
+            celebration = celebration.replace('- ABC', '').replace('-ABC', '').strip()
         else:
-            cycle = 'Unknown'
+            # No cycle suffix means it's a fixed celebration (same every year)
+            cycle = 'Fixed'
 
         # Create entry
         entry = {
