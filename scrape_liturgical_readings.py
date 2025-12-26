@@ -262,6 +262,10 @@ class LiturgicalReadingScraper:
         if not self.is_sunday_reading(celebration_raw, date_col):
             return None
 
+        # DEBUG: Print what we're processing
+        if len(self.readings_data) < 5:  # Only print first 5 to avoid spam
+            print(f"  DEBUG: Processing '{celebration_raw}'")
+
         # Extract celebration name and reading type
         celebration, reading_type = self.extract_reading_type(celebration_raw)
 
@@ -281,6 +285,12 @@ class LiturgicalReadingScraper:
             celebration = celebration_raw[:match.start()].strip()
             # Re-extract reading type from cleaned celebration
             celebration, reading_type = self.extract_reading_type(celebration)
+
+            if len(self.readings_data) < 5:
+                print(f"    → Matched! Cycle: {year_indicator}, Cleaned: '{celebration}'")
+        else:
+            if len(self.readings_data) < 5:
+                print(f"    → No match! Last 10 chars: {repr(celebration_raw[-10:])}")
 
         cycle = self.determine_cycle(year_indicator)
 
