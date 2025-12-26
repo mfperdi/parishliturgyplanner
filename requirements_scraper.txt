@@ -1,0 +1,6 @@
+# Python dependencies for liturgical readings web scraper
+# Install with: pip install -r requirements_scraper.txt
+
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
