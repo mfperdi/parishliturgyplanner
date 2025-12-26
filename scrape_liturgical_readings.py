@@ -36,7 +36,10 @@ SEASON_PAGES = {
     'Christmas': '1998USL-Christmas.htm',
     'Lent': '1998USL-Lent.htm',
     'Easter': '1998USL-Easter.htm',
-    'OrdinaryTime': '1998USL-Ordinary.htm'  # Note: Just "Ordinary", not "OrdinaryTime"
+    'OrdinaryTimeA': '1998USL-OrdinaryA.htm',
+    'OrdinaryTimeB': '1998USL-OrdinaryB.htm',
+    'OrdinaryTimeC': '1998USL-OrdinaryC.htm',
+    'Solemnities': '1998USL-Solemnities.htm'
 }
 
 # Output CSV columns

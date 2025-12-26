@@ -34,9 +34,12 @@ The website blocks automated scraping, so download manually:
    - Click "Christmas Time" → Save as `1998USL-Christmas.htm`
    - Click "Lent" → Save as `1998USL-Lent.htm`
    - Click "Easter Time" → Save as `1998USL-Easter.htm`
-   - Click "Ordinary Time" → Save as `1998USL-OrdinaryTime.htm`
+   - Click "Ordinary Time - Year A" → Save as `1998USL-OrdinaryA.htm`
+   - Click "Ordinary Time - Year B" → Save as `1998USL-OrdinaryB.htm`
+   - Click "Ordinary Time - Year C" → Save as `1998USL-OrdinaryC.htm`
+   - Click "Solemnities" → Save as `1998USL-Solemnities.htm`
 3. Create folder: `mkdir html_files`
-4. Move all 5 HTML files into `html_files/` directory
+4. Move all 8 HTML files into `html_files/` directory
 
 **Tip**: Right-click on page → "Save Page As" → Choose "Web Page, HTML Only"
 
@@ -60,11 +63,15 @@ Extracted 12 reading(s) from Advent
 Reading local file: html_files/1998USL-Christmas.htm
 Extracted 18 reading(s) from Christmas
 
+=== Scraping OrdinaryTimeA ===
+Reading local file: html_files/1998USL-OrdinaryA.htm
+Extracted 34 reading(s) from OrdinaryTimeA
+
 ...
 
-=== TOTAL: 187 readings extracted ===
+=== TOTAL: 250+ readings extracted ===
 
-✓ Saved 187 readings to liturgical_readings_phase1.csv
+✓ Saved 250+ readings to liturgical_readings_phase1.csv
 ```
 
 ### Step 4: Import into Google Sheets (2 minutes)
@@ -80,11 +87,11 @@ Extracted 18 reading(s) from Christmas
 ### Step 5: Verify (1 minute)
 
 Check that the imported data has:
-- **187 rows** (approximately - varies by season coverage)
+- **250+ rows** (approximately - varies by season coverage)
 - **10 columns**: Liturgical Celebration, Cycle, Lectionary Number, Reading Type, First Reading, Responsorial Psalm, Second Reading, Gospel Acclamation, Gospel, Notes
 - **Sample celebrations**: 1st Sunday of Advent, Christmas (Vigil/Night/Dawn/Day), Easter Sunday, Pentecost
-- **Cycles**: Mostly "Fixed" and "A" (with some B and C)
-- **Lectionary Numbers**: Populated (e.g., 1, 2, 3... for Advent; 13-20 for Christmas)
+- **Cycles**: Mix of "Fixed" (solemnities), "A", "B", and "C" (Sundays)
+- **Lectionary Numbers**: Populated (e.g., 1, 2, 3... for Advent; 13-20 for Christmas; 64-162 for Ordinary Time)
 
 ## Troubleshooting
 
