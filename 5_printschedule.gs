@@ -1167,8 +1167,13 @@ function buildWeeklyScheduleData(weekStart, weekEnd, config) {
 
     Logger.log(`Reading assignments from months: ${monthStrings.join(', ')}`);
 
-    // Read assignments from all relevant months
+    // Read ALL assignments from Assignments sheet (ignore Month-Year filter)
+    // This ensures manually added assignments are included even if Month-Year is incorrect
+    Logger.log(`Also reading assignments by date range (${HELPER_formatDate(weekStart, 'default')} - ${HELPER_formatDate(weekEnd, 'default')}) to catch manually added assignments`);
+
     let assignments = [];
+
+    // Method 1: Read by Month-Year (standard approach)
     for (const monthString of monthStrings) {
       try {
         const monthAssignments = getAssignmentDataForMonth(monthString);
@@ -1176,6 +1181,72 @@ function buildWeeklyScheduleData(weekStart, weekEnd, config) {
       } catch (e) {
         Logger.log(`No assignments found for ${monthString}: ${e.message}`);
       }
+    }
+
+    // Method 2: Read ALL assignments and filter by date (catches manually added with wrong Month-Year)
+    try {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const assignSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+      if (assignSheet) {
+        const allData = assignSheet.getDataRange().getValues();
+        const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
+        allData.shift(); // Remove header
+
+        // Create extended date range (week start to extended end)
+        const rangeStart = new Date(weekStart.getTime());
+        const rangeEnd = new Date(weekEnd.getTime());
+        rangeEnd.setDate(rangeEnd.getDate() + 7); // Extend by 1 week to catch spillover
+
+        for (const row of allData) {
+          const dateValue = row[assignCols.DATE - 1];
+          if (!dateValue) continue;
+
+          const date = new Date(dateValue);
+          if (date >= rangeStart && date <= rangeEnd) {
+            // Check if already loaded by Month-Year method
+            const isDuplicate = assignments.some(a =>
+              a.date.getTime() === date.getTime() &&
+              a.role === row[assignCols.ROLE - 1] &&
+              a.assignedVolunteerName === row[assignCols.ASSIGNED_VOLUNTEER_NAME - 1]
+            );
+
+            if (!isDuplicate) {
+              // Add this assignment (wasn't caught by Month-Year filter)
+              const timeValue = row[assignCols.TIME - 1];
+              let time;
+              if (timeValue && timeValue instanceof Date && !isNaN(timeValue.getTime())) {
+                time = timeValue;
+              } else if (timeValue) {
+                time = new Date(timeValue);
+                if (isNaN(time.getTime())) {
+                  time = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+                }
+              } else {
+                time = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+              }
+
+              assignments.push({
+                date: date,
+                time: time,
+                massName: HELPER_safeArrayAccess(row, assignCols.DESCRIPTION - 1),
+                liturgicalCelebration: HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1),
+                ministry: HELPER_safeArrayAccess(row, assignCols.MINISTRY - 1),
+                role: HELPER_safeArrayAccess(row, assignCols.ROLE - 1),
+                assignedGroup: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_GROUP - 1),
+                assignedVolunteerName: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_VOLUNTEER_NAME - 1) || 'UNASSIGNED',
+                status: HELPER_safeArrayAccess(row, assignCols.STATUS - 1, 'Pending'),
+                eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1),
+                isAnticipated: HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1) === true || HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1) === 'TRUE'
+              });
+
+              Logger.log(`  ✓ Added manually-added assignment: ${HELPER_formatDate(date, 'default')} ${row[assignCols.ROLE - 1]}`);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      Logger.log(`Warning: Could not read assignments by date range: ${e.message}`);
+      // Non-fatal - continue with assignments loaded by Month-Year
     }
 
     // Filter to week range (initial pass)
