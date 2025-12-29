@@ -1090,10 +1090,14 @@ function generateWeeklyView(weekStartDate = null, options = {}) {
     let weeklySheet = ss.getSheetByName(config.sheetName);
     if (!weeklySheet) {
       weeklySheet = ss.insertSheet(config.sheetName);
+      Logger.log(`Created new sheet: ${config.sheetName}`);
     } else {
       weeklySheet.clear();
       weeklySheet.setFrozenRows(0);
       weeklySheet.setFrozenColumns(0);
+      SpreadsheetApp.flush(); // Ensure clear operation completes
+      Utilities.sleep(500); // Small delay to prevent API rate limit
+      Logger.log(`Cleared existing sheet: ${config.sheetName}`);
     }
 
     // Build weekly schedule data
@@ -1480,24 +1484,44 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
 
     // WEEKEND SECTION (Saturday vigil + Sunday masses)
     if (weekendAssignments.length > 0) {
-      currentRow = createWeekendSection(sheet, weekendAssignments, scheduleData.liturgicalData, currentRow);
-      currentRow += 2; // Add spacing after weekend section
+      try {
+        currentRow = createWeekendSection(sheet, weekendAssignments, scheduleData.liturgicalData, currentRow);
+        currentRow += 2; // Add spacing after weekend section
+      } catch (e) {
+        Logger.log(`Error creating weekend section: ${e.message}. Retrying...`);
+        Utilities.sleep(1000); // Wait 1 second
+        currentRow = createWeekendSection(sheet, weekendAssignments, scheduleData.liturgicalData, currentRow);
+        currentRow += 2;
+      }
     }
 
     // WEEKDAY SECTION (Monday-Friday)
     if (weekdayAssignments.length > 0) {
-      // Section header
-      sheet.getRange(currentRow, 1).setValue('Weekday Masses');
-      sheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold');
-      currentRow += 2;
+      try {
+        // Section header
+        sheet.getRange(currentRow, 1).setValue('Weekday Masses');
+        sheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold');
+        currentRow += 2;
 
-      currentRow = createWeekdayTableSection(sheet, weekdayAssignments, scheduleData.liturgicalData, currentRow);
+        currentRow = createWeekdayTableSection(sheet, weekdayAssignments, scheduleData.liturgicalData, currentRow);
+      } catch (e) {
+        Logger.log(`Error creating weekday section: ${e.message}. Retrying...`);
+        Utilities.sleep(1000); // Wait 1 second
+
+        // Section header
+        sheet.getRange(currentRow, 1).setValue('Weekday Masses');
+        sheet.getRange(currentRow, 1).setFontSize(12).setFontWeight('bold');
+        currentRow += 2;
+
+        currentRow = createWeekdayTableSection(sheet, weekdayAssignments, scheduleData.liturgicalData, currentRow);
+      }
     }
 
     return currentRow;
 
   } catch (e) {
     Logger.log(`ERROR in createWeeklyScheduleContent: ${e.message}`);
+    Logger.log(`Stack: ${e.stack}`);
     throw new Error(`Could not create weekly schedule content: ${e.message}`);
   }
 }
