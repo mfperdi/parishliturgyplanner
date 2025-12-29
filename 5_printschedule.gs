@@ -1547,10 +1547,11 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
 
     currentRow++; // Blank line before masses
 
-    // Group assignments by Mass (date + time)
+    // Group assignments by Mass (date + time + Event ID to handle multiple masses at same time)
     const massesByDateTime = new Map();
     for (const assignment of celebrationAssignments) {
-      const massKey = `${assignment.date.getTime()}_${assignment.time}`;
+      // Include Event ID in key to distinguish multiple masses at same time (e.g., Spanish Mass + Day Mass both at 3pm)
+      const massKey = `${assignment.date.getTime()}_${assignment.time}_${assignment.eventId || ''}`;
       if (!massesByDateTime.has(massKey)) {
         massesByDateTime.set(massKey, {
           date: assignment.date,
@@ -1558,6 +1559,7 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
           description: assignment.massName,
           liturgicalCelebration: assignment.liturgicalCelebration,
           isAnticipated: assignment.isAnticipated,
+          eventId: assignment.eventId,
           assignments: []
         });
       }
@@ -1629,10 +1631,10 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
 function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRow) {
   let currentRow = startRow;
 
-  // Group assignments by Mass (date + time)
+  // Group assignments by Mass (date + time + Event ID to handle multiple masses at same time)
   const massesByDateTime = new Map();
   for (const assignment of weekendAssignments) {
-    const massKey = `${assignment.date.getTime()}_${assignment.time}`;
+    const massKey = `${assignment.date.getTime()}_${assignment.time}_${assignment.eventId || ''}`;
     if (!massesByDateTime.has(massKey)) {
       massesByDateTime.set(massKey, {
         date: assignment.date,
@@ -1640,6 +1642,7 @@ function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRo
         description: assignment.description,
         liturgicalCelebration: assignment.liturgicalCelebration,
         isAnticipated: assignment.isAnticipated,
+        eventId: assignment.eventId,
         assignments: []
       });
     }
@@ -1808,10 +1811,11 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
 
     currentRow++; // Blank line before masses
 
-    // Group assignments by Mass (date + time)
+    // Group assignments by Mass (date + time + Event ID to handle multiple masses at same time)
     const massesByDateTime = new Map();
     for (const assignment of celebrationAssignments) {
-      const massKey = `${assignment.date.getTime()}_${assignment.time}`;
+      // Include Event ID in key to distinguish multiple masses at same time (e.g., Spanish Mass + Day Mass both at 3pm)
+      const massKey = `${assignment.date.getTime()}_${assignment.time}_${assignment.eventId || ''}`;
       if (!massesByDateTime.has(massKey)) {
         massesByDateTime.set(massKey, {
           date: assignment.date,
@@ -1819,6 +1823,7 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
           description: assignment.massName,
           liturgicalCelebration: assignment.liturgicalCelebration,
           isAnticipated: assignment.isAnticipated,
+          eventId: assignment.eventId,
           assignments: []
         });
       }
