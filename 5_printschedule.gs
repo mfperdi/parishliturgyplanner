@@ -1465,46 +1465,16 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
       return currentRow;
     }
 
-    // Separate weekend and weekday assignments
-    const weekendAssignments = [];
-    const weekdayAssignments = [];
+    Logger.log(`Total assignments: ${scheduleData.assignments.length}`);
 
-    for (const assignment of scheduleData.assignments) {
-      const dayOfWeek = assignment.date.getDay(); // 0 = Sunday, 6 = Saturday
-      const isWeekend = (dayOfWeek === 0) || (dayOfWeek === 6 && assignment.isAnticipated);
-
-      if (isWeekend) {
-        weekendAssignments.push(assignment);
-      } else {
-        weekdayAssignments.push(assignment);
-      }
-    }
-
-    Logger.log(`Total assignments: ${scheduleData.assignments.length}, Weekend: ${weekendAssignments.length}, Weekday: ${weekdayAssignments.length}`);
-
-    // WEEKEND SECTION (Saturday vigil + Sunday masses)
-    if (weekendAssignments.length > 0) {
+    // Process all assignments in chronological order (no weekend/weekday separation)
+    if (scheduleData.assignments.length > 0) {
       try {
-        currentRow = createWeekendSection(sheet, weekendAssignments, scheduleData.liturgicalData, currentRow);
-        currentRow += 2; // Add spacing after weekend section
+        currentRow = createChronologicalMassesSection(sheet, scheduleData.assignments, scheduleData.liturgicalData, currentRow);
       } catch (e) {
-        Logger.log(`Error creating weekend section: ${e.message}. Retrying...`);
+        Logger.log(`Error creating masses section: ${e.message}. Retrying...`);
         Utilities.sleep(1000); // Wait 1 second
-        currentRow = createWeekendSection(sheet, weekendAssignments, scheduleData.liturgicalData, currentRow);
-        currentRow += 2;
-      }
-    }
-
-    // WEEKDAY SECTION (Monday-Friday)
-    if (weekdayAssignments.length > 0) {
-      try {
-        currentRow = createWeekdaySection(sheet, weekdayAssignments, scheduleData.liturgicalData, currentRow);
-        currentRow += 2; // Add spacing after weekday section
-      } catch (e) {
-        Logger.log(`Error creating weekday section: ${e.message}. Retrying...`);
-        Utilities.sleep(1000); // Wait 1 second
-        currentRow = createWeekdaySection(sheet, weekdayAssignments, scheduleData.liturgicalData, currentRow);
-        currentRow += 2;
+        currentRow = createChronologicalMassesSection(sheet, scheduleData.assignments, scheduleData.liturgicalData, currentRow);
       }
     }
 
@@ -1519,7 +1489,136 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
 
 
 /**
+ * Create masses section in chronological order (all masses together).
+ * Groups by liturgical celebration, maintains chronological order within and across celebrations.
+ *
+ * @param {Sheet} sheet - Target sheet
+ * @param {Array} assignments - All assignments for the week
+ * @param {Map} liturgicalData - Liturgical celebration data
+ * @param {number} startRow - Starting row number
+ * @returns {number} Final row number
+ */
+function createChronologicalMassesSection(sheet, assignments, liturgicalData, startRow) {
+  let currentRow = startRow;
+
+  // Group assignments by liturgical celebration
+  const assignmentsByCelebration = new Map();
+  for (const assignment of assignments) {
+    const celebration = assignment.liturgicalCelebration || 'Other Masses';
+    if (!assignmentsByCelebration.has(celebration)) {
+      assignmentsByCelebration.set(celebration, []);
+    }
+    assignmentsByCelebration.get(celebration).push(assignment);
+  }
+
+  // Sort celebrations chronologically (by first mass date)
+  const sortedCelebrations = Array.from(assignmentsByCelebration.keys()).sort((a, b) => {
+    const aFirstDate = assignmentsByCelebration.get(a)[0].date.getTime();
+    const bFirstDate = assignmentsByCelebration.get(b)[0].date.getTime();
+    return aFirstDate - bFirstDate;
+  });
+
+  // Process each liturgical celebration
+  for (const celebration of sortedCelebrations) {
+    const celebrationAssignments = assignmentsByCelebration.get(celebration);
+
+    // Celebration header with liturgical information
+    sheet.getRange(currentRow, 1, 1, 5).merge();
+    sheet.getRange(currentRow, 1).setValue(celebration);
+    sheet.getRange(currentRow, 1)
+      .setFontSize(12)
+      .setFontWeight('bold')
+      .setBackground('#e8f0fe');
+    currentRow++;
+
+    // Add liturgical information line (rank, season, color)
+    if (liturgicalData && liturgicalData.has(celebration)) {
+      const liturgyInfo = liturgicalData.get(celebration);
+      const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
+
+      sheet.getRange(currentRow, 1, 1, 5).merge();
+      sheet.getRange(currentRow, 1).setValue(rankInfo);
+      sheet.getRange(currentRow, 1)
+        .setFontSize(10)
+        .setFontStyle('italic')
+        .setBackground('#e8f0fe');
+      currentRow++;
+    }
+
+    currentRow++; // Blank line before masses
+
+    // Group assignments by Mass (date + time)
+    const massesByDateTime = new Map();
+    for (const assignment of celebrationAssignments) {
+      const massKey = `${assignment.date.getTime()}_${assignment.time}`;
+      if (!massesByDateTime.has(massKey)) {
+        massesByDateTime.set(massKey, {
+          date: assignment.date,
+          time: assignment.time,
+          description: assignment.massName,
+          liturgicalCelebration: assignment.liturgicalCelebration,
+          isAnticipated: assignment.isAnticipated,
+          assignments: []
+        });
+      }
+      massesByDateTime.get(massKey).assignments.push(assignment);
+    }
+
+    // Sort masses chronologically by date, then time
+    const masses = Array.from(massesByDateTime.values()).sort((a, b) => {
+      if (a.date.getTime() !== b.date.getTime()) {
+        return a.date.getTime() - b.date.getTime();
+      }
+      if (a.time instanceof Date && b.time instanceof Date) {
+        return a.time.getTime() - b.time.getTime();
+      } else if (typeof a.time === 'string' && typeof b.time === 'string') {
+        return a.time.localeCompare(b.time);
+      }
+      return 0;
+    });
+
+    // Write each Mass
+    for (const mass of masses) {
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const dayName = dayNames[mass.date.getDay()];
+      const dateStr = HELPER_formatDate(mass.date, 'default');
+      const timeStr = formatTimeDisplay(mass.time);
+      const massType = mass.isAnticipated ? 'Vigil' : '';
+
+      // Mass header (e.g., "Wednesday 12/31/2025 - 6:00 PM Vigil")
+      const massHeader = `${dayName} ${dateStr} - ${timeStr}${massType ? ' ' + massType : ''}`;
+      sheet.getRange(currentRow, 1).setValue(massHeader);
+      sheet.getRange(currentRow, 1).setFontWeight('bold');
+      currentRow++;
+
+      // Write assignments for this Mass (indented)
+      for (const assignment of mass.assignments) {
+        const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || 'UNASSIGNED';
+        const assignmentText = `  ${assignment.role}: ${volunteerName}`;
+
+        sheet.getRange(currentRow, 1).setValue(assignmentText);
+
+        // Highlight unassigned
+        if (volunteerName === 'UNASSIGNED') {
+          sheet.getRange(currentRow, 1).setBackground('#fce8e6');
+        }
+
+        currentRow++;
+      }
+
+      currentRow++; // Blank line between masses
+    }
+
+    currentRow++; // Extra space between celebrations
+  }
+
+  return currentRow;
+}
+
+
+/**
  * Create weekend section with grouped Saturday vigil + Sunday masses.
+ * DEPRECATED: Use createChronologicalMassesSection for chronological order.
  *
  * @param {Sheet} sheet - Target sheet
  * @param {Array} weekendAssignments - Weekend assignments
