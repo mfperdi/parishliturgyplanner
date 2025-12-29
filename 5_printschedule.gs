@@ -1252,11 +1252,9 @@ function buildWeeklyScheduleData(weekStart, weekEnd, config) {
     // Filter to week range (initial pass)
     Logger.log(`Filtering ${assignments.length} assignments to week range: ${HELPER_formatDate(weekStart, 'default')} - ${HELPER_formatDate(weekEnd, 'default')}`);
 
-    let filteredAssignments = assignments.filter(a => {
-      const inWeek = HELPER_isDateInWeek(a.date, weekStart, weekEnd);
-      Logger.log(`  ${HELPER_formatDate(a.date, 'default')} ${a.role} - inWeek: ${inWeek}`);
-      return inWeek;
-    });
+    let filteredAssignments = assignments.filter(a =>
+      HELPER_isDateInWeek(a.date, weekStart, weekEnd)
+    );
 
     Logger.log(`Found ${filteredAssignments.length} assignments in initial week range`);
 
@@ -1470,8 +1468,6 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
     for (const assignment of scheduleData.assignments) {
       const dayOfWeek = assignment.date.getDay(); // 0 = Sunday, 6 = Saturday
       const isWeekend = (dayOfWeek === 0) || (dayOfWeek === 6 && assignment.isAnticipated);
-
-      Logger.log(`Assignment: ${HELPER_formatDate(assignment.date, 'default')} ${assignment.role} - day=${dayOfWeek}, anticipated=${assignment.isAnticipated}, isWeekend=${isWeekend}`);
 
       if (isWeekend) {
         weekendAssignments.push(assignment);
