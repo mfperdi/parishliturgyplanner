@@ -95,6 +95,7 @@ function onOpen(e) {
               .addItem('Auto-Publish Status', 'showAutoPublishStatus'))
           .addSeparator()
           .addItem('Diagnose Assignment Issues', 'runAssignmentDiagnostic')
+          .addItem('Fix Month-Year Values', 'FIX_correctMonthYearValues')
           .addItem('Debug Functions', 'showDebugPanel')
           .addItem('Export Data', 'exportCurrentSchedule'))
       .addToUi();
