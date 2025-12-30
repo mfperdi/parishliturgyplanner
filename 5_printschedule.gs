@@ -1541,9 +1541,17 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
       // Try 2: Look up by date (fallback for manually added assignments with mismatched celebration names)
       const firstDate = celebrationAssignments[0].date;
 
+      // Normalize to date only (ignore time) for comparison
+      const targetDateNoTime = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
+
       // Search liturgicalData for any celebration on this date
       for (const [celebrationName, data] of liturgicalData.entries()) {
-        if (data.dates.some(d => d.getTime() === firstDate.getTime())) {
+        const matchFound = data.dates.some(d => {
+          const dNoTime = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          return dNoTime.getTime() === targetDateNoTime.getTime();
+        });
+
+        if (matchFound) {
           liturgyInfo = data;
           Logger.log(`Liturgical info found by date fallback for "${celebration}": matched "${celebrationName}"`);
           break;
@@ -1824,9 +1832,17 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
       // Try 2: Look up by date (fallback for manually added assignments with mismatched celebration names)
       const firstDate = celebrationAssignments[0].date;
 
+      // Normalize to date only (ignore time) for comparison
+      const targetDateNoTime = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
+
       // Search liturgicalData for any celebration on this date
       for (const [celebrationName, data] of liturgicalData.entries()) {
-        if (data.dates.some(d => d.getTime() === firstDate.getTime())) {
+        const matchFound = data.dates.some(d => {
+          const dNoTime = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          return dNoTime.getTime() === targetDateNoTime.getTime();
+        });
+
+        if (matchFound) {
           liturgyInfo = data;
           Logger.log(`Liturgical info found by date fallback for "${celebration}": matched "${celebrationName}"`);
           break;
