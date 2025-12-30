@@ -1532,8 +1532,27 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
     currentRow++;
 
     // Add liturgical information line (rank, season, color)
+    let liturgyInfo = null;
+
+    // Try 1: Look up by celebration name
     if (liturgicalData && liturgicalData.has(celebration)) {
-      const liturgyInfo = liturgicalData.get(celebration);
+      liturgyInfo = liturgicalData.get(celebration);
+    } else if (liturgicalData && celebrationAssignments.length > 0) {
+      // Try 2: Look up by date (fallback for manually added assignments with mismatched celebration names)
+      const firstDate = celebrationAssignments[0].date;
+
+      // Search liturgicalData for any celebration on this date
+      for (const [celebrationName, data] of liturgicalData.entries()) {
+        if (data.dates.some(d => d.getTime() === firstDate.getTime())) {
+          liturgyInfo = data;
+          Logger.log(`Liturgical info found by date fallback for "${celebration}": matched "${celebrationName}"`);
+          break;
+        }
+      }
+    }
+
+    // Display liturgical info if found
+    if (liturgyInfo) {
       const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
 
       sheet.getRange(currentRow, 1, 1, 5).merge();
@@ -1796,8 +1815,27 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
     currentRow++;
 
     // Add liturgical information line (rank, season, color)
+    let liturgyInfo = null;
+
+    // Try 1: Look up by celebration name
     if (liturgicalData && liturgicalData.has(celebration)) {
-      const liturgyInfo = liturgicalData.get(celebration);
+      liturgyInfo = liturgicalData.get(celebration);
+    } else if (liturgicalData && celebrationAssignments.length > 0) {
+      // Try 2: Look up by date (fallback for manually added assignments with mismatched celebration names)
+      const firstDate = celebrationAssignments[0].date;
+
+      // Search liturgicalData for any celebration on this date
+      for (const [celebrationName, data] of liturgicalData.entries()) {
+        if (data.dates.some(d => d.getTime() === firstDate.getTime())) {
+          liturgyInfo = data;
+          Logger.log(`Liturgical info found by date fallback for "${celebration}": matched "${celebrationName}"`);
+          break;
+        }
+      }
+    }
+
+    // Display liturgical info if found
+    if (liturgyInfo) {
       const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
 
       sheet.getRange(currentRow, 1, 1, 5).merge();
