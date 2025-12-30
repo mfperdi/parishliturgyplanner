@@ -1540,6 +1540,8 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
     } else if (liturgicalData && celebrationAssignments.length > 0) {
       // Try 2: Look up by date (fallback for manually added assignments with mismatched celebration names)
       const firstDate = celebrationAssignments[0].date;
+      Logger.log(`Date-based fallback for "${celebration}": searching for ${HELPER_formatDate(firstDate, 'default')}`);
+      Logger.log(`  liturgicalData has ${liturgicalData.size} celebrations`);
 
       // Normalize to date only (ignore time) for comparison
       const targetDateNoTime = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
@@ -1548,7 +1550,11 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
       for (const [celebrationName, data] of liturgicalData.entries()) {
         const matchFound = data.dates.some(d => {
           const dNoTime = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-          return dNoTime.getTime() === targetDateNoTime.getTime();
+          const matches = dNoTime.getTime() === targetDateNoTime.getTime();
+          if (matches) {
+            Logger.log(`  ✓ Found match: "${celebrationName}" on ${HELPER_formatDate(d, 'default')}`);
+          }
+          return matches;
         });
 
         if (matchFound) {
@@ -1556,6 +1562,10 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
           Logger.log(`Liturgical info found by date fallback for "${celebration}": matched "${celebrationName}"`);
           break;
         }
+      }
+
+      if (!liturgyInfo) {
+        Logger.log(`  ✗ No liturgical info found for "${celebration}" on ${HELPER_formatDate(firstDate, 'default')}`);
       }
     }
 
@@ -1831,6 +1841,8 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
     } else if (liturgicalData && celebrationAssignments.length > 0) {
       // Try 2: Look up by date (fallback for manually added assignments with mismatched celebration names)
       const firstDate = celebrationAssignments[0].date;
+      Logger.log(`Date-based fallback for "${celebration}": searching for ${HELPER_formatDate(firstDate, 'default')}`);
+      Logger.log(`  liturgicalData has ${liturgicalData.size} celebrations`);
 
       // Normalize to date only (ignore time) for comparison
       const targetDateNoTime = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
@@ -1839,7 +1851,11 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
       for (const [celebrationName, data] of liturgicalData.entries()) {
         const matchFound = data.dates.some(d => {
           const dNoTime = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-          return dNoTime.getTime() === targetDateNoTime.getTime();
+          const matches = dNoTime.getTime() === targetDateNoTime.getTime();
+          if (matches) {
+            Logger.log(`  ✓ Found match: "${celebrationName}" on ${HELPER_formatDate(d, 'default')}`);
+          }
+          return matches;
         });
 
         if (matchFound) {
@@ -1847,6 +1863,10 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
           Logger.log(`Liturgical info found by date fallback for "${celebration}": matched "${celebrationName}"`);
           break;
         }
+      }
+
+      if (!liturgyInfo) {
+        Logger.log(`  ✗ No liturgical info found for "${celebration}" on ${HELPER_formatDate(firstDate, 'default')}`);
       }
     }
 
