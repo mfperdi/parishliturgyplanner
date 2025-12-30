@@ -1522,16 +1522,7 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
   for (const celebration of sortedCelebrations) {
     const celebrationAssignments = assignmentsByCelebration.get(celebration);
 
-    // Celebration header with liturgical information
-    sheet.getRange(currentRow, 1, 1, 5).merge();
-    sheet.getRange(currentRow, 1).setValue(celebration);
-    sheet.getRange(currentRow, 1)
-      .setFontSize(12)
-      .setFontWeight('bold')
-      .setBackground('#e8f0fe');
-    currentRow++;
-
-    // Add liturgical information line (rank, season, color)
+    // Look up liturgical information FIRST (needed for color)
     let liturgyInfo = null;
 
     // Try 1: Look up by celebration name
@@ -1569,7 +1560,22 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
       }
     }
 
-    // Display liturgical info if found
+    // Get liturgical color for background (fallback to blue if no liturgical info)
+    let bgColor = '#e8f0fe'; // Default blue
+    if (liturgyInfo && liturgyInfo.color) {
+      bgColor = HELPER_getLiturgicalColorHex(liturgyInfo.color);
+    }
+
+    // Celebration header with liturgical color background
+    sheet.getRange(currentRow, 1, 1, 5).merge();
+    sheet.getRange(currentRow, 1).setValue(celebration);
+    sheet.getRange(currentRow, 1)
+      .setFontSize(12)
+      .setFontWeight('bold')
+      .setBackground(bgColor);
+    currentRow++;
+
+    // Display liturgical info line if found (with same liturgical color)
     if (liturgyInfo) {
       const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
 
@@ -1578,7 +1584,7 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
       sheet.getRange(currentRow, 1)
         .setFontSize(10)
         .setFontStyle('italic')
-        .setBackground('#e8f0fe');
+        .setBackground(bgColor);
       currentRow++;
     }
 
@@ -1724,20 +1730,30 @@ function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRo
     weekendTitle = `${HELPER_formatDate(saturdayMass.date, 'default')} - ${celebration}`;
   }
 
-  // Weekend header
+  // Get liturgical info FIRST (needed for color)
+  const liturgicalCelebration = sundayMass ? sundayMass.liturgicalCelebration : (saturdayMass ? saturdayMass.liturgicalCelebration : null);
+  let liturgyInfo = null;
+  if (liturgicalCelebration && liturgicalData && liturgicalData.has(liturgicalCelebration)) {
+    liturgyInfo = liturgicalData.get(liturgicalCelebration);
+  }
+
+  // Get liturgical color for background (fallback to blue if no liturgical info)
+  let bgColor = '#e8f0fe'; // Default blue
+  if (liturgyInfo && liturgyInfo.color) {
+    bgColor = HELPER_getLiturgicalColorHex(liturgyInfo.color);
+  }
+
+  // Weekend header with liturgical color
   sheet.getRange(currentRow, 1, 1, 5).merge();
   sheet.getRange(currentRow, 1).setValue(weekendTitle);
   sheet.getRange(currentRow, 1)
     .setFontSize(12)
     .setFontWeight('bold')
-    .setBackground('#e8f0fe');
+    .setBackground(bgColor);
   currentRow++;
 
-  // Add liturgical information line (rank, season, color)
-  // Get liturgical info from the Sunday celebration (or Saturday vigil if no Sunday)
-  const liturgicalCelebration = sundayMass ? sundayMass.liturgicalCelebration : (saturdayMass ? saturdayMass.liturgicalCelebration : null);
-  if (liturgicalCelebration && liturgicalData && liturgicalData.has(liturgicalCelebration)) {
-    const liturgyInfo = liturgicalData.get(liturgicalCelebration);
+  // Add liturgical information line (with same liturgical color)
+  if (liturgyInfo) {
     const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
 
     sheet.getRange(currentRow, 1, 1, 5).merge();
@@ -1745,7 +1761,7 @@ function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRo
     sheet.getRange(currentRow, 1)
       .setFontSize(10)
       .setFontStyle('italic')
-      .setBackground('#e8f0fe');
+      .setBackground(bgColor);
     currentRow++;
   }
 
@@ -1820,19 +1836,7 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
   for (const celebration of sortedCelebrations) {
     const celebrationAssignments = assignmentsByCelebration.get(celebration);
 
-    // Get liturgical celebration title and info
-    let celebrationTitle = celebration;
-
-    // Celebration header
-    sheet.getRange(currentRow, 1, 1, 5).merge();
-    sheet.getRange(currentRow, 1).setValue(celebrationTitle);
-    sheet.getRange(currentRow, 1)
-      .setFontSize(12)
-      .setFontWeight('bold')
-      .setBackground('#e8f0fe');
-    currentRow++;
-
-    // Add liturgical information line (rank, season, color)
+    // Look up liturgical information FIRST (needed for color)
     let liturgyInfo = null;
 
     // Try 1: Look up by celebration name
@@ -1870,7 +1874,22 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
       }
     }
 
-    // Display liturgical info if found
+    // Get liturgical color for background (fallback to blue if no liturgical info)
+    let bgColor = '#e8f0fe'; // Default blue
+    if (liturgyInfo && liturgyInfo.color) {
+      bgColor = HELPER_getLiturgicalColorHex(liturgyInfo.color);
+    }
+
+    // Celebration header with liturgical color
+    sheet.getRange(currentRow, 1, 1, 5).merge();
+    sheet.getRange(currentRow, 1).setValue(celebration);
+    sheet.getRange(currentRow, 1)
+      .setFontSize(12)
+      .setFontWeight('bold')
+      .setBackground(bgColor);
+    currentRow++;
+
+    // Display liturgical info line if found (with same liturgical color)
     if (liturgyInfo) {
       const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
 
@@ -1879,7 +1898,7 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
       sheet.getRange(currentRow, 1)
         .setFontSize(10)
         .setFontStyle('italic')
-        .setBackground('#e8f0fe');
+        .setBackground(bgColor);
       currentRow++;
     }
 
