@@ -1084,6 +1084,10 @@ function generateWeeklyView(weekStartDate = null, options = {}) {
       ...options
     };
 
+    // Read liturgical color overrides from Config sheet
+    const printConfig = HELPER_readPrintScheduleConfig();
+    const liturgicalColorOverrides = printConfig.liturgicalColors || {};
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
     // Create or clear the target sheet
@@ -1117,7 +1121,7 @@ function generateWeeklyView(weekStartDate = null, options = {}) {
 
     // Generate the schedule
     let currentRow = createWeeklyScheduleHeader(weeklySheet, scheduleData, finalWeekString, config, numColumns);
-    currentRow = createWeeklyScheduleContent(weeklySheet, scheduleData, currentRow, config, numColumns);
+    currentRow = createWeeklyScheduleContent(weeklySheet, scheduleData, currentRow, config, numColumns, liturgicalColorOverrides);
 
     // Apply simple formatting (email-friendly)
     applyWeeklyScheduleFormatting(weeklySheet, numColumns);
@@ -1452,7 +1456,7 @@ function createWeeklyScheduleHeader(sheet, scheduleData, weekString, config, num
  * @param {number} numColumns - Number of columns (not used in new format, kept for compatibility)
  * @returns {number} Final row number
  */
-function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numColumns) {
+function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numColumns, liturgicalColorOverrides = {}) {
   try {
     let currentRow = startRow;
 
@@ -1470,11 +1474,11 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
     // Process all assignments in chronological order (no weekend/weekday separation)
     if (scheduleData.assignments.length > 0) {
       try {
-        currentRow = createChronologicalMassesSection(sheet, scheduleData.assignments, scheduleData.liturgicalData, currentRow);
+        currentRow = createChronologicalMassesSection(sheet, scheduleData.assignments, scheduleData.liturgicalData, currentRow, liturgicalColorOverrides);
       } catch (e) {
         Logger.log(`Error creating masses section: ${e.message}. Retrying...`);
         Utilities.sleep(1000); // Wait 1 second
-        currentRow = createChronologicalMassesSection(sheet, scheduleData.assignments, scheduleData.liturgicalData, currentRow);
+        currentRow = createChronologicalMassesSection(sheet, scheduleData.assignments, scheduleData.liturgicalData, currentRow, liturgicalColorOverrides);
       }
     }
 
@@ -1496,9 +1500,10 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
  * @param {Array} assignments - All assignments for the week
  * @param {Map} liturgicalData - Liturgical celebration data
  * @param {number} startRow - Starting row number
+ * @param {object} liturgicalColorOverrides - Custom liturgical colors from Config sheet
  * @returns {number} Final row number
  */
-function createChronologicalMassesSection(sheet, assignments, liturgicalData, startRow) {
+function createChronologicalMassesSection(sheet, assignments, liturgicalData, startRow, liturgicalColorOverrides = {}) {
   let currentRow = startRow;
 
   // Group assignments by liturgical celebration
@@ -1563,7 +1568,7 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
     // Get liturgical color for background (fallback to blue if no liturgical info)
     let bgColor = '#e8f0fe'; // Default blue
     if (liturgyInfo && liturgyInfo.color) {
-      bgColor = HELPER_getLiturgicalColorHex(liturgyInfo.color);
+      bgColor = HELPER_getLiturgicalColorHex(liturgyInfo.color, liturgicalColorOverrides);
     }
 
     // Celebration header with liturgical color background
@@ -1671,7 +1676,7 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
  * @param {number} startRow - Starting row number
  * @returns {number} Final row number
  */
-function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRow) {
+function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRow, liturgicalColorOverrides = {}) {
   let currentRow = startRow;
 
   // Group assignments by Mass (date + time + Event ID to handle multiple masses at same time)
@@ -1812,7 +1817,7 @@ function createWeekendSection(sheet, weekendAssignments, liturgicalData, startRo
  * @param {number} startRow - Starting row number
  * @returns {number} Final row number
  */
-function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRow) {
+function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRow, liturgicalColorOverrides = {}) {
   let currentRow = startRow;
 
   // Group assignments by liturgical celebration
@@ -1877,7 +1882,7 @@ function createWeekdaySection(sheet, weekdayAssignments, liturgicalData, startRo
     // Get liturgical color for background (fallback to blue if no liturgical info)
     let bgColor = '#e8f0fe'; // Default blue
     if (liturgyInfo && liturgyInfo.color) {
-      bgColor = HELPER_getLiturgicalColorHex(liturgyInfo.color);
+      bgColor = HELPER_getLiturgicalColorHex(liturgyInfo.color, liturgicalColorOverrides);
     }
 
     // Celebration header with liturgical color
