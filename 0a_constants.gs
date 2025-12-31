@@ -19,7 +19,8 @@ const CONSTANTS = {
     OVERRIDES: "CalendarOverrides",
     LITURGICAL_NOTES: "LiturgicalNotes",
     CALENDAR: "LiturgicalCalendar",
-    ASSIGNMENTS: "Assignments"
+    ASSIGNMENTS: "Assignments",
+    DASHBOARD: "Dashboard"
   },
   
   // 2. Column Number Maps
