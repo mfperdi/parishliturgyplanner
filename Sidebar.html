@@ -569,6 +569,21 @@
         <div class="step-icon" style="background-color: #1e8e3e;">10</div>
         <div class="step-content">
           <div class="step-title">
+            View Dashboard Analytics
+            <span id="completion-dashboard" class="completion-badge hidden">✓ Complete</span>
+          </div>
+          <div class="step-description">Analyze volunteer participation and coverage patterns</div>
+
+          <button id="btn-dashboard" class="btn btn-outline" disabled>
+            📊 View Dashboard
+          </button>
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1e8e3e;">11</div>
+        <div class="step-content">
+          <div class="step-title">
             Publish Schedule
             <span id="completion-publish" class="completion-badge hidden">✓ Complete</span>
           </div>
@@ -665,6 +680,7 @@
     const btnStep2 = document.getElementById('btn-step2');
     const btnPrint = document.getElementById('btn-print');
     const btnWeekly = document.getElementById('btn-weekly');
+    const btnDashboard = document.getElementById('btn-dashboard');
     const btnPublishAll = document.getElementById('btn-publish-all');
     const btnPublishMinistry = document.getElementById('btn-publish-ministry');
     const publishMinistryFilter = document.getElementById('publish-ministry-filter');
@@ -775,6 +791,7 @@
       // Completion phase buttons (enable after assignment)
       btnPrint.disabled = !hasCalendar || !hasMonthSelected;
       btnWeekly.disabled = !hasCalendar; // Weekly view doesn't require month selection (always shows current week)
+      btnDashboard.disabled = !hasCalendar || !hasMonthSelected;
       btnPublishAll.disabled = !hasCalendar || !hasMonthSelected;
 
       // Publish ministry button enabled when ministry selected AND month selected
@@ -1073,6 +1090,24 @@
           ministryFilter: ministryFilterArray,
           weekRange: weekRange
         });
+    });
+
+    // Dashboard Analytics button
+    btnDashboard.addEventListener('click', () => {
+      const selectedMonth = monthSelect.value;
+      if (!selectedMonth) return;
+
+      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
+      const msg = `Generating dashboard analytics for ${selectedText}...`;
+      showLoading(msg);
+
+      google.script.run
+        .withSuccessHandler((message) => {
+          showSuccess(message);
+          markStepComplete('dashboard');
+        })
+        .withFailureHandler((error) => showError(error, 'schedule'))
+        .DASHBOARD_generateSimplified(selectedMonth);
     });
 
     // Publish All Ministries button

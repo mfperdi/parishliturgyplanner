@@ -82,6 +82,8 @@ function onOpen(e) {
           .addSeparator()
           .addItem('Update Timeoff Form', 'promptUpdateTimeoffForm')
           .addSeparator()
+          .addItem('View Dashboard Analytics', 'promptViewDashboard')
+          .addSeparator()
           .addItem('Archive Current Year', 'ARCHIVE_promptArchiveCurrentYear')
           .addItem('View Archives', 'ARCHIVE_showArchiveList')
           .addItem('Clear Old Data', 'ARCHIVE_promptClearOldData')
@@ -505,6 +507,65 @@ function promptUpdateTimeoffForm() {
   } catch (e) {
     HELPER_showError('Update Form Failed', e, 'form');
     Logger.log(`ERROR in promptUpdateTimeoffForm: ${e.message}\n${e.stack}`);
+  }
+}
+
+/**
+ * (MENU) Prompts user to select a month and generates dashboard analytics.
+ * Accessed via: Admin Tools > View Dashboard Analytics
+ */
+function promptViewDashboard() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+
+    // Get available months
+    const months = getMonthsForSidebar();
+
+    if (months.length === 0) {
+      HELPER_showError(
+        'No Calendar Data',
+        'Please generate the liturgical calendar first.',
+        'calendar'
+      );
+      return;
+    }
+
+    // Build prompt with month options
+    let promptText = 'Select a month for dashboard analytics:\n\n';
+    months.forEach((m, idx) => {
+      promptText += `${idx + 1}. ${m.display}\n`;
+    });
+    promptText += '\nEnter the number (1-' + months.length + '):';
+
+    const result = HELPER_promptUser(
+      'Dashboard Analytics',
+      promptText,
+      {
+        required: true,
+        validator: (value) => {
+          const selection = parseInt(value);
+          if (isNaN(selection) || selection < 1 || selection > months.length) {
+            return { valid: false, error: `Please enter a number between 1 and ${months.length}` };
+          }
+          return { valid: true };
+        }
+      }
+    );
+
+    if (!result.success) {
+      return; // User cancelled
+    }
+
+    const selection = parseInt(result.value);
+    const selectedMonth = months[selection - 1].value;
+
+    // Generate the dashboard
+    const dashboardResult = DASHBOARD_generateSimplified(selectedMonth);
+    HELPER_showSuccess('Dashboard Generated', dashboardResult);
+
+  } catch (e) {
+    HELPER_showError('Dashboard Generation Failed', e, 'schedule');
+    Logger.log(`ERROR in promptViewDashboard: ${e.message}\n${e.stack}`);
   }
 }
 
