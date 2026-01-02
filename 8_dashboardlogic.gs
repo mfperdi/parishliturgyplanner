@@ -744,7 +744,13 @@ function DASHBOARD_writeToSheet(analyticsData) {
 
   // STEP 6: Format and protect
   dashboardSheet.setFrozenRows(5); // Freeze header section
-  dashboardSheet.autoResizeColumns(27, 10); // Auto-resize presentation columns (AA-AJ)
+
+  // Auto-resize visible columns (only resize columns that exist)
+  const maxCols = dashboardSheet.getMaxColumns();
+  const colsToResize = Math.min(10, maxCols - 26); // Resize up to 10 columns starting from AA (col 27)
+  if (colsToResize > 0) {
+    dashboardSheet.autoResizeColumns(27, colsToResize);
+  }
 
   Logger.log('Dashboard sheet written successfully');
 }
