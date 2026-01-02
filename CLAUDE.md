@@ -561,6 +561,83 @@ The system relies on Google Sheets' built-in version history for data protection
 
 **Note**: Schedule generation is destructive (clears assignments for the month). Use confirmation dialogs carefully and rely on version history if recovery is needed.
 
+### Workflow 7: Dashboard Analytics
+
+**Trigger**: User clicks "View Dashboard Analytics" from menu OR clicks "📊 View Dashboard" in sidebar
+
+**Process** (`DASHBOARD_generateSimplified()`):
+1. User selects month from dropdown or prompt
+2. Validate month format (YYYY-MM)
+3. Create or clear Dashboard sheet
+4. Write header and month information
+5. Generate 3 main sections using pure formulas:
+   - **Section 1: Volunteer Service Frequency**
+     - QUERY formula pulls volunteer names and counts assignments
+     - ARRAYFORMULA calculates utilization status (Under-utilized / Balanced / Over-utilized)
+     - Based on comparison to average (< 50% = under, > 150% = over)
+   - **Section 2: Coverage by Mass**
+     - QUERY formula groups assignments by Event ID
+     - Counts total roles vs assigned roles
+     - Calculates coverage percentage
+     - ARRAYFORMULA determines status (Good ≥ 80%, Warning ≥ 50%, Critical < 50%)
+   - **Section 3: Unassigned Roles**
+     - COUNTIFS formula shows total unassigned count
+     - QUERY formula breaks down unassigned by ministry
+6. Apply conditional formatting for visual indicators
+7. Auto-resize columns and freeze header rows
+8. Open Dashboard sheet
+
+**Formula-Based Architecture**:
+The dashboard uses **pure Google Sheets formulas** that pull directly from source sheets:
+- **No data caching**: Formulas recalculate automatically when source data changes
+- **Real-time updates**: Always shows current state of assignments
+- **Transparent**: All formulas are visible and editable in the sheet
+- **Trade-off**: No historical tracking (can't store monthly snapshots)
+
+**Key Formulas Used**:
+```javascript
+// Volunteer frequency with QUERY + ARRAYFORMULA
+=QUERY(
+  {Volunteers!D2:D & "", ARRAYFORMULA(COUNTIFS(...))},
+  "SELECT Col1, Col2 WHERE Col1 <> '' ORDER BY Col2 DESC", 0
+)
+
+// Status classification
+=ARRAYFORMULA(
+  IF(B:B < AVERAGE(B:B) * 0.5, "Under-utilized 💡",
+    IF(B:B > AVERAGE(B:B) * 1.5, "Over-utilized ⚠️", "Balanced ✓"))
+)
+
+// Coverage by mass
+=QUERY(
+  Assignments!$A$2:$M,
+  "SELECT G, COUNT(G), COUNTIF(M, 'Assigned'), COUNTIF(M, 'Assigned') / COUNT(G)
+   WHERE I = 'YYYY-MM' GROUP BY G ORDER BY G", 0
+)
+```
+
+**Conditional Formatting**:
+- Green (#D4EDDA): Balanced utilization, Good coverage
+- Yellow (#FFF3CD): Under-utilized, Warning coverage
+- Red (#F8D7DA): Over-utilized, Critical coverage
+
+**Use Cases**:
+- **Identify imbalances**: See which volunteers are over/under-utilized
+- **Track coverage gaps**: Find masses with low assignment coverage
+- **Plan outreach**: Identify ministries with most unassigned roles
+- **Quality check**: Verify assignments are distributed fairly before publishing
+
+**Access Points**:
+- Menu: Admin Tools → View Dashboard Analytics
+- Sidebar: Step 10 in "Finalize & Export" phase
+
+**Best Practices**:
+1. Generate dashboard AFTER running auto-assignment for accurate data
+2. Dashboard with 0 assignments will show expected #DIV/0! errors
+3. Refresh dashboard after making manual assignment changes
+4. Use insights to adjust volunteer recruitment and assignment strategy
+5. Dashboard always shows current month data - select different months to compare
+
 ## Development Conventions
 
 ### Naming Patterns
@@ -574,6 +651,7 @@ The system relies on Google Sheets' built-in version history for data protection
   - `ASSIGNMENT_*()` - Assignment logic
   - `TIMEOFFS_*()` - Timeoff management
   - `PRINT_*()` - Print/export functions
+  - `DASHBOARD_*()` - Dashboard analytics
 
 **Variable Names**:
 - camelCase for variables
@@ -1173,11 +1251,22 @@ The system includes comprehensive documentation to support deployment and testin
 
 ---
 
-**Last Updated**: 2025-12-11
+**Last Updated**: 2026-01-02
 
-**Codebase Version**: Production-ready with ministry-based filtering
+**Codebase Version**: Production-ready with dashboard analytics
 
 **Recent Changes**:
+- **Dashboard Analytics - Pure Formula Approach** (9_dashboard_simplified.gs, 0a_constants.gs, 0_code.gs, Sidebar.html, CLAUDE.md):
+  - Added simplified dashboard analytics using pure Google Sheets formulas
+  - 3 main sections: Volunteer Service Frequency, Coverage by Mass, Unassigned Roles
+  - Real-time updates via QUERY, ARRAYFORMULA, and COUNTIFS formulas
+  - No data caching - formulas recalculate automatically when assignments change
+  - Conditional formatting for visual indicators (green/yellow/red status)
+  - Accessible via menu (Admin Tools → View Dashboard Analytics) and sidebar (Step 10)
+  - Hardcoded thresholds: under-utilized < 50% avg, over-utilized > 150% avg, coverage warning < 80%
+  - Trade-off: No historical tracking (pure formulas can't store monthly snapshots)
+  - Test function: `TEST_simplifiedDashboard()` in 9_dashboard_simplified.gs
+  - Documented as Workflow 7 in CLAUDE.md
 - **Ministry-Based Schedule Filtering** (0a_constants.gs, 2_schedulelogic.gs, 3_assignmentlogic.gs, 5_printschedule.gs, 0_code.gs, Sidebar.html):
   - Added separate Ministry and Role columns to Assignments sheet (Ministry in column E, Role in column F)
   - Schedule generation now validates all roles exist in Ministries sheet and throws error if not found
