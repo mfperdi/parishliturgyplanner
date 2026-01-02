@@ -55,21 +55,16 @@ function DASHBOARD_generateSimplified(monthString) {
     dashboardSheet.getRange(currentRow, 1, 1, volHeaders.length).setFontWeight('bold').setBackground('#E8F0FE');
     currentRow++;
 
-    // Formula: Pull volunteers and their assignment counts
+    // Formula: Count assignments per volunteer directly from Assignments sheet
+    // Note: This only shows volunteers who have assignments in the selected month
     const volFormula = `=QUERY(
-      {
-        Volunteers!D2:D & "",
-        ARRAYFORMULA(
-          COUNTIFS(
-            Assignments!$K$2:$K, Volunteers!A2:A,
-            Assignments!$I$2:$I, "${monthString}",
-            Assignments!$M$2:$M, "Assigned"
-          )
-        )
-      },
-      "SELECT Col1, Col2
-       WHERE Col1 <> ''
-       ORDER BY Col2 DESC",
+      Assignments!$A$2:$M,
+      "SELECT L, COUNT(L)
+       WHERE I = '${monthString}'
+         AND M = 'Assigned'
+         AND L <> ''
+       GROUP BY L
+       ORDER BY COUNT(L) DESC",
       0
     )`;
 
