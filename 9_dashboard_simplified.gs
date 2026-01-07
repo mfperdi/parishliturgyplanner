@@ -88,6 +88,39 @@ function generateVolunteerDashboard(sheet, monthString) {
   sheet.getRange(currentRow, 1).setFontWeight('bold');
   currentRow += 2;
 
+  // === SUMMARY SECTION ===
+  sheet.getRange(currentRow, 1).setValue('📊 MONTH SUMMARY');
+  sheet.getRange(currentRow, 1).setFontWeight('bold').setBackground('#E8F0FE');
+  sheet.getRange(currentRow, 1, 1, 3).merge();
+  currentRow++;
+
+  // Liturgical Days (count unique dates with assignments in this month)
+  sheet.getRange(currentRow, 1).setValue('Liturgical Days:');
+  const liturgicalDaysFormula = `=COUNTA(UNIQUE(FILTER(Assignments!$A$2:$A, Assignments!$I$2:$I = "${monthString}", Assignments!$A$2:$A <> "")))`;
+  sheet.getRange(currentRow, 2).setFormula(liturgicalDaysFormula);
+  currentRow++;
+
+  // Active Volunteers (count unique Active volunteers with assignments)
+  sheet.getRange(currentRow, 1).setValue('Active Volunteers:');
+  const activeVolFormula = `=COUNTA(UNIQUE(FILTER(Assignments!$L$2:$L, Assignments!$I$2:$I = "${monthString}", (Assignments!$M$2:$M = "Assigned") + (Assignments!$M$2:$M = "Substitute Assigned") + (Assignments!$M$2:$M = "Confirmed") + (Assignments!$M$2:$M = "Substitute Confirmed") > 0, Assignments!$L$2:$L <> "", IFERROR(VLOOKUP(Assignments!$L$2:$L, {Volunteers!$D$2:$D, Volunteers!$I$2:$I}, 2, FALSE), "") = "Active")))`;
+  sheet.getRange(currentRow, 2).setFormula(activeVolFormula);
+  currentRow++;
+
+  // Total Roles
+  sheet.getRange(currentRow, 1).setValue('Total Roles:');
+  const totalRolesFormula = `=COUNTIFS(Assignments!$I$2:$I, "${monthString}")`;
+  sheet.getRange(currentRow, 2).setFormula(totalRolesFormula);
+  currentRow++;
+
+  // Expected Assignments (formula-based calculation: 2 * (Liturgical Days / 5))
+  sheet.getRange(currentRow, 1).setValue('Expected Assignments:');
+  sheet.getRange(currentRow, 1).setFontWeight('bold');
+  const expectedFormula = `=ROUND(2 * (B${currentRow - 3} / 5), 1)`;
+  sheet.getRange(currentRow, 2).setFormula(expectedFormula);
+  sheet.getRange(currentRow, 2).setFontWeight('bold').setBackground('#FFF3CD');
+  const expectedCell = `B${currentRow}`; // Store for use in status formula
+  currentRow += 2;
+
   // Headers
   const headers = ['Volunteer Name', 'Assignments', 'Status'];
   sheet.getRange(currentRow, 1, 1, headers.length).setValues([headers]);
@@ -122,16 +155,18 @@ function generateVolunteerDashboard(sheet, monthString) {
 
   sheet.getRange(currentRow, 1).setFormula(volFormula);
 
-  // Status column (based on average)
+  // Status column (based on expected assignments)
+  // Expected is in cell stored in expectedCell variable
+  // Thresholds: < 50% = under-utilized, 50-150% = balanced, > 150% = over-utilized
   const statusFormula = `=ARRAYFORMULA(
     IF(
       B${currentRow}:B = "",
       "",
       IF(
-        B${currentRow}:B < AVERAGE(B${currentRow}:B) * 0.5,
+        B${currentRow}:B < ${expectedCell} * 0.5,
         "Under-utilized 💡",
         IF(
-          B${currentRow}:B > AVERAGE(B${currentRow}:B) * 1.5,
+          B${currentRow}:B > ${expectedCell} * 1.5,
           "Over-utilized ⚠️",
           "Balanced ✓"
         )
@@ -162,7 +197,7 @@ function generateVolunteerDashboard(sheet, monthString) {
   sheet.setConditionalFormatRules(volRules);
 
   // Formatting
-  sheet.setFrozenRows(4);
+  sheet.setFrozenRows(10); // Freeze through summary section and headers
   sheet.autoResizeColumns(1, 3);
 
   // Delete unused columns (keep only 3 columns)
