@@ -150,6 +150,9 @@ function generateVolunteerDashboard(sheet, monthString) {
   // Formatting
   sheet.setFrozenRows(4);
   sheet.autoResizeColumns(1, 3);
+
+  // Delete unused columns (keep only 3 columns)
+  deleteUnusedColumns(sheet, 3);
 }
 
 /**
@@ -235,6 +238,9 @@ function generateMassCoverageDashboard(sheet, monthString) {
   // Formatting
   sheet.setFrozenRows(4);
   sheet.autoResizeColumns(1, 5);
+
+  // Delete unused columns (keep only 5 columns)
+  deleteUnusedColumns(sheet, 5);
 }
 
 /**
@@ -295,6 +301,23 @@ function generateUnassignedDashboard(sheet, monthString) {
   // Formatting
   sheet.setFrozenRows(7);
   sheet.autoResizeColumns(1, 2);
+
+  // Delete unused columns (keep only 2 columns)
+  deleteUnusedColumns(sheet, 2);
+}
+
+/**
+ * Delete unused columns from a sheet, keeping only the specified number.
+ * @param {Sheet} sheet - The sheet to modify
+ * @param {number} columnsToKeep - Number of columns to keep (delete the rest)
+ */
+function deleteUnusedColumns(sheet, columnsToKeep) {
+  const maxColumns = sheet.getMaxColumns();
+
+  if (maxColumns > columnsToKeep) {
+    const columnsToDelete = maxColumns - columnsToKeep;
+    sheet.deleteColumns(columnsToKeep + 1, columnsToDelete);
+  }
 }
 
 /**
