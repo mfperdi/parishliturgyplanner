@@ -94,15 +94,27 @@ function generateVolunteerDashboard(sheet, monthString) {
   sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#E8F0FE');
   currentRow++;
 
-  // Formula: Count assignments per volunteer directly from Assignments sheet
+  // Formula: Count assignments per volunteer, excluding Ministry Sponsors and groups
+  // Uses VLOOKUP to check volunteer status from Volunteers sheet
   const volFormula = `=QUERY(
-    Assignments!$A$2:$M,
-    "SELECT L, COUNT(L)
-     WHERE I = '${monthString}'
-       AND M = 'Assigned'
-       AND L <> ''
-     GROUP BY L
-     ORDER BY COUNT(L) DESC",
+    {
+      Assignments!$L$2:$L,
+      Assignments!$I$2:$I,
+      Assignments!$M$2:$M,
+      ARRAYFORMULA(
+        IFERROR(
+          VLOOKUP(Assignments!$L$2:$L, {Volunteers!$D$2:$D, Volunteers!$I$2:$I}, 2, FALSE),
+          ""
+        )
+      )
+    },
+    "SELECT Col1, COUNT(Col1)
+     WHERE Col2 = '${monthString}'
+       AND Col3 = 'Assigned'
+       AND Col4 = 'Active'
+       AND Col1 <> ''
+     GROUP BY Col1
+     ORDER BY COUNT(Col1) DESC",
     0
   )`;
 
