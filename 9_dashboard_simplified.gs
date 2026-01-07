@@ -71,137 +71,119 @@ function createOrClearSheet(ss, sheetName) {
 }
 
 /**
- * Generate Volunteer Dashboard showing service frequency and utilization.
+ * Generate Annual Volunteer Summary showing all 12 months.
+ * Replaces monthly Volunteer Dashboard with year-at-a-glance view.
  */
 function generateVolunteerDashboard(sheet, monthString) {
+  // Get year from Config sheet
+  const config = HELPER_readConfigSafe();
+  const year = config["Year to Schedule"];
+
+  if (!year) {
+    throw new Error('Year to Schedule not configured in Config sheet');
+  }
+
   let currentRow = 1;
 
   // Title
-  sheet.getRange(currentRow, 1).setValue('👥 VOLUNTEER DASHBOARD');
+  sheet.getRange(currentRow, 1).setValue(`👥 ANNUAL VOLUNTEER SUMMARY - ${year}`);
   sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setBackground('#1a73e8').setFontColor('white');
-  sheet.getRange(currentRow, 1, 1, 3).merge();
-  currentRow++;
-
-  // Month info
-  const monthName = HELPER_formatMonthYear(monthString);
-  sheet.getRange(currentRow, 1).setValue(`Month: ${monthName}`);
-  sheet.getRange(currentRow, 1).setFontWeight('bold');
-  currentRow += 2;
-
-  // === SUMMARY SECTION ===
-  sheet.getRange(currentRow, 1).setValue('📊 MONTH SUMMARY');
-  sheet.getRange(currentRow, 1).setFontWeight('bold').setBackground('#E8F0FE');
-  sheet.getRange(currentRow, 1, 1, 3).merge();
-  currentRow++;
-
-  // Liturgical Days (count unique dates with assignments in this month)
-  sheet.getRange(currentRow, 1).setValue('Liturgical Days:');
-  const liturgicalDaysFormula = `=COUNTA(UNIQUE(FILTER(Assignments!$A$2:$A, Assignments!$I$2:$I = "${monthString}", Assignments!$A$2:$A <> "")))`;
-  sheet.getRange(currentRow, 2).setFormula(liturgicalDaysFormula);
-  currentRow++;
-
-  // Active Volunteers (count unique Active volunteers with assignments)
-  sheet.getRange(currentRow, 1).setValue('Active Volunteers:');
-  const activeVolFormula = `=COUNTA(UNIQUE(FILTER(Assignments!$L$2:$L, Assignments!$I$2:$I = "${monthString}", (Assignments!$M$2:$M = "Assigned") + (Assignments!$M$2:$M = "Substitute Assigned") + (Assignments!$M$2:$M = "Confirmed") + (Assignments!$M$2:$M = "Substitute Confirmed") > 0, Assignments!$L$2:$L <> "", IFERROR(VLOOKUP(Assignments!$L$2:$L, {Volunteers!$D$2:$D, Volunteers!$I$2:$I}, 2, FALSE), "") = "Active")))`;
-  sheet.getRange(currentRow, 2).setFormula(activeVolFormula);
-  currentRow++;
-
-  // Total Roles
-  sheet.getRange(currentRow, 1).setValue('Total Roles:');
-  const totalRolesFormula = `=COUNTIFS(Assignments!$I$2:$I, "${monthString}")`;
-  sheet.getRange(currentRow, 2).setFormula(totalRolesFormula);
-  currentRow++;
-
-  // Expected Assignments (formula-based calculation: 2 * (Liturgical Days / 5))
-  sheet.getRange(currentRow, 1).setValue('Expected Assignments:');
-  sheet.getRange(currentRow, 1).setFontWeight('bold');
-  const expectedFormula = `=ROUND(2 * (B${currentRow - 3} / 5), 1)`;
-  sheet.getRange(currentRow, 2).setFormula(expectedFormula);
-  sheet.getRange(currentRow, 2).setFontWeight('bold').setBackground('#FFF3CD');
-  const expectedCell = `B${currentRow}`; // Store for use in status formula
+  sheet.getRange(currentRow, 1, 1, 15).merge();
   currentRow += 2;
 
   // Headers
-  const headers = ['Volunteer Name', 'Assignments', 'Status'];
+  const headers = ['Volunteer Name', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Total', 'Avg'];
   sheet.getRange(currentRow, 1, 1, headers.length).setValues([headers]);
   sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#E8F0FE');
   currentRow++;
 
-  // Formula: Count assignments per volunteer, excluding Ministry Sponsors and groups
-  // Uses VLOOKUP to check volunteer status from Volunteers sheet
-  // Includes all assignment statuses: Assigned, Substitute Assigned, Confirmed, Substitute Confirmed
-  const volFormula = `=QUERY(
-    {
-      Assignments!$L$2:$L,
-      Assignments!$I$2:$I,
-      Assignments!$M$2:$M,
-      ARRAYFORMULA(
-        IFERROR(
-          VLOOKUP(Assignments!$L$2:$L, {Volunteers!$D$2:$D, Volunteers!$I$2:$I}, 2, FALSE),
-          ""
-        )
-      )
-    },
-    "SELECT Col1, COUNT(Col1)
-     WHERE Col2 = '${monthString}'
-       AND (Col3 = 'Assigned' OR Col3 = 'Substitute Assigned' OR Col3 = 'Confirmed' OR Col3 = 'Substitute Confirmed')
-       AND Col4 = 'Active'
-       AND Col1 <> ''
-     GROUP BY Col1
-     ORDER BY COUNT(Col1) DESC
-     LABEL COUNT(Col1) ''",
+  // Get all Active volunteers from Volunteers sheet
+  const volunteersFormula = `=QUERY(
+    Volunteers!$D$2:$D,
+    "SELECT D WHERE I = 'Active' ORDER BY D",
     0
   )`;
+  sheet.getRange(currentRow, 1).setFormula(volunteersFormula);
 
-  sheet.getRange(currentRow, 1).setFormula(volFormula);
+  // Month columns (Jan-Dec)
+  for (let monthNum = 1; monthNum <= 12; monthNum++) {
+    const monthStr = `${year}-${monthNum.toString().padStart(2, '0')}`;
+    const colNum = monthNum + 1; // Column B = Jan (2), C = Feb (3), etc.
 
-  // Status column (based on expected assignments)
-  // Expected is in cell stored in expectedCell variable
-  // Thresholds: < 50% = under-utilized, 50-150% = balanced, > 150% = over-utilized
-  const statusFormula = `=ARRAYFORMULA(
-    IF(
-      B${currentRow}:B = "",
-      "",
+    const monthFormula = `=ARRAYFORMULA(
       IF(
-        B${currentRow}:B < ${expectedCell} * 0.5,
-        "Under-utilized 💡",
-        IF(
-          B${currentRow}:B > ${expectedCell} * 1.5,
-          "Over-utilized ⚠️",
-          "Balanced ✓"
+        A${currentRow}:A = "",
+        "",
+        COUNTIFS(
+          Assignments!$L$2:$L, A${currentRow}:A,
+          Assignments!$I$2:$I, "${monthStr}",
+          Assignments!$M$2:$M, "Assigned"
+        ) +
+        COUNTIFS(
+          Assignments!$L$2:$L, A${currentRow}:A,
+          Assignments!$I$2:$I, "${monthStr}",
+          Assignments!$M$2:$M, "Substitute Assigned"
+        ) +
+        COUNTIFS(
+          Assignments!$L$2:$L, A${currentRow}:A,
+          Assignments!$I$2:$I, "${monthStr}",
+          Assignments!$M$2:$M, "Confirmed"
+        ) +
+        COUNTIFS(
+          Assignments!$L$2:$L, A${currentRow}:A,
+          Assignments!$I$2:$I, "${monthStr}",
+          Assignments!$M$2:$M, "Substitute Confirmed"
         )
       )
-    )
-  )`;
-  sheet.getRange(currentRow, 3).setFormula(statusFormula);
+    )`;
+    sheet.getRange(currentRow, colNum).setFormula(monthFormula);
+  }
 
-  // Apply conditional formatting
-  const volRange = sheet.getRange(currentRow, 3, 100, 1);
-  const volRules = [
+  // Total column (sum of all months)
+  const totalFormula = `=ARRAYFORMULA(IF(A${currentRow}:A = "", "", B${currentRow}:B + C${currentRow}:C + D${currentRow}:D + E${currentRow}:E + F${currentRow}:F + G${currentRow}:G + H${currentRow}:H + I${currentRow}:I + J${currentRow}:J + K${currentRow}:K + L${currentRow}:L + M${currentRow}:M))`;
+  sheet.getRange(currentRow, 14).setFormula(totalFormula);
+
+  // Average column (total / 12)
+  const avgFormula = `=ARRAYFORMULA(IF(A${currentRow}:A = "", "", ROUND(N${currentRow}:N / 12, 1)))`;
+  sheet.getRange(currentRow, 15).setFormula(avgFormula);
+
+  // Apply conditional formatting to month columns (B:M)
+  const monthsRange = sheet.getRange(currentRow, 2, 100, 12);
+  const monthRules = [
+    // Red: 0 assignments (under-utilized)
     SpreadsheetApp.newConditionalFormatRule()
-      .whenTextContains('Balanced')
-      .setBackground('#D4EDDA')
-      .setRanges([volRange])
-      .build(),
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenTextContains('Under-utilized')
-      .setBackground('#FFF3CD')
-      .setRanges([volRange])
-      .build(),
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenTextContains('Over-utilized')
+      .whenNumberEqualTo(0)
       .setBackground('#F8D7DA')
-      .setRanges([volRange])
+      .setRanges([monthsRange])
+      .build(),
+    // Yellow: 1 assignment (minimal)
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberEqualTo(1)
+      .setBackground('#FFF3CD')
+      .setRanges([monthsRange])
+      .build(),
+    // Light Green: 2-3 assignments (balanced)
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberBetween(2, 3)
+      .setBackground('#D4EDDA')
+      .setRanges([monthsRange])
+      .build(),
+    // Orange: 4+ assignments (over-utilized)
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberGreaterThanOrEqualTo(4)
+      .setBackground('#FFE5CC')
+      .setRanges([monthsRange])
       .build()
   ];
-  sheet.setConditionalFormatRules(volRules);
+  sheet.setConditionalFormatRules(monthRules);
 
   // Formatting
-  sheet.setFrozenRows(10); // Freeze through summary section and headers
-  sheet.autoResizeColumns(1, 3);
+  sheet.setFrozenRows(3); // Freeze title and headers
+  sheet.setFrozenColumns(1); // Freeze volunteer name column
+  sheet.autoResizeColumns(1, 15);
 
-  // Delete unused columns (keep only 3 columns)
-  deleteUnusedColumns(sheet, 3);
+  // Delete unused columns (keep only 15 columns: Name + 12 months + Total + Avg)
+  deleteUnusedColumns(sheet, 15);
 }
 
 /**
