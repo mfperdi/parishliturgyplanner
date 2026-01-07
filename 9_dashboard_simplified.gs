@@ -98,9 +98,10 @@ function generateVolunteerDashboard(sheet, monthString) {
   currentRow++;
 
   // Get all Active volunteers from Volunteers sheet
+  // Range D:I includes columns: D=Full Name, E=Email, F=Phone, G=Parent/Guardian, H=Family Team, I=Status
   const volunteersFormula = `=QUERY(
-    Volunteers!$D$2:$D,
-    "SELECT D WHERE I = 'Active' ORDER BY D",
+    Volunteers!$D$2:$I,
+    "SELECT Col1 WHERE Col6 = 'Active' ORDER BY Col1",
     0
   )`;
   sheet.getRange(currentRow, 1).setFormula(volunteersFormula);
