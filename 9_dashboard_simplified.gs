@@ -114,7 +114,8 @@ function generateVolunteerDashboard(sheet, monthString) {
        AND Col4 = 'Active'
        AND Col1 <> ''
      GROUP BY Col1
-     ORDER BY COUNT(Col1) DESC",
+     ORDER BY COUNT(Col1) DESC
+     LABEL COUNT(Col1) ''",
     0
   )`;
 
