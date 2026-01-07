@@ -179,7 +179,6 @@ function generateVolunteerDashboard(sheet, monthString) {
 
   // Formatting
   sheet.setFrozenRows(3); // Freeze title and headers
-  sheet.setFrozenColumns(1); // Freeze volunteer name column
   sheet.autoResizeColumns(1, 15);
 
   // Delete unused columns (keep only 15 columns: Name + 12 months + Total + Avg)
