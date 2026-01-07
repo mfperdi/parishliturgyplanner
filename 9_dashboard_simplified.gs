@@ -96,6 +96,7 @@ function generateVolunteerDashboard(sheet, monthString) {
 
   // Formula: Count assignments per volunteer, excluding Ministry Sponsors and groups
   // Uses VLOOKUP to check volunteer status from Volunteers sheet
+  // Includes all assignment statuses: Assigned, Substitute Assigned, Confirmed, Substitute Confirmed
   const volFormula = `=QUERY(
     {
       Assignments!$L$2:$L,
@@ -110,7 +111,7 @@ function generateVolunteerDashboard(sheet, monthString) {
     },
     "SELECT Col1, COUNT(Col1)
      WHERE Col2 = '${monthString}'
-       AND Col3 = 'Assigned'
+       AND (Col3 = 'Assigned' OR Col3 = 'Substitute Assigned' OR Col3 = 'Confirmed' OR Col3 = 'Substitute Confirmed')
        AND Col4 = 'Active'
        AND Col1 <> ''
      GROUP BY Col1
@@ -193,11 +194,12 @@ function generateMassCoverageDashboard(sheet, monthString) {
   currentRow++;
 
   // Formula: Group assignments by Event ID
+  // Count all assignment statuses: Assigned, Substitute Assigned, Confirmed, Substitute Confirmed
   const massFormula = `=QUERY(
     Assignments!$A$2:$M,
     "SELECT G, COUNT(G),
-            COUNTIF(M, 'Assigned'),
-            COUNTIF(M, 'Assigned') / COUNT(G)
+            COUNTIF(M, 'Assigned') + COUNTIF(M, 'Substitute Assigned') + COUNTIF(M, 'Confirmed') + COUNTIF(M, 'Substitute Confirmed'),
+            (COUNTIF(M, 'Assigned') + COUNTIF(M, 'Substitute Assigned') + COUNTIF(M, 'Confirmed') + COUNTIF(M, 'Substitute Confirmed')) / COUNT(G)
      WHERE I = '${monthString}'
      GROUP BY G
      ORDER BY G",
