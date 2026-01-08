@@ -405,7 +405,11 @@ function generateMassCoverageDashboard(sheet, monthString) {
 
   // Formatting
   sheet.setFrozenRows(6); // Freeze header section and column headers (rows 1-6)
-  sheet.autoResizeColumns(1, 5);
+
+  // Set all columns to 116 width
+  for (let col = 1; col <= 5; col++) {
+    sheet.setColumnWidth(col, 116);
+  }
 
   // Delete unused columns (keep only 5 columns)
   deleteUnusedColumns(sheet, 5);
