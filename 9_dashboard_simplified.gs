@@ -75,9 +75,12 @@ function createOrClearSheet(ss, sheetName) {
  * Replaces monthly Volunteer Dashboard with year-at-a-glance view.
  */
 function generateVolunteerDashboard(sheet, monthString) {
-  // Get year from Config sheet
+  // Get year and config from Config sheet
   const config = HELPER_readConfigSafe();
   const year = config["Year to Schedule"];
+  const logoUrl = config['Logo URL'] || '';
+  const parish = config['Parish Name'] || 'Parish';
+  const ministry = config['Ministry Name'] || 'Ministry';
 
   if (!year) {
     throw new Error('Year to Schedule not configured in Config sheet');
@@ -85,16 +88,70 @@ function generateVolunteerDashboard(sheet, monthString) {
 
   let currentRow = 1;
 
-  // Title
-  sheet.getRange(currentRow, 1).setValue(`👥 ANNUAL VOLUNTEER SUMMARY - ${year}`);
-  sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setBackground('#1a73e8').setFontColor('white');
-  sheet.getRange(currentRow, 1, 1, 15).merge();
-  currentRow += 2;
+  // === HEADER SECTION (matching monthly view format) ===
+
+  // Logo: A1:A4 vertical merge
+  try {
+    const logoRange = sheet.getRange(1, 1, 4, 1);  // A1:A4
+    logoRange.merge();
+    logoRange.setHorizontalAlignment('center');
+    logoRange.setVerticalAlignment('middle');
+
+    if (logoUrl) {
+      const imageFormula = `=IMAGE("${logoUrl}", 1)`;  // Mode 1 = fit to cell
+      sheet.getRange(1, 1).setFormula(imageFormula);
+    }
+  } catch (e) {
+    Logger.log(`Could not set up logo: ${e.message}`);
+  }
+
+  // Row 1, Columns B to O: Parish and Ministry Name
+  const headerText = `${parish} - ${ministry}`;
+  const headerRange = sheet.getRange(1, 2, 1, 14);  // B1:O1
+  headerRange.merge();
+  headerRange.setValue(headerText);
+  headerRange.setFontSize(16)
+              .setFontWeight('bold')
+              .setHorizontalAlignment('left')
+              .setVerticalAlignment('middle');
+
+  // Row 2, Columns B to O: Dashboard title
+  const titleText = `Annual Volunteer Summary - ${year}`;
+  const titleRange = sheet.getRange(2, 2, 1, 14);  // B2:O2
+  titleRange.merge();
+  titleRange.setValue(titleText);
+  titleRange.setFontSize(14)
+            .setFontWeight('bold')
+            .setHorizontalAlignment('left')
+            .setVerticalAlignment('middle');
+
+  // Row 3, Columns B to O: Description
+  const descText = `Year-at-a-glance volunteer participation by month`;
+  const descRange = sheet.getRange(3, 2, 1, 14);  // B3:O3
+  descRange.merge();
+  descRange.setValue(descText);
+  descRange.setFontSize(11)
+           .setFontWeight('normal')
+           .setHorizontalAlignment('left')
+           .setVerticalAlignment('middle');
+
+  // Row 4, Columns B to O: Timestamp
+  const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
+  const timestampRange = sheet.getRange(4, 2, 1, 14);  // B4:O4
+  timestampRange.merge();
+  timestampRange.setValue(timestamp);
+  timestampRange.setFontSize(10)
+                .setFontStyle('italic')
+                .setHorizontalAlignment('left')
+                .setVerticalAlignment('middle');
+
+  // Row 5 is blank, headers start at row 6
+  currentRow = 6;
 
   // Headers
   const headers = ['Volunteer Name', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Total', 'Avg'];
   sheet.getRange(currentRow, 1, 1, headers.length).setValues([headers]);
-  sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#E8F0FE');
+  sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   currentRow++;
 
   // Get all Active volunteers from Volunteers sheet
@@ -179,7 +236,7 @@ function generateVolunteerDashboard(sheet, monthString) {
   sheet.setConditionalFormatRules(monthRules);
 
   // Formatting
-  sheet.setFrozenRows(3); // Freeze title and headers
+  sheet.setFrozenRows(6); // Freeze header section and column headers (rows 1-6)
   sheet.autoResizeColumns(1, 15);
 
   // Delete unused columns (keep only 15 columns: Name + 12 months + Total + Avg)
