@@ -327,13 +327,10 @@ function generateMassCoverageDashboard(sheet, monthString) {
   sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   currentRow++;
 
-  // Formula: Group assignments by Event ID
-  // Count all assignment statuses: Assigned, Substitute Assigned, Confirmed, Substitute Confirmed
+  // Formula: Group assignments by Event ID - get Event ID and Total Roles
   const massFormula = `=QUERY(
     Assignments!$A$2:$M,
-    "SELECT G, COUNT(G),
-            COUNTIF(M, 'Assigned') + COUNTIF(M, 'Substitute Assigned') + COUNTIF(M, 'Confirmed') + COUNTIF(M, 'Substitute Confirmed'),
-            (COUNTIF(M, 'Assigned') + COUNTIF(M, 'Substitute Assigned') + COUNTIF(M, 'Confirmed') + COUNTIF(M, 'Substitute Confirmed')) / COUNT(G)
+    "SELECT G, COUNT(G)
      WHERE I = '${monthString}'
      GROUP BY G
      ORDER BY G",
@@ -341,6 +338,30 @@ function generateMassCoverageDashboard(sheet, monthString) {
   )`;
 
   sheet.getRange(currentRow, 1).setFormula(massFormula);
+
+  // Column C: Count assigned roles (all statuses)
+  // ARRAYFORMULA to count Assigned, Substitute Assigned, Confirmed, Substitute Confirmed
+  const assignedFormula = `=ARRAYFORMULA(
+    IF(
+      A${currentRow}:A = "",
+      "",
+      COUNTIFS(Assignments!$G$2:$G, A${currentRow}:A, Assignments!$I$2:$I, "${monthString}", Assignments!$M$2:$M, "Assigned") +
+      COUNTIFS(Assignments!$G$2:$G, A${currentRow}:A, Assignments!$I$2:$I, "${monthString}", Assignments!$M$2:$M, "Substitute Assigned") +
+      COUNTIFS(Assignments!$G$2:$G, A${currentRow}:A, Assignments!$I$2:$I, "${monthString}", Assignments!$M$2:$M, "Confirmed") +
+      COUNTIFS(Assignments!$G$2:$G, A${currentRow}:A, Assignments!$I$2:$I, "${monthString}", Assignments!$M$2:$M, "Substitute Confirmed")
+    )
+  )`;
+  sheet.getRange(currentRow, 3).setFormula(assignedFormula);
+
+  // Column D: Calculate coverage percentage
+  const coverageFormula = `=ARRAYFORMULA(
+    IF(
+      B${currentRow}:B = "",
+      "",
+      C${currentRow}:C / B${currentRow}:B
+    )
+  )`;
+  sheet.getRange(currentRow, 4).setFormula(coverageFormula);
 
   // Format coverage % as percentage
   sheet.getRange(currentRow, 4, 100, 1).setNumberFormat('0%');
