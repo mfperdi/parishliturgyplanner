@@ -252,24 +252,79 @@ function generateVolunteerDashboard(sheet, monthString) {
  * Generate Mass Coverage Dashboard showing assignment coverage by mass.
  */
 function generateMassCoverageDashboard(sheet, monthString) {
+  // Get config from Config sheet
+  const config = HELPER_readConfigSafe();
+  const logoUrl = config['Logo URL'] || '';
+  const parish = config['Parish Name'] || 'Parish';
+  const ministry = config['Ministry Name'] || 'Ministry';
+
   let currentRow = 1;
 
-  // Title
-  sheet.getRange(currentRow, 1).setValue('📅 MASS COVERAGE DASHBOARD');
-  sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setBackground('#1a73e8').setFontColor('white');
-  sheet.getRange(currentRow, 1, 1, 5).merge();
-  currentRow++;
+  // === HEADER SECTION (matching monthly view format) ===
 
-  // Month info
+  // Logo: A1:A4 vertical merge
+  try {
+    const logoRange = sheet.getRange(1, 1, 4, 1);  // A1:A4
+    logoRange.merge();
+    logoRange.setHorizontalAlignment('center');
+    logoRange.setVerticalAlignment('middle');
+
+    if (logoUrl) {
+      const imageFormula = `=IMAGE("${logoUrl}", 1)`;  // Mode 1 = fit to cell
+      sheet.getRange(1, 1).setFormula(imageFormula);
+    }
+  } catch (e) {
+    Logger.log(`Could not set up logo: ${e.message}`);
+  }
+
+  // Row 1, Columns B to E: Parish and Ministry Name
+  const headerText = `${parish} - ${ministry}`;
+  const headerRange = sheet.getRange(1, 2, 1, 4);  // B1:E1
+  headerRange.merge();
+  headerRange.setValue(headerText);
+  headerRange.setFontSize(16)
+              .setFontWeight('bold')
+              .setHorizontalAlignment('left')
+              .setVerticalAlignment('middle');
+
+  // Row 2, Columns B to E: Dashboard title
   const monthName = HELPER_formatMonthYear(monthString);
-  sheet.getRange(currentRow, 1).setValue(`Month: ${monthName}`);
-  sheet.getRange(currentRow, 1).setFontWeight('bold');
-  currentRow += 2;
+  const titleText = `Mass Coverage Dashboard - ${monthName}`;
+  const titleRange = sheet.getRange(2, 2, 1, 4);  // B2:E2
+  titleRange.merge();
+  titleRange.setValue(titleText);
+  titleRange.setFontSize(14)
+            .setFontWeight('bold')
+            .setHorizontalAlignment('left')
+            .setVerticalAlignment('middle');
+
+  // Row 3, Columns B to E: Description
+  const descText = `Assignment coverage percentage by Event ID`;
+  const descRange = sheet.getRange(3, 2, 1, 4);  // B3:E3
+  descRange.merge();
+  descRange.setValue(descText);
+  descRange.setFontSize(11)
+           .setFontWeight('normal')
+           .setHorizontalAlignment('left')
+           .setVerticalAlignment('middle');
+
+  // Row 4, Columns B to E: Timestamp
+  const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
+  const timestampRange = sheet.getRange(4, 2, 1, 4);  // B4:E4
+  timestampRange.merge();
+  timestampRange.setValue(timestamp);
+  timestampRange.setFontSize(10)
+                .setFontStyle('italic')
+                .setHorizontalAlignment('left')
+                .setVerticalAlignment('middle');
+
+  // Row 5 is blank, headers start at row 6
+  currentRow = 6;
 
   // Headers
   const headers = ['Event ID', 'Total Roles', 'Assigned', 'Coverage %', 'Status'];
   sheet.getRange(currentRow, 1, 1, headers.length).setValues([headers]);
-  sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#E8F0FE');
+  sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   currentRow++;
 
   // Formula: Group assignments by Event ID
@@ -330,7 +385,7 @@ function generateMassCoverageDashboard(sheet, monthString) {
   sheet.setConditionalFormatRules(coverageRules);
 
   // Formatting
-  sheet.setFrozenRows(4);
+  sheet.setFrozenRows(6); // Freeze header section and column headers (rows 1-6)
   sheet.autoResizeColumns(1, 5);
 
   // Delete unused columns (keep only 5 columns)
@@ -341,19 +396,70 @@ function generateMassCoverageDashboard(sheet, monthString) {
  * Generate Unassigned Dashboard showing breakdown of unassigned roles.
  */
 function generateUnassignedDashboard(sheet, monthString) {
+  // Get config from Config sheet
+  const config = HELPER_readConfigSafe();
+  const logoUrl = config['Logo URL'] || '';
+  const parish = config['Parish Name'] || 'Parish';
+  const ministry = config['Ministry Name'] || 'Ministry';
+
   let currentRow = 1;
 
-  // Title
-  sheet.getRange(currentRow, 1).setValue('⚠️ UNASSIGNED ROLES DASHBOARD');
-  sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setBackground('#1a73e8').setFontColor('white');
-  sheet.getRange(currentRow, 1, 1, 2).merge();
-  currentRow++;
+  // === HEADER SECTION (matching monthly view format) ===
 
-  // Month info
+  // Logo: A1:A4 vertical merge
+  try {
+    const logoRange = sheet.getRange(1, 1, 4, 1);  // A1:A4
+    logoRange.merge();
+    logoRange.setHorizontalAlignment('center');
+    logoRange.setVerticalAlignment('middle');
+
+    if (logoUrl) {
+      const imageFormula = `=IMAGE("${logoUrl}", 1)`;  // Mode 1 = fit to cell
+      sheet.getRange(1, 1).setFormula(imageFormula);
+    }
+  } catch (e) {
+    Logger.log(`Could not set up logo: ${e.message}`);
+  }
+
+  // Row 1, Columns B to B: Parish and Ministry Name
+  const headerText = `${parish} - ${ministry}`;
+  const headerRange = sheet.getRange(1, 2, 1, 1);  // B1
+  headerRange.setValue(headerText);
+  headerRange.setFontSize(16)
+              .setFontWeight('bold')
+              .setHorizontalAlignment('left')
+              .setVerticalAlignment('middle');
+
+  // Row 2, Columns B to B: Dashboard title
   const monthName = HELPER_formatMonthYear(monthString);
-  sheet.getRange(currentRow, 1).setValue(`Month: ${monthName}`);
-  sheet.getRange(currentRow, 1).setFontWeight('bold');
-  currentRow += 2;
+  const titleText = `Unassigned Roles Dashboard - ${monthName}`;
+  const titleRange = sheet.getRange(2, 2, 1, 1);  // B2
+  titleRange.setValue(titleText);
+  titleRange.setFontSize(14)
+            .setFontWeight('bold')
+            .setHorizontalAlignment('left')
+            .setVerticalAlignment('middle');
+
+  // Row 3, Columns B to B: Description
+  const descText = `Breakdown of unassigned roles by ministry`;
+  const descRange = sheet.getRange(3, 2, 1, 1);  // B3
+  descRange.setValue(descText);
+  descRange.setFontSize(11)
+           .setFontWeight('normal')
+           .setHorizontalAlignment('left')
+           .setVerticalAlignment('middle');
+
+  // Row 4, Columns B to B: Timestamp
+  const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
+  const timestampRange = sheet.getRange(4, 2, 1, 1);  // B4
+  timestampRange.setValue(timestamp);
+  timestampRange.setFontSize(10)
+                .setFontStyle('italic')
+                .setHorizontalAlignment('left')
+                .setVerticalAlignment('middle');
+
+  // Row 5 is blank, content starts at row 6
+  currentRow = 6;
 
   // Summary section
   sheet.getRange(currentRow, 1).setValue('Total Unassigned Roles:');
@@ -375,7 +481,7 @@ function generateUnassignedDashboard(sheet, monthString) {
   // Headers
   const headers = ['Ministry', 'Unassigned Count'];
   sheet.getRange(currentRow, 1, 1, headers.length).setValues([headers]);
-  sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#E8F0FE');
+  sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   currentRow++;
 
   // Formula: Count unassigned by ministry
