@@ -322,7 +322,7 @@ function generateMassCoverageDashboard(sheet, monthString) {
   currentRow = 6;
 
   // Headers
-  const headers = ['Event ID', 'Total Roles', 'Volunteers Preferring', 'Coverage Ratio', 'Status'];
+  const headers = ['Event ID', 'Mass Type', 'Total Roles', 'Volunteers Preferring', 'Coverage Ratio', 'Status'];
   sheet.getRange(currentRow, 1, 1, headers.length).setValues([headers]);
   sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   currentRow++;
@@ -339,7 +339,29 @@ function generateMassCoverageDashboard(sheet, monthString) {
 
   sheet.getRange(currentRow, 1).setFormula(massFormula);
 
-  // Column C: Count Active volunteers who prefer this Event ID
+  // Column B: Determine Mass Type by checking which sheet contains the Event ID
+  const typeFormula = `=ARRAYFORMULA(
+    IF(
+      A${currentRow}:A = "",
+      "",
+      IF(
+        COUNTIF(WeeklyMasses!$A$2:$A, A${currentRow}:A) > 0,
+        "Weekly",
+        IF(
+          COUNTIF(MonthlyMasses!$A$2:$A, A${currentRow}:A) > 0,
+          "Monthly",
+          IF(
+            COUNTIF(YearlyMasses!$A$2:$A, A${currentRow}:A) > 0,
+            "Yearly",
+            "Unknown"
+          )
+        )
+      )
+    )
+  )`;
+  sheet.getRange(currentRow, 2).setFormula(typeFormula);
+
+  // Column D: Count Active volunteers who prefer this Event ID
   // Use wildcard matching to find Event ID in comma-separated Preferred Mass Time field (Column L)
   const volunteersFormula = `=ARRAYFORMULA(
     IF(
@@ -348,42 +370,42 @@ function generateMassCoverageDashboard(sheet, monthString) {
       COUNTIFS(Volunteers!$I$2:$I, "Active", Volunteers!$L$2:$L, "*" & A${currentRow}:A & "*")
     )
   )`;
-  sheet.getRange(currentRow, 3).setFormula(volunteersFormula);
+  sheet.getRange(currentRow, 4).setFormula(volunteersFormula);
 
-  // Column D: Calculate coverage ratio (Volunteers/Roles)
+  // Column E: Calculate coverage ratio (Volunteers/Roles)
   const coverageFormula = `=ARRAYFORMULA(
     IF(
-      B${currentRow}:B = "",
+      C${currentRow}:C = "",
       "",
-      C${currentRow}:C / B${currentRow}:B
+      D${currentRow}:D / C${currentRow}:C
     )
   )`;
-  sheet.getRange(currentRow, 4).setFormula(coverageFormula);
+  sheet.getRange(currentRow, 5).setFormula(coverageFormula);
 
   // Format coverage ratio with 1 decimal place
-  sheet.getRange(currentRow, 4, 100, 1).setNumberFormat('0.0');
+  sheet.getRange(currentRow, 5, 100, 1).setNumberFormat('0.0');
 
-  // Status column
+  // Status column (Column F)
   // Good: ≥ 2.0 volunteers per role, Warning: ≥ 1.0, Critical: < 1.0
   const coverageStatusFormula = `=ARRAYFORMULA(
     IF(
-      D${currentRow}:D = "",
+      E${currentRow}:E = "",
       "",
       IF(
-        D${currentRow}:D >= 2.0,
+        E${currentRow}:E >= 2.0,
         "Good ✓",
         IF(
-          D${currentRow}:D >= 1.0,
+          E${currentRow}:E >= 1.0,
           "Warning ⚠️",
           "Critical 🚨"
         )
       )
     )
   )`;
-  sheet.getRange(currentRow, 5).setFormula(coverageStatusFormula);
+  sheet.getRange(currentRow, 6).setFormula(coverageStatusFormula);
 
   // Apply conditional formatting
-  const coverageRange = sheet.getRange(currentRow, 5, 100, 1);
+  const coverageRange = sheet.getRange(currentRow, 6, 100, 1);
   const coverageRules = [
     SpreadsheetApp.newConditionalFormatRule()
       .whenTextContains('Good')
@@ -407,12 +429,12 @@ function generateMassCoverageDashboard(sheet, monthString) {
   sheet.setFrozenRows(6); // Freeze header section and column headers (rows 1-6)
 
   // Set all columns to 116 width
-  for (let col = 1; col <= 5; col++) {
+  for (let col = 1; col <= 6; col++) {
     sheet.setColumnWidth(col, 116);
   }
 
-  // Delete unused columns (keep only 5 columns)
-  deleteUnusedColumns(sheet, 5);
+  // Delete unused columns (keep only 6 columns)
+  deleteUnusedColumns(sheet, 6);
 }
 
 /**
