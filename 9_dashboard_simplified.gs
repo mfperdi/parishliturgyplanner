@@ -92,7 +92,7 @@ function generateVolunteerDashboard(sheet, monthString) {
   currentRow += 2;
 
   // Headers
-  const headers = ['Volunteer Name', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Total', 'Avg'];
+  const headers = ['Volunteer Name', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December', 'Total', 'Avg'];
   sheet.getRange(currentRow, 1, 1, headers.length).setValues([headers]);
   sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#E8F0FE');
   currentRow++;
