@@ -237,7 +237,12 @@ function generateVolunteerDashboard(sheet, monthString) {
 
   // Formatting
   sheet.setFrozenRows(6); // Freeze header section and column headers (rows 1-6)
-  sheet.autoResizeColumns(1, 15);
+
+  // Set column widths: A=auto, B-O=30
+  sheet.autoResizeColumns(1, 1); // Auto-resize column A (Volunteer Name)
+  for (let col = 2; col <= 15; col++) {
+    sheet.setColumnWidth(col, 30); // Columns B-O (Jan-Avg)
+  }
 
   // Delete unused columns (keep only 15 columns: Name + 12 months + Total + Avg)
   deleteUnusedColumns(sheet, 15);
