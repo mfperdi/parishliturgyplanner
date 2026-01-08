@@ -299,7 +299,7 @@ function generateMassCoverageDashboard(sheet, monthString) {
             .setVerticalAlignment('middle');
 
   // Row 3, Columns B to E: Description
-  const descText = `Assignment coverage percentage by Event ID`;
+  const descText = `Volunteer preference coverage by Event ID`;
   const descRange = sheet.getRange(3, 2, 1, 4);  // B3:E3
   descRange.merge();
   descRange.setValue(descText);
@@ -322,7 +322,7 @@ function generateMassCoverageDashboard(sheet, monthString) {
   currentRow = 6;
 
   // Headers
-  const headers = ['Event ID', 'Total Roles', 'Assigned', 'Coverage %', 'Status'];
+  const headers = ['Event ID', 'Total Roles', 'Volunteers Preferring', 'Coverage Ratio', 'Status'];
   sheet.getRange(currentRow, 1, 1, headers.length).setValues([headers]);
   sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   currentRow++;
@@ -339,21 +339,18 @@ function generateMassCoverageDashboard(sheet, monthString) {
 
   sheet.getRange(currentRow, 1).setFormula(massFormula);
 
-  // Column C: Count assigned roles (all statuses)
-  // ARRAYFORMULA to count Assigned, Substitute Assigned, Confirmed, Substitute Confirmed
-  const assignedFormula = `=ARRAYFORMULA(
+  // Column C: Count Active volunteers who prefer this Event ID
+  // Use wildcard matching to find Event ID in comma-separated Preferred Mass Time field (Column L)
+  const volunteersFormula = `=ARRAYFORMULA(
     IF(
       A${currentRow}:A = "",
       "",
-      COUNTIFS(Assignments!$G$2:$G, A${currentRow}:A, Assignments!$I$2:$I, "${monthString}", Assignments!$M$2:$M, "Assigned") +
-      COUNTIFS(Assignments!$G$2:$G, A${currentRow}:A, Assignments!$I$2:$I, "${monthString}", Assignments!$M$2:$M, "Substitute Assigned") +
-      COUNTIFS(Assignments!$G$2:$G, A${currentRow}:A, Assignments!$I$2:$I, "${monthString}", Assignments!$M$2:$M, "Confirmed") +
-      COUNTIFS(Assignments!$G$2:$G, A${currentRow}:A, Assignments!$I$2:$I, "${monthString}", Assignments!$M$2:$M, "Substitute Confirmed")
+      COUNTIFS(Volunteers!$I$2:$I, "Active", Volunteers!$L$2:$L, "*" & A${currentRow}:A & "*")
     )
   )`;
-  sheet.getRange(currentRow, 3).setFormula(assignedFormula);
+  sheet.getRange(currentRow, 3).setFormula(volunteersFormula);
 
-  // Column D: Calculate coverage percentage
+  // Column D: Calculate coverage ratio (Volunteers/Roles)
   const coverageFormula = `=ARRAYFORMULA(
     IF(
       B${currentRow}:B = "",
@@ -363,19 +360,20 @@ function generateMassCoverageDashboard(sheet, monthString) {
   )`;
   sheet.getRange(currentRow, 4).setFormula(coverageFormula);
 
-  // Format coverage % as percentage
-  sheet.getRange(currentRow, 4, 100, 1).setNumberFormat('0%');
+  // Format coverage ratio with 1 decimal place
+  sheet.getRange(currentRow, 4, 100, 1).setNumberFormat('0.0');
 
   // Status column
+  // Good: ≥ 2.0 volunteers per role, Warning: ≥ 1.0, Critical: < 1.0
   const coverageStatusFormula = `=ARRAYFORMULA(
     IF(
       D${currentRow}:D = "",
       "",
       IF(
-        D${currentRow}:D >= 0.8,
+        D${currentRow}:D >= 2.0,
         "Good ✓",
         IF(
-          D${currentRow}:D >= 0.5,
+          D${currentRow}:D >= 1.0,
           "Warning ⚠️",
           "Critical 🚨"
         )
