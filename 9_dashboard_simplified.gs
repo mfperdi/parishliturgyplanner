@@ -327,15 +327,12 @@ function generateMassCoverageDashboard(sheet, monthString) {
   sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   currentRow++;
 
-  // Column A: Get unique Event IDs for this month
-  const massFormula = `=QUERY(
-    Assignments!$A$2:$M,
-    "SELECT G
-     WHERE I = '${monthString}'
-     GROUP BY G
-     ORDER BY G",
-    0
-  )`;
+  // Column A: Get unique Event IDs for this month (sorted)
+  const massFormula = `=SORT(UNIQUE(FILTER(
+    Assignments!$G$2:$G,
+    Assignments!$I$2:$I = "${monthString}",
+    Assignments!$G$2:$G <> ""
+  )))`;
 
   sheet.getRange(currentRow, 1).setFormula(massFormula);
 
