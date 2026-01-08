@@ -327,10 +327,10 @@ function generateMassCoverageDashboard(sheet, monthString) {
   sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
   currentRow++;
 
-  // Formula: Group assignments by Event ID - get Event ID and Total Roles
+  // Column A: Get unique Event IDs for this month
   const massFormula = `=QUERY(
     Assignments!$A$2:$M,
-    "SELECT G, COUNT(G)
+    "SELECT G
      WHERE I = '${monthString}'
      GROUP BY G
      ORDER BY G",
@@ -360,6 +360,16 @@ function generateMassCoverageDashboard(sheet, monthString) {
     )
   )`;
   sheet.getRange(currentRow, 2).setFormula(typeFormula);
+
+  // Column C: Count total roles for each Event ID
+  const totalRolesFormula = `=ARRAYFORMULA(
+    IF(
+      A${currentRow}:A = "",
+      "",
+      COUNTIFS(Assignments!$G$2:$G, A${currentRow}:A, Assignments!$I$2:$I, "${monthString}")
+    )
+  )`;
+  sheet.getRange(currentRow, 3).setFormula(totalRolesFormula);
 
   // Column D: Count Active volunteers who prefer this Event ID
   // Use wildcard matching to find Event ID in comma-separated Preferred Mass Time field (Column L)
