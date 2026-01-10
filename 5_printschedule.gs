@@ -1116,8 +1116,8 @@ function generateWeeklyView(weekStartDate = null, options = {}) {
       Logger.log(`Week string updated to reflect extended range: ${finalWeekString}`);
     }
 
-    // Determine number of columns (5 for email-friendly format)
-    const numColumns = 5; // Date | Time | Mass | Role | Volunteer
+    // Single column format for easy email copy-paste
+    const numColumns = 1; // All content in column A
 
     // Generate the schedule
     let currentRow = createWeeklyScheduleHeader(weeklySheet, scheduleData, finalWeekString, config, numColumns);
@@ -1398,12 +1398,13 @@ function buildWeeklyScheduleData(weekStart, weekEnd, config) {
 
 /**
  * Create weekly schedule header (simplified for email).
+ * Single column format for easy copy-paste into email.
  *
  * @param {Sheet} sheet - Target sheet
  * @param {object} scheduleData - Weekly schedule data
  * @param {string} weekString - Formatted week range
  * @param {object} config - Configuration options
- * @param {number} numColumns - Number of columns
+ * @param {number} numColumns - Number of columns (unused, kept for compatibility)
  * @returns {number} Starting content row
  */
 function createWeeklyScheduleHeader(sheet, scheduleData, weekString, config, numColumns) {
@@ -1415,22 +1416,19 @@ function createWeeklyScheduleHeader(sheet, scheduleData, weekString, config, num
       ? `${scheduleData.parishName} - ${scheduleData.ministryFilterText}`
       : scheduleData.parishName;
 
-    sheet.getRange(currentRow, 1, 1, numColumns).merge();
     sheet.getRange(currentRow, 1).setValue(headerTitle);
-    sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.getRange(currentRow, 1).setFontSize(16).setFontWeight('bold').setHorizontalAlignment('left');
     currentRow++;
 
     // Row 2: Week range (automatically extended if vigil spillover detected)
-    sheet.getRange(currentRow, 1, 1, numColumns).merge();
     sheet.getRange(currentRow, 1).setValue(weekString);
-    sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('center');
+    sheet.getRange(currentRow, 1).setFontSize(14).setFontWeight('bold').setHorizontalAlignment('left');
     currentRow++;
 
     // Row 3: Generation timestamp
     const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'long')}`;
-    sheet.getRange(currentRow, 1, 1, numColumns).merge();
     sheet.getRange(currentRow, 1).setValue(timestamp);
-    sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('center');
+    sheet.getRange(currentRow, 1).setFontSize(10).setFontStyle('italic').setHorizontalAlignment('left');
     currentRow++;
 
     // Blank separator
@@ -1463,9 +1461,8 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
     // Check if there are assignments
     if (!scheduleData.assignments || scheduleData.assignments.length === 0) {
       // No assignments message
-      sheet.getRange(currentRow, 1, 1, 5).merge();
       sheet.getRange(currentRow, 1).setValue('No assignments found for this week. Please generate the schedule first.');
-      sheet.getRange(currentRow, 1).setFontStyle('italic').setHorizontalAlignment('center');
+      sheet.getRange(currentRow, 1).setFontStyle('italic').setHorizontalAlignment('left');
       return currentRow;
     }
 
@@ -1656,32 +1653,30 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
     Logger.log(`✅ BATCH WRITE: Writing ${allRowData.length} rows in 1 API call`);
     sheet.getRange(startRow, 1, allRowData.length, 1).setValues(allRowData);
 
-    // BATCH FORMATTING: Apply all formatting
+    // BATCH FORMATTING: Apply all formatting (single column only for email compatibility)
     Logger.log(`✅ BATCH FORMATTING: Applying ${formattingOps.length} formatting operations`);
     for (const op of formattingOps) {
-      const range = sheet.getRange(op.row, 1, 1, 5);
+      const range = sheet.getRange(op.row, 1); // Single column (A)
 
       switch (op.type) {
         case 'celebration_header':
-          range.merge()
-            .setFontSize(12)
+          range.setFontSize(12)
             .setFontWeight('bold')
             .setBackground(op.bgColor);
           break;
 
         case 'liturgical_info':
-          range.merge()
-            .setFontSize(10)
+          range.setFontSize(10)
             .setFontStyle('italic')
             .setBackground(op.bgColor);
           break;
 
         case 'mass_header':
-          sheet.getRange(op.row, 1).setFontWeight('bold');
+          range.setFontWeight('bold');
           break;
 
         case 'unassigned':
-          sheet.getRange(op.row, 1).setBackground('#fce8e6');
+          range.setBackground('#fce8e6');
           break;
       }
     }
@@ -2163,30 +2158,24 @@ function formatTimeDisplay(time) {
 
 /**
  * Apply email-friendly formatting to weekly schedule sheet.
+ * Single column format for easy copy-paste.
  *
  * @param {Sheet} sheet - Target sheet
- * @param {number} numColumns - Number of columns
+ * @param {number} numColumns - Number of columns (should be 1)
  */
 function applyWeeklyScheduleFormatting(sheet, numColumns) {
   try {
-    // Set column widths (optimized for email)
-    sheet.setColumnWidth(1, 500); // Date/Content (wide for weekend list format)
-    sheet.setColumnWidth(2, 80);  // Time
-    sheet.setColumnWidth(3, 200); // Mass
-    sheet.setColumnWidth(4, 150); // Role
-    sheet.setColumnWidth(5, 150); // Volunteer
+    // Set column width (single column, optimized for email)
+    sheet.setColumnWidth(1, 600); // Wide single column for all content
 
     // Set default font
     const dataRange = sheet.getDataRange();
     dataRange.setFontFamily('Arial').setFontSize(11);
 
-    // Set text alignment
-    sheet.getRange(5, 1, sheet.getLastRow() - 4, 1).setHorizontalAlignment('left'); // Date column
-    sheet.getRange(5, 2, sheet.getLastRow() - 4, 1).setHorizontalAlignment('center'); // Time column
-    sheet.getRange(5, 3, sheet.getLastRow() - 4, 1).setHorizontalAlignment('left'); // Mass column
-    sheet.getRange(5, 4, sheet.getLastRow() - 4, 2).setHorizontalAlignment('left'); // Role and Volunteer columns
+    // Set text alignment (all content left-aligned)
+    sheet.getRange(1, 1, sheet.getLastRow(), 1).setHorizontalAlignment('left');
 
-    Logger.log('Weekly schedule formatting applied');
+    Logger.log('Weekly schedule formatting applied (single column)');
 
   } catch (e) {
     Logger.log(`ERROR in applyWeeklyScheduleFormatting: ${e.message}`);
