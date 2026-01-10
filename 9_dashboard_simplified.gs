@@ -4,16 +4,15 @@
  * ====================================================================
  *
  * Generates dashboard analytics using pure Google Sheets formulas.
- * Creates three separate dashboard sheets for better organization:
- * - Volunteer Dashboard: Service frequency and utilization
- * - Mass Coverage Dashboard: Assignment coverage by mass
- * - Unassigned Dashboard: Breakdown of unassigned roles
+ * Creates two dashboard sheets:
+ * - Volunteer Dashboard: Annual summary showing all 12 months
+ * - Mass Coverage Dashboard: Volunteer preference coverage by Event ID
  *
  * All formulas pull directly from source sheets for real-time updates.
  */
 
 /**
- * Generate simplified dashboard analytics with three separate sheets.
+ * Generate simplified dashboard analytics with two separate sheets.
  * @param {string} monthString - Month in YYYY-MM format (e.g., "2026-01")
  * @returns {string} Success message
  */
@@ -26,15 +25,13 @@ function DASHBOARD_generateSimplified(monthString) {
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // Create or clear the three dashboard sheets
+    // Create or clear the two dashboard sheets
     const volunteerSheet = createOrClearSheet(ss, 'Volunteer Dashboard');
     const coverageSheet = createOrClearSheet(ss, 'Mass Coverage Dashboard');
-    const unassignedSheet = createOrClearSheet(ss, 'Unassigned Dashboard');
 
     // Generate each dashboard
     generateVolunteerDashboard(volunteerSheet, monthString);
     generateMassCoverageDashboard(coverageSheet, monthString);
-    generateUnassignedDashboard(unassignedSheet, monthString);
 
     // Open the Volunteer Dashboard
     ss.setActiveSheet(volunteerSheet);
@@ -442,120 +439,6 @@ function generateMassCoverageDashboard(sheet, monthString) {
 
   // Delete unused columns (keep only 6 columns)
   deleteUnusedColumns(sheet, 6);
-}
-
-/**
- * Generate Unassigned Dashboard showing breakdown of unassigned roles.
- */
-function generateUnassignedDashboard(sheet, monthString) {
-  // Get config from Config sheet
-  const config = HELPER_readConfigSafe();
-  const logoUrl = config['Logo URL'] || '';
-  const parish = config['Parish Name'] || 'Parish';
-  const ministry = config['Ministry Name'] || 'Ministry';
-
-  let currentRow = 1;
-
-  // === HEADER SECTION (matching monthly view format) ===
-
-  // Logo: A1:A4 vertical merge
-  try {
-    const logoRange = sheet.getRange(1, 1, 4, 1);  // A1:A4
-    logoRange.merge();
-    logoRange.setHorizontalAlignment('center');
-    logoRange.setVerticalAlignment('middle');
-
-    if (logoUrl) {
-      const imageFormula = `=IMAGE("${logoUrl}", 1)`;  // Mode 1 = fit to cell
-      sheet.getRange(1, 1).setFormula(imageFormula);
-    }
-  } catch (e) {
-    Logger.log(`Could not set up logo: ${e.message}`);
-  }
-
-  // Row 1, Columns B to B: Parish and Ministry Name
-  const headerText = `${parish} - ${ministry}`;
-  const headerRange = sheet.getRange(1, 2, 1, 1);  // B1
-  headerRange.setValue(headerText);
-  headerRange.setFontSize(16)
-              .setFontWeight('bold')
-              .setHorizontalAlignment('left')
-              .setVerticalAlignment('middle');
-
-  // Row 2, Columns B to B: Dashboard title
-  const monthName = HELPER_formatMonthYear(monthString);
-  const titleText = `Unassigned Roles Dashboard - ${monthName}`;
-  const titleRange = sheet.getRange(2, 2, 1, 1);  // B2
-  titleRange.setValue(titleText);
-  titleRange.setFontSize(14)
-            .setFontWeight('bold')
-            .setHorizontalAlignment('left')
-            .setVerticalAlignment('middle');
-
-  // Row 3, Columns B to B: Description
-  const descText = `Breakdown of unassigned roles by ministry`;
-  const descRange = sheet.getRange(3, 2, 1, 1);  // B3
-  descRange.setValue(descText);
-  descRange.setFontSize(11)
-           .setFontWeight('normal')
-           .setHorizontalAlignment('left')
-           .setVerticalAlignment('middle');
-
-  // Row 4, Columns B to B: Timestamp
-  const timestamp = `Generated: ${HELPER_formatDate(new Date(), 'default')} at ${HELPER_formatTime(new Date())}`;
-  const timestampRange = sheet.getRange(4, 2, 1, 1);  // B4
-  timestampRange.setValue(timestamp);
-  timestampRange.setFontSize(10)
-                .setFontStyle('italic')
-                .setHorizontalAlignment('left')
-                .setVerticalAlignment('middle');
-
-  // Row 5 is blank, content starts at row 6
-  currentRow = 6;
-
-  // Summary section
-  sheet.getRange(currentRow, 1).setValue('Total Unassigned Roles:');
-  sheet.getRange(currentRow, 1).setFontWeight('bold');
-
-  const totalFormula = `=COUNTIFS(
-    Assignments!$I$2:$I, "${monthString}",
-    Assignments!$M$2:$M, "Unassigned"
-  )`;
-  sheet.getRange(currentRow, 2).setFormula(totalFormula);
-  sheet.getRange(currentRow, 2).setFontWeight('bold').setFontSize(12).setBackground('#FFF3CD');
-  currentRow += 3;
-
-  // Breakdown by ministry
-  sheet.getRange(currentRow, 1).setValue('Breakdown by Ministry:');
-  sheet.getRange(currentRow, 1).setFontWeight('bold');
-  currentRow++;
-
-  // Headers
-  const headers = ['Ministry', 'Unassigned Count'];
-  sheet.getRange(currentRow, 1, 1, headers.length).setValues([headers]);
-  sheet.getRange(currentRow, 1, 1, headers.length).setFontWeight('bold').setBackground('#000000').setFontColor('#ffffff');
-  currentRow++;
-
-  // Formula: Count unassigned by ministry
-  const unassignedFormula = `=QUERY(
-    Assignments!$A$2:$M,
-    "SELECT E, COUNT(E)
-     WHERE I = '${monthString}'
-       AND M = 'Unassigned'
-       AND E <> ''
-     GROUP BY E
-     ORDER BY COUNT(E) DESC",
-    0
-  )`;
-
-  sheet.getRange(currentRow, 1).setFormula(unassignedFormula);
-
-  // Formatting
-  sheet.setFrozenRows(7);
-  sheet.autoResizeColumns(1, 2);
-
-  // Delete unused columns (keep only 2 columns)
-  deleteUnusedColumns(sheet, 2);
 }
 
 /**
