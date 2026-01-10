@@ -1473,13 +1473,7 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
 
     // Process all assignments in chronological order (no weekend/weekday separation)
     if (scheduleData.assignments.length > 0) {
-      try {
-        currentRow = createChronologicalMassesSection(sheet, scheduleData.assignments, scheduleData.liturgicalData, currentRow, liturgicalColorOverrides);
-      } catch (e) {
-        Logger.log(`Error creating masses section: ${e.message}. Retrying...`);
-        Utilities.sleep(1000); // Wait 1 second
-        currentRow = createChronologicalMassesSection(sheet, scheduleData.assignments, scheduleData.liturgicalData, currentRow, liturgicalColorOverrides);
-      }
+      currentRow = createChronologicalMassesSection(sheet, scheduleData.assignments, scheduleData.liturgicalData, currentRow, liturgicalColorOverrides);
     }
 
     return currentRow;
@@ -1495,6 +1489,7 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
 /**
  * Create masses section in chronological order (all masses together).
  * Groups by liturgical celebration, maintains chronological order within and across celebrations.
+ * OPTIMIZED: Batches all data writes and formatting to reduce API calls.
  *
  * @param {Sheet} sheet - Target sheet
  * @param {Array} assignments - All assignments for the week
@@ -1504,8 +1499,6 @@ function createWeeklyScheduleContent(sheet, scheduleData, startRow, config, numC
  * @returns {number} Final row number
  */
 function createChronologicalMassesSection(sheet, assignments, liturgicalData, startRow, liturgicalColorOverrides = {}) {
-  let currentRow = startRow;
-
   // Group assignments by liturgical celebration
   const assignmentsByCelebration = new Map();
   for (const assignment of assignments) {
@@ -1523,82 +1516,71 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
     return aFirstDate - bFirstDate;
   });
 
+  // BATCH COLLECTION: Collect all data before writing
+  const allRowData = [];
+  const formattingOps = []; // { row, type, params }
+
+  let currentRow = startRow;
+
   // Process each liturgical celebration
   for (const celebration of sortedCelebrations) {
     const celebrationAssignments = assignmentsByCelebration.get(celebration);
 
-    // Look up liturgical information FIRST (needed for color)
+    // Look up liturgical information
     let liturgyInfo = null;
-
-    // Try 1: Look up by celebration name
     if (liturgicalData && liturgicalData.has(celebration)) {
       liturgyInfo = liturgicalData.get(celebration);
     } else if (liturgicalData && celebrationAssignments.length > 0) {
-      // Try 2: Look up by date (fallback for manually added assignments with mismatched celebration names)
       const firstDate = celebrationAssignments[0].date;
-      Logger.log(`Date-based fallback for "${celebration}": searching for ${HELPER_formatDate(firstDate, 'default')}`);
-      Logger.log(`  liturgicalData has ${liturgicalData.size} celebrations`);
-
-      // Normalize to date only (ignore time) for comparison
       const targetDateNoTime = new Date(firstDate.getFullYear(), firstDate.getMonth(), firstDate.getDate());
 
-      // Search liturgicalData for any celebration on this date
       for (const [celebrationName, data] of liturgicalData.entries()) {
         const matchFound = data.dates.some(d => {
           const dNoTime = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-          const matches = dNoTime.getTime() === targetDateNoTime.getTime();
-          if (matches) {
-            Logger.log(`  ✓ Found match: "${celebrationName}" on ${HELPER_formatDate(d, 'default')}`);
-          }
-          return matches;
+          return dNoTime.getTime() === targetDateNoTime.getTime();
         });
 
         if (matchFound) {
           liturgyInfo = data;
-          Logger.log(`Liturgical info found by date fallback for "${celebration}": matched "${celebrationName}"`);
           break;
         }
       }
-
-      if (!liturgyInfo) {
-        Logger.log(`  ✗ No liturgical info found for "${celebration}" on ${HELPER_formatDate(firstDate, 'default')}`);
-      }
     }
 
-    // Get liturgical color for background (fallback to blue if no liturgical info)
-    let bgColor = '#e8f0fe'; // Default blue
+    // Get liturgical color
+    let bgColor = '#e8f0fe';
     if (liturgyInfo && liturgyInfo.color) {
       bgColor = HELPER_getLiturgicalColorHex(liturgyInfo.color, liturgicalColorOverrides);
     }
 
-    // Celebration header with liturgical color background
-    sheet.getRange(currentRow, 1, 1, 5).merge();
-    sheet.getRange(currentRow, 1).setValue(celebration);
-    sheet.getRange(currentRow, 1)
-      .setFontSize(12)
-      .setFontWeight('bold')
-      .setBackground(bgColor);
+    // Celebration header
+    allRowData.push([celebration]);
+    formattingOps.push({
+      row: currentRow,
+      type: 'celebration_header',
+      bgColor: bgColor
+    });
     currentRow++;
 
-    // Display liturgical info line if found (with same liturgical color)
+    // Liturgical info line
     if (liturgyInfo) {
       const rankInfo = `${liturgyInfo.rank} • ${liturgyInfo.season} • ${liturgyInfo.color}`;
-
-      sheet.getRange(currentRow, 1, 1, 5).merge();
-      sheet.getRange(currentRow, 1).setValue(rankInfo);
-      sheet.getRange(currentRow, 1)
-        .setFontSize(10)
-        .setFontStyle('italic')
-        .setBackground(bgColor);
+      allRowData.push([rankInfo]);
+      formattingOps.push({
+        row: currentRow,
+        type: 'liturgical_info',
+        bgColor: bgColor
+      });
       currentRow++;
     }
 
-    currentRow++; // Blank line before masses
+    // Blank line
+    allRowData.push(['']);
+    currentRow++;
 
-    // Group assignments by Mass (date + time + Event ID to handle multiple masses at same time)
+    // Group assignments by Mass
     const massesByDateTime = new Map();
     for (const assignment of celebrationAssignments) {
-      // Include Event ID in key to distinguish multiple masses at same time (e.g., Spanish Mass + Day Mass both at 3pm)
       const massKey = `${assignment.date.getTime()}_${assignment.time}_${assignment.eventId || ''}`;
       if (!massesByDateTime.has(massKey)) {
         massesByDateTime.set(massKey, {
@@ -1614,7 +1596,7 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
       massesByDateTime.get(massKey).assignments.push(assignment);
     }
 
-    // Sort masses chronologically by date, then time
+    // Sort masses chronologically
     const masses = Array.from(massesByDateTime.values()).sort((a, b) => {
       if (a.date.getTime() !== b.date.getTime()) {
         return a.date.getTime() - b.date.getTime();
@@ -1627,7 +1609,7 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
       return 0;
     });
 
-    // Write each Mass
+    // Collect mass data
     for (const mass of masses) {
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const dayName = dayNames[mass.date.getDay()];
@@ -1635,31 +1617,74 @@ function createChronologicalMassesSection(sheet, assignments, liturgicalData, st
       const timeStr = formatTimeDisplay(mass.time);
       const massType = mass.isAnticipated ? 'Vigil' : '';
 
-      // Mass header (e.g., "Wednesday 12/31/2025 - 6:00 PM Vigil")
+      // Mass header
       const massHeader = `${dayName} ${dateStr} - ${timeStr}${massType ? ' ' + massType : ''}`;
-      sheet.getRange(currentRow, 1).setValue(massHeader);
-      sheet.getRange(currentRow, 1).setFontWeight('bold');
+      allRowData.push([massHeader]);
+      formattingOps.push({
+        row: currentRow,
+        type: 'mass_header'
+      });
       currentRow++;
 
-      // Write assignments for this Mass (indented)
+      // Assignments
       for (const assignment of mass.assignments) {
         const volunteerName = assignment.assignedVolunteerName || assignment.volunteerName || 'UNASSIGNED';
         const assignmentText = `  ${assignment.role}: ${volunteerName}`;
+        allRowData.push([assignmentText]);
 
-        sheet.getRange(currentRow, 1).setValue(assignmentText);
-
-        // Highlight unassigned
         if (volunteerName === 'UNASSIGNED') {
-          sheet.getRange(currentRow, 1).setBackground('#fce8e6');
+          formattingOps.push({
+            row: currentRow,
+            type: 'unassigned'
+          });
         }
-
         currentRow++;
       }
 
-      currentRow++; // Blank line between masses
+      // Blank line between masses
+      allRowData.push(['']);
+      currentRow++;
     }
 
-    currentRow++; // Extra space between celebrations
+    // Extra space between celebrations
+    allRowData.push(['']);
+    currentRow++;
+  }
+
+  // BATCH WRITE: Write all data in one operation
+  if (allRowData.length > 0) {
+    Logger.log(`✅ BATCH WRITE: Writing ${allRowData.length} rows in 1 API call`);
+    sheet.getRange(startRow, 1, allRowData.length, 1).setValues(allRowData);
+
+    // BATCH FORMATTING: Apply all formatting
+    Logger.log(`✅ BATCH FORMATTING: Applying ${formattingOps.length} formatting operations`);
+    for (const op of formattingOps) {
+      const range = sheet.getRange(op.row, 1, 1, 5);
+
+      switch (op.type) {
+        case 'celebration_header':
+          range.merge()
+            .setFontSize(12)
+            .setFontWeight('bold')
+            .setBackground(op.bgColor);
+          break;
+
+        case 'liturgical_info':
+          range.merge()
+            .setFontSize(10)
+            .setFontStyle('italic')
+            .setBackground(op.bgColor);
+          break;
+
+        case 'mass_header':
+          sheet.getRange(op.row, 1).setFontWeight('bold');
+          break;
+
+        case 'unassigned':
+          sheet.getRange(op.row, 1).setBackground('#fce8e6');
+          break;
+      }
+    }
   }
 
   return currentRow;
