@@ -55,9 +55,10 @@ Sidebar.html  - User interface
 | `2_schedulelogic.gs` | Mass schedule generation with 3-layer logic | `SCHEDULE_generateScheduleForMonth()` |
 | `3_assignmentlogic.gs` | Volunteer auto-assignment algorithm | `ASSIGNMENT_autoAssignRolesForMonth()` |
 | `4_timeoff-form.gs` | Timeoff request handling | `TIMEOFFS_*()` functions |
-| `5_printschedule.gs` | Print schedule generation | `generatePrintableSchedule()` |
+| `5_printschedule.gs` | Print schedule generation | `generatePrintableSchedule()`, `generateWeeklyView()` |
 | `6_archivelogic.gs` | Archive completed schedules | Archive functions |
 | `6_publicschedule.gs` | Public schedule generation | Public schedule functions |
+| `6b_viewautoupdate.gs` | Auto-update MonthlyView/WeeklyView on changes | `AUTOVIEW_*()` functions, onChange trigger |
 | `7_tests.gs` | Consolidated test functions | `TEST_*()` functions |
 | `Sidebar.html` | HTML/CSS/JavaScript UI | Sidebar interface |
 
@@ -638,6 +639,59 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
 4. Use insights to adjust volunteer recruitment and assignment strategy
 5. Dashboard always shows current month data - select different months to compare
 
+### Workflow 8: Auto-Update Views
+
+**Trigger**: Automatic - fires when Assignments sheet changes (if enabled)
+
+**Process** (`AUTOVIEW_onChangeHandler()` in 6b_viewautoupdate.gs):
+1. System detects change to spreadsheet (onChange installable trigger)
+2. Checks if auto-update is enabled in Config
+3. Gets current month from Config (or uses current date)
+4. Regenerates existing views:
+   - **MonthlyView**: Calls `generatePrintableSchedule()` for current month
+   - **WeeklyView**: Calls `generateWeeklyView()` for current week
+5. Logs results (which views updated, any errors)
+
+**Setup and Management**:
+- **Enable**: Admin Tools → Auto-Update Views → Enable Auto-Update
+- **Disable**: Admin Tools → Auto-Update Views → Disable Auto-Update
+- **Check Status**: Admin Tools → Auto-Update Views → Auto-Update Status
+
+**How It Works**:
+- Uses onChange **installable trigger** (not simple trigger)
+- Fires after batched changes (efficient - doesn't fire on every keystroke)
+- Works for both manual edits and script updates to Assignments sheet
+- Only regenerates views that already exist
+- Silently handles errors to avoid disrupting workflow
+
+**Configuration Storage**:
+- Enabled status stored in Config sheet: `Auto-Update Views Enabled` (TRUE/FALSE)
+- Similar architecture to auto-publish system (6_publicschedule.gs)
+
+**Performance Considerations**:
+- View regeneration can take 5-10 seconds per view
+- Recommended for workflows with infrequent assignment changes
+- For frequent bulk edits: Disable auto-update, make changes, then regenerate manually
+
+**Use Cases**:
+- **Parish coordinators**: Keep MonthlyView up-to-date for printing
+- **Email schedules**: Ensure WeeklyView is current before copy-pasting
+- **Public schedules**: Combined with auto-publish for fully automated workflow
+- **Manual assignment workflow**: Views update automatically after each assignment
+
+**Best Practices**:
+1. **Enable after initial setup**: Generate views once manually, then enable auto-update
+2. **Disable during bulk operations**: Turn off during auto-assignment or bulk imports
+3. **Monitor status**: Check Admin Tools → Auto-Update Status to verify trigger exists
+4. **Views must exist first**: Auto-update only works if MonthlyView/WeeklyView already exist
+5. **Combine with auto-publish**: For fully automated public schedule updates
+
+**Troubleshooting**:
+- **Views not updating?** Check Admin Tools → Auto-Update Status
+- **Trigger exists but views stale?** Manually regenerate once to refresh
+- **Performance issues?** Disable auto-update during bulk editing sessions
+- **Config mismatch?** If Config=TRUE but Trigger=FALSE, re-enable from menu
+
 ## Development Conventions
 
 ### Naming Patterns
@@ -652,6 +706,7 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
   - `TIMEOFFS_*()` - Timeoff management
   - `PRINT_*()` - Print/export functions
   - `DASHBOARD_*()` - Dashboard analytics
+  - `AUTOVIEW_*()` - Auto-update views
 
 **Variable Names**:
 - camelCase for variables
@@ -1251,11 +1306,24 @@ The system includes comprehensive documentation to support deployment and testin
 
 ---
 
-**Last Updated**: 2026-01-02
+**Last Updated**: 2026-01-10
 
-**Codebase Version**: Production-ready with dashboard analytics
+**Codebase Version**: Production-ready with auto-update views
 
 **Recent Changes**:
+- **Auto-Update Views System** (6b_viewautoupdate.gs, 0_code.gs, CLAUDE.md):
+  - Added automatic regeneration of MonthlyView and WeeklyView when Assignments sheet changes
+  - Uses onChange installable trigger (fires after batched changes, not every keystroke)
+  - Can be enabled/disabled via Admin Tools → Auto-Update Views menu
+  - Status stored in Config sheet: `Auto-Update Views Enabled` (TRUE/FALSE)
+  - Only regenerates views that already exist (non-intrusive)
+  - Silently handles errors to avoid disrupting workflow
+  - Similar architecture to auto-publish system (6_publicschedule.gs)
+  - Menu functions: `enableAutoUpdateViews()`, `disableAutoUpdateViews()`, `showAutoUpdateViewsStatus()`
+  - Core handler: `AUTOVIEW_onChangeHandler()` regenerates views automatically
+  - Documented as Workflow 8 in CLAUDE.md
+  - Performance: 5-10 seconds per view, best for workflows with infrequent changes
+  - Recommended: Enable after initial setup, disable during bulk operations
 - **Dashboard Analytics - Pure Formula Approach** (9_dashboard_simplified.gs, 0a_constants.gs, 0_code.gs, Sidebar.html, CLAUDE.md):
   - Added simplified dashboard analytics using pure Google Sheets formulas
   - 3 main sections: Volunteer Service Frequency, Coverage by Mass, Unassigned Roles
