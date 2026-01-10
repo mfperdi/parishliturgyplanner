@@ -1032,9 +1032,9 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
 
 /**
  * Generate simplified weekly view optimized for email copy-paste.
- * Creates a "WeeklyView" sheet showing assignments for the current liturgical week (Sunday-Saturday).
+ * Creates a "WeeklyView" sheet showing assignments for the current week (Monday-Sunday).
  *
- * @param {Date} weekStartDate - Sunday of the target week (default: current week)
+ * @param {Date} weekStartDate - Monday of the target week (default: current week)
  * @param {object} options - Configuration options
  * @param {Array} options.ministryFilter - Array of ministry names to filter (e.g., ['Lector'])
  * @param {string} options.sheetName - Target sheet name (default: 'WeeklyView')
@@ -1043,7 +1043,7 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
  * @returns {string} Success message
  *
  * @example
- * // Generate current week
+ * // Generate current week (Monday-Sunday)
  * generateWeeklyView();
  *
  * // Generate with ministry filter
@@ -1053,7 +1053,7 @@ function generateCustomPrintSchedule(monthString, customOptions = {}) {
  * generateWeeklyView(null, { weekRange: '2weeks' });
  *
  * // Generate specific week
- * generateWeeklyView(new Date(2026, 0, 5)); // Week of Jan 5-11, 2026
+ * generateWeeklyView(new Date(2026, 0, 6)); // Week of Jan 6-12, 2026 (Monday-Sunday)
  */
 function generateWeeklyView(weekStartDate = null, options = {}) {
   try {
@@ -1143,11 +1143,11 @@ function generateWeeklyView(weekStartDate = null, options = {}) {
 
 
 /**
- * Build schedule data filtered to one liturgical week.
+ * Build schedule data filtered to one week (Monday-Sunday).
  * Handles weeks that span multiple months or years.
  *
- * @param {Date} weekStart - Sunday of the week
- * @param {Date} weekEnd - Saturday of the week
+ * @param {Date} weekStart - Monday of the week
+ * @param {Date} weekEnd - Sunday of the week
  * @param {object} config - Configuration options
  * @returns {object} Weekly schedule data
  */
