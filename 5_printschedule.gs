@@ -1059,7 +1059,7 @@ function generateWeeklyView(weekStartDate = null, options = {}) {
   try {
     // Calculate week boundaries based on range option
     let weekBounds;
-    const weekRange = options.weekRange || 'current';
+    const weekRange = options.weekRange || null;
 
     if (weekStartDate) {
       // Specific date provided - use single week
@@ -1068,8 +1068,10 @@ function generateWeeklyView(weekStartDate = null, options = {}) {
       // Use multi-week range helper
       weekBounds = HELPER_getWeekRangeBounds(weekRange);
     } else {
-      // Default to current week
-      weekBounds = HELPER_getCurrentWeekBounds();
+      // Default to smart "upcoming week" for Monday email workflow (Option A)
+      // - Sun-Wed: shows current week (Mon-Sun)
+      // - Thu-Sat: shows next week (upcoming Mon-Sun)
+      weekBounds = HELPER_getUpcomingWeekBounds();
     }
 
     const { startDate, endDate, weekString } = weekBounds;

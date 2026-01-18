@@ -1,18 +1,22 @@
 /**
  * ====================================================================
- * AUTO-UPDATE VIEWS - AUTOMATICALLY REGENERATE MONTHLY/WEEKLY VIEWS
+ * AUTO-UPDATE VIEWS - DUAL MONTHLY VIEWS SYSTEM
  * ====================================================================
- * Automatically regenerates MonthlyView and WeeklyView sheets when
- * the Assignments sheet changes.
+ * Automatically regenerates TWO monthly view sheets when the Assignments sheet changes:
+ * - MonthlyView-Current (e.g., January 2026)
+ * - MonthlyView-Next (e.g., February 2026)
  *
  * Uses onChange installable trigger (fires after batched changes).
  * Can be enabled/disabled via Admin Tools menu.
  *
- * Similar architecture to auto-publish system in 6_publicschedule.gs.
+ * Month Selection:
+ * - Current month auto-calculated from today's date (not stored)
+ * - Next month is current month + 1
+ * - Ministry filter read from Config: "MonthlyView Ministry Filter"
  */
 
 /**
- * Main onChange handler - automatically regenerates views when Assignments changes.
+ * Main onChange handler - automatically regenerates dual monthly views when Assignments changes.
  * This function is called by the installable onChange trigger.
  * @param {object} e - Change event object
  */
@@ -32,49 +36,67 @@ function AUTOVIEW_onChangeHandler(e) {
       Logger.log(`Change type: ${e.changeType}`);
     }
 
-    // Get current month from Config or use current date
-    let monthString;
-    try {
-      const config = HELPER_readConfigSafe();
-      const year = config['Year to Schedule'];
-      const now = new Date();
-      const month = now.getMonth() + 1; // 1-indexed
-      monthString = `${year || now.getFullYear()}-${month.toString().padStart(2, '0')}`;
-    } catch (e) {
-      // Fallback to current month
-      const now = new Date();
-      monthString = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-    }
+    // Calculate current and next months
+    const monthStrings = AUTOVIEW_calculateCurrentAndNextMonths();
+    Logger.log(`Auto-updating dual monthly views: ${monthStrings.current} and ${monthStrings.next}`);
 
-    Logger.log(`Auto-updating views for month: ${monthString}`);
+    // Get ministry filter from Config
+    const ministryFilter = AUTOVIEW_getMinistryFilter();
+    Logger.log(`Ministry filter: ${ministryFilter || 'All Ministries'}`);
 
     // Track which views were updated
     const updatedViews = [];
     const errors = [];
 
-    // 1. Check if MonthlyView exists and regenerate it
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const monthlyViewSheet = ss.getSheetByName('MonthlyView');
 
-    if (monthlyViewSheet) {
-      try {
-        Logger.log('Regenerating MonthlyView...');
-        generatePrintableSchedule(monthString, { sheetName: 'MonthlyView' });
-        updatedViews.push('MonthlyView');
-        Logger.log('✅ MonthlyView updated');
-      } catch (e) {
-        Logger.log(`⚠️ Failed to update MonthlyView: ${e.message}`);
-        errors.push(`MonthlyView: ${e.message}`);
+    // 1. Regenerate MonthlyView-Current
+    try {
+      Logger.log(`Regenerating MonthlyView-Current for ${monthStrings.currentDisplay}...`);
+
+      const options = {
+        sheetName: 'MonthlyView-Current'
+      };
+
+      // Add ministry filter if specified
+      if (ministryFilter && ministryFilter !== 'All Ministries') {
+        options.ministryFilter = [ministryFilter];
       }
+
+      generatePrintableSchedule(monthStrings.current, options);
+      updatedViews.push('MonthlyView-Current');
+      Logger.log('✅ MonthlyView-Current updated');
+    } catch (e) {
+      Logger.log(`⚠️ Failed to update MonthlyView-Current: ${e.message}`);
+      errors.push(`MonthlyView-Current: ${e.message}`);
     }
 
-    // 2. Check if WeeklyView exists and regenerate it
-    const weeklyViewSheet = ss.getSheetByName('WeeklyView');
+    // 2. Regenerate MonthlyView-Next
+    try {
+      Logger.log(`Regenerating MonthlyView-Next for ${monthStrings.nextDisplay}...`);
 
+      const options = {
+        sheetName: 'MonthlyView-Next'
+      };
+
+      // Add ministry filter if specified
+      if (ministryFilter && ministryFilter !== 'All Ministries') {
+        options.ministryFilter = [ministryFilter];
+      }
+
+      generatePrintableSchedule(monthStrings.next, options);
+      updatedViews.push('MonthlyView-Next');
+      Logger.log('✅ MonthlyView-Next updated');
+    } catch (e) {
+      Logger.log(`⚠️ Failed to update MonthlyView-Next: ${e.message}`);
+      errors.push(`MonthlyView-Next: ${e.message}`);
+    }
+
+    // 3. Regenerate WeeklyView if it exists (unchanged logic)
+    const weeklyViewSheet = ss.getSheetByName('WeeklyView');
     if (weeklyViewSheet) {
       try {
         Logger.log('Regenerating WeeklyView...');
-        // Regenerate for current week (no specific date = current week)
         generateWeeklyView(null, { sheetName: 'WeeklyView' });
         updatedViews.push('WeeklyView');
         Logger.log('✅ WeeklyView updated');
@@ -88,7 +110,7 @@ function AUTOVIEW_onChangeHandler(e) {
     if (updatedViews.length > 0) {
       Logger.log(`Auto-update complete: ${updatedViews.join(', ')}`);
     } else {
-      Logger.log('No views found to update (MonthlyView and WeeklyView do not exist)');
+      Logger.log('No views were updated');
     }
 
     if (errors.length > 0) {
@@ -103,7 +125,63 @@ function AUTOVIEW_onChangeHandler(e) {
 }
 
 /**
- * Sets up the auto-update trigger.
+ * Calculates current and next month strings based on today's date.
+ * @returns {object} Object with current and next month strings and display names
+ */
+function AUTOVIEW_calculateCurrentAndNextMonths() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-indexed
+
+  // Current month string
+  const currentMonthString = `${currentYear}-${currentMonth.toString().padStart(2, '0')}`;
+  const currentDisplay = HELPER_formatDate(new Date(currentYear, currentMonth - 1, 1), 'month-year');
+
+  // Next month calculation (handle year boundary)
+  let nextYear = currentYear;
+  let nextMonth = currentMonth + 1;
+  if (nextMonth > 12) {
+    nextMonth = 1;
+    nextYear++;
+  }
+
+  const nextMonthString = `${nextYear}-${nextMonth.toString().padStart(2, '0')}`;
+  const nextDisplay = HELPER_formatDate(new Date(nextYear, nextMonth - 1, 1), 'month-year');
+
+  return {
+    current: currentMonthString,
+    next: nextMonthString,
+    currentDisplay: currentDisplay,
+    nextDisplay: nextDisplay
+  };
+}
+
+/**
+ * Gets the ministry filter from Config (defaults to null = All Ministries).
+ * @returns {string|null} Ministry name or null for all ministries
+ */
+function AUTOVIEW_getMinistryFilter() {
+  const filter = AUTOVIEW_getConfigValue('MonthlyView Ministry Filter');
+
+  // Validate filter exists in Ministries sheet
+  if (filter && filter !== 'All Ministries') {
+    try {
+      const ministries = getActiveMinistries();
+      if (!ministries.includes(filter)) {
+        Logger.log(`Warning: Configured ministry filter "${filter}" not found in Ministries sheet. Falling back to All Ministries.`);
+        return null;
+      }
+    } catch (e) {
+      Logger.log(`Warning: Could not validate ministry filter: ${e.message}. Falling back to All Ministries.`);
+      return null;
+    }
+  }
+
+  return (filter === 'All Ministries' || !filter) ? null : filter;
+}
+
+/**
+ * Sets up the auto-update trigger and performs first-time migration.
  * Creates an installable onChange trigger that fires when the spreadsheet changes.
  * @returns {string} Success message
  */
@@ -111,6 +189,9 @@ function AUTOVIEW_setupTrigger() {
   try {
     // First, remove any existing auto-update triggers
     AUTOVIEW_removeTrigger();
+
+    // Perform one-time migration of old MonthlyView sheet
+    AUTOVIEW_migrateOldMonthlyView();
 
     // Create new onChange trigger
     ScriptApp.newTrigger('AUTOVIEW_onChangeHandler')
@@ -123,13 +204,72 @@ function AUTOVIEW_setupTrigger() {
     // Enable auto-update in Config
     AUTOVIEW_setConfigValue('Auto-Update Views Enabled', true);
 
+    // Set default ministry filter if not already set
+    const currentFilter = AUTOVIEW_getConfigValue('MonthlyView Ministry Filter');
+    if (!currentFilter) {
+      AUTOVIEW_setConfigValue('MonthlyView Ministry Filter', 'All Ministries');
+      Logger.log('Set default ministry filter to All Ministries');
+    }
+
+    // Generate both monthly views immediately
+    const monthStrings = AUTOVIEW_calculateCurrentAndNextMonths();
+    const ministryFilter = AUTOVIEW_getMinistryFilter();
+
+    const options = {};
+    if (ministryFilter) {
+      options.ministryFilter = [ministryFilter];
+    }
+
+    // Generate Current month
+    try {
+      generatePrintableSchedule(monthStrings.current, { ...options, sheetName: 'MonthlyView-Current' });
+      Logger.log(`Generated MonthlyView-Current for ${monthStrings.currentDisplay}`);
+    } catch (e) {
+      Logger.log(`Warning: Could not generate MonthlyView-Current: ${e.message}`);
+    }
+
+    // Generate Next month
+    try {
+      generatePrintableSchedule(monthStrings.next, { ...options, sheetName: 'MonthlyView-Next' });
+      Logger.log(`Generated MonthlyView-Next for ${monthStrings.nextDisplay}`);
+    } catch (e) {
+      Logger.log(`Warning: Could not generate MonthlyView-Next: ${e.message}`);
+    }
+
     return '✅ Auto-update enabled!\n\n' +
-           'MonthlyView and WeeklyView will automatically regenerate when assignments change.\n\n' +
-           'Note: Only views that already exist will be updated.';
+           `MonthlyView-Current (${monthStrings.currentDisplay}) and MonthlyView-Next (${monthStrings.nextDisplay}) will automatically regenerate when assignments change.\n\n` +
+           `Ministry filter: ${ministryFilter || 'All Ministries'}`;
 
   } catch (e) {
     Logger.log(`ERROR in AUTOVIEW_setupTrigger: ${e.message}`);
     throw new Error(`Could not set up auto-update: ${e.message}`);
+  }
+}
+
+/**
+ * Migrates the old single MonthlyView sheet to MonthlyView-OLD-BACKUP.
+ * Only runs once - if backup already exists, does nothing.
+ */
+function AUTOVIEW_migrateOldMonthlyView() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const oldSheet = ss.getSheetByName('MonthlyView');
+    const backupSheet = ss.getSheetByName('MonthlyView-OLD-BACKUP');
+
+    if (oldSheet && !backupSheet) {
+      // Rename old MonthlyView to backup
+      oldSheet.setName('MonthlyView-OLD-BACKUP');
+      Logger.log('Migrated old MonthlyView sheet to MonthlyView-OLD-BACKUP');
+    } else if (oldSheet && backupSheet) {
+      // Both exist - delete the old MonthlyView (backup already exists)
+      ss.deleteSheet(oldSheet);
+      Logger.log('Deleted MonthlyView sheet (backup already existed)');
+    } else {
+      Logger.log('No migration needed - old MonthlyView sheet not found');
+    }
+  } catch (e) {
+    Logger.log(`Warning: Could not migrate old MonthlyView sheet: ${e.message}`);
+    // Non-fatal - continue setup
   }
 }
 
@@ -187,15 +327,26 @@ function AUTOVIEW_getStatus() {
 
     // Check which views exist
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const hasMonthlyView = ss.getSheetByName('MonthlyView') !== null;
+    const hasMonthlyViewCurrent = ss.getSheetByName('MonthlyView-Current') !== null;
+    const hasMonthlyViewNext = ss.getSheetByName('MonthlyView-Next') !== null;
     const hasWeeklyView = ss.getSheetByName('WeeklyView') !== null;
+
+    // Get current month info
+    const monthStrings = AUTOVIEW_calculateCurrentAndNextMonths();
+
+    // Get ministry filter
+    const ministryFilter = AUTOVIEW_getConfigValue('MonthlyView Ministry Filter') || 'All Ministries';
 
     return {
       enabled: configEnabled && triggerExists,
       configEnabled: configEnabled,
       triggerExists: triggerExists,
-      hasMonthlyView: hasMonthlyView,
-      hasWeeklyView: hasWeeklyView
+      hasMonthlyViewCurrent: hasMonthlyViewCurrent,
+      hasMonthlyViewNext: hasMonthlyViewNext,
+      hasWeeklyView: hasWeeklyView,
+      currentMonth: monthStrings.currentDisplay,
+      nextMonth: monthStrings.nextDisplay,
+      ministryFilter: ministryFilter
     };
 
   } catch (e) {
@@ -204,7 +355,8 @@ function AUTOVIEW_getStatus() {
       enabled: false,
       configEnabled: false,
       triggerExists: false,
-      hasMonthlyView: false,
+      hasMonthlyViewCurrent: false,
+      hasMonthlyViewNext: false,
       hasWeeklyView: false,
       error: e.message
     };
@@ -293,34 +445,13 @@ function enableAutoUpdateViews() {
   const ui = SpreadsheetApp.getUi();
 
   try {
-    // Check which views exist
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const hasMonthlyView = ss.getSheetByName('MonthlyView') !== null;
-    const hasWeeklyView = ss.getSheetByName('WeeklyView') !== null;
-
-    if (!hasMonthlyView && !hasWeeklyView) {
-      ui.alert(
-        'No Views Found',
-        'MonthlyView and WeeklyView sheets do not exist yet.\n\n' +
-        'Generate these views first using the sidebar:\n' +
-        '• Step 8: Print Schedule (creates MonthlyView)\n' +
-        '• Step 9: Weekly View (creates WeeklyView)\n\n' +
-        'Then enable auto-update.',
-        ui.ButtonSet.OK
-      );
-      return;
-    }
-
     // Show confirmation
-    let viewsList = [];
-    if (hasMonthlyView) viewsList.push('MonthlyView');
-    if (hasWeeklyView) viewsList.push('WeeklyView');
-
+    const monthStrings = AUTOVIEW_calculateCurrentAndNextMonths();
     const response = ui.alert(
       'Enable Auto-Update Views?',
-      `This will automatically regenerate ${viewsList.join(' and ')} whenever assignments change.\n\n` +
-      '⚠️ Note: Auto-update can be resource-intensive if you make frequent changes.\n\n' +
-      'Enable auto-update?',
+      `This will automatically regenerate MonthlyView-Current (${monthStrings.currentDisplay}) and MonthlyView-Next (${monthStrings.nextDisplay}) whenever assignments change.\n\n` +
+      `⚠️ Note: Auto-update can be resource-intensive if you make frequent changes.\n\n` +
+      `Enable auto-update?`,
       ui.ButtonSet.YES_NO
     );
 
@@ -348,7 +479,7 @@ function disableAutoUpdateViews() {
   try {
     const response = ui.alert(
       'Disable Auto-Update Views?',
-      'MonthlyView and WeeklyView will no longer update automatically.\n\n' +
+      'MonthlyView-Current and MonthlyView-Next will no longer update automatically.\n\n' +
       'You can still regenerate them manually from the sidebar.\n\n' +
       'Disable auto-update?',
       ui.ButtonSet.YES_NO
@@ -384,8 +515,13 @@ function showAutoUpdateViewsStatus() {
       message += `❌ Error: ${status.error}`;
     } else {
       message += `Status: ${status.enabled ? '✅ ENABLED' : '❌ DISABLED'}\n\n`;
+      message += `Currently Displaying:\n`;
+      message += `• Current: ${status.currentMonth}\n`;
+      message += `• Next: ${status.nextMonth}\n\n`;
+      message += `Ministry Filter: ${status.ministryFilter}\n\n`;
       message += `Views Found:\n`;
-      message += `• MonthlyView: ${status.hasMonthlyView ? '✅ Exists' : '❌ Not found'}\n`;
+      message += `• MonthlyView-Current: ${status.hasMonthlyViewCurrent ? '✅ Exists' : '❌ Not found'}\n`;
+      message += `• MonthlyView-Next: ${status.hasMonthlyViewNext ? '✅ Exists' : '❌ Not found'}\n`;
       message += `• WeeklyView: ${status.hasWeeklyView ? '✅ Exists' : '❌ Not found'}\n\n`;
 
       if (status.enabled) {

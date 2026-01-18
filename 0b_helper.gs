@@ -1348,3 +1348,53 @@ function HELPER_getWeekRangeBounds(weekRange = 'current', referenceDate = new Da
     throw new Error(`Could not calculate week range boundaries: ${e.message}`);
   }
 }
+
+
+/**
+ * Calculate "upcoming week" bounds for Monday email workflow (Option A logic).
+ * Smart logic that determines which week to show based on the current day:
+ * - Sunday-Wednesday: Show current week (Mon-Sun containing today)
+ * - Thursday-Saturday: Show next week (upcoming Mon-Sun)
+ *
+ * This gives the user flexibility to prepare the email on Monday morning or Sunday evening,
+ * while keeping it focused on the relevant upcoming week.
+ *
+ * @param {Date} referenceDate - Reference date (default: today)
+ * @returns {object} { startDate, endDate, weekString }
+ *
+ * @example
+ * // If today is Monday Jan 13, 2026:
+ * HELPER_getUpcomingWeekBounds()
+ * // Returns: Week of January 13-19, 2026 (current week)
+ *
+ * // If today is Thursday Jan 16, 2026:
+ * HELPER_getUpcomingWeekBounds()
+ * // Returns: Week of January 20-26, 2026 (next week)
+ */
+function HELPER_getUpcomingWeekBounds(referenceDate = new Date()) {
+  try {
+    // Get day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+    const dayOfWeek = referenceDate.getDay();
+
+    // Determine which week to show
+    // Sunday (0), Monday (1), Tuesday (2), Wednesday (3) → current week
+    // Thursday (4), Friday (5), Saturday (6) → next week
+    const useNextWeek = dayOfWeek >= 4 && dayOfWeek <= 6;
+
+    if (useNextWeek) {
+      // Calculate next week (7 days from today, then get that week's bounds)
+      const nextWeekDate = new Date(referenceDate.getTime());
+      nextWeekDate.setDate(nextWeekDate.getDate() + 7);
+      Logger.log(`Smart upcoming week: Today is ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek]}, showing next week`);
+      return HELPER_getCurrentWeekBounds(nextWeekDate);
+    } else {
+      // Use current week
+      Logger.log(`Smart upcoming week: Today is ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek]}, showing current week`);
+      return HELPER_getCurrentWeekBounds(referenceDate);
+    }
+
+  } catch (e) {
+    Logger.log(`ERROR in HELPER_getUpcomingWeekBounds: ${e.message}`);
+    throw new Error(`Could not calculate upcoming week boundaries: ${e.message}`);
+  }
+}
