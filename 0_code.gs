@@ -820,3 +820,218 @@ function showDebugPanel() {
 
   HELPER_showAlert('Debug Information', message, 'info');
 }
+
+// =============================================================================
+// DUAL MONTHLY VIEWS - SERVER FUNCTIONS FOR SIDEBAR
+// =============================================================================
+
+/**
+ * Get current status of dual monthly views system.
+ * Returns information about which months are currently displayed,
+ * ministry filter setting, and auto-update status.
+ *
+ * @returns {object} Status object with month info, filter, and view existence
+ */
+function getCurrentMonthlyViewStatus() {
+  try {
+    // Use existing AUTOVIEW_getStatus() which has all the info we need
+    const status = AUTOVIEW_getStatus();
+
+    return {
+      success: true,
+      currentMonth: status.currentMonth,
+      nextMonth: status.nextMonth,
+      ministryFilter: status.ministryFilter,
+      autoUpdateEnabled: status.enabled,
+      hasMonthlyViewCurrent: status.hasMonthlyViewCurrent,
+      hasMonthlyViewNext: status.hasMonthlyViewNext,
+      hasWeeklyView: status.hasWeeklyView
+    };
+
+  } catch (e) {
+    Logger.log(`ERROR in getCurrentMonthlyViewStatus: ${e.message}`);
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+/**
+ * Set the ministry filter for persistent monthly views.
+ * Updates Config setting and regenerates both views immediately.
+ *
+ * @param {string} ministry - Ministry name (e.g., "Lector") or "All Ministries"
+ * @returns {object} Result object with success status and message
+ */
+function setMonthlyViewMinistryFilter(ministry) {
+  try {
+    // Validate ministry exists (unless "All Ministries")
+    if (ministry && ministry !== 'All Ministries') {
+      const ministries = getActiveMinistries();
+      if (!ministries.includes(ministry)) {
+        throw new Error(`Ministry "${ministry}" not found in Ministries sheet`);
+      }
+    }
+
+    // Update Config
+    AUTOVIEW_setConfigValue('MonthlyView Ministry Filter', ministry || 'All Ministries');
+
+    // Regenerate both views with new filter
+    const monthStrings = AUTOVIEW_calculateCurrentAndNextMonths();
+    const ministryFilter = ministry && ministry !== 'All Ministries' ? ministry : null;
+
+    const options = {};
+    if (ministryFilter) {
+      options.ministryFilter = [ministryFilter];
+    }
+
+    // Regenerate Current month
+    generatePrintableSchedule(monthStrings.current, { ...options, sheetName: 'MonthlyView-Current' });
+
+    // Regenerate Next month
+    generatePrintableSchedule(monthStrings.next, { ...options, sheetName: 'MonthlyView-Next' });
+
+    return {
+      success: true,
+      message: `Ministry filter updated to "${ministry || 'All Ministries'}". Both monthly views regenerated.`
+    };
+
+  } catch (e) {
+    Logger.log(`ERROR in setMonthlyViewMinistryFilter: ${e.message}`);
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+/**
+ * Manually regenerate both monthly views.
+ * Useful when auto-update is disabled or for forcing a refresh.
+ *
+ * @returns {object} Result object with success status and message
+ */
+function regenerateMonthlyViewsManually() {
+  try {
+    const monthStrings = AUTOVIEW_calculateCurrentAndNextMonths();
+    const ministryFilter = AUTOVIEW_getMinistryFilter();
+
+    const options = {};
+    if (ministryFilter) {
+      options.ministryFilter = [ministryFilter];
+    }
+
+    // Regenerate Current month
+    const currentResult = generatePrintableSchedule(monthStrings.current, { ...options, sheetName: 'MonthlyView-Current' });
+
+    // Regenerate Next month
+    const nextResult = generatePrintableSchedule(monthStrings.next, { ...options, sheetName: 'MonthlyView-Next' });
+
+    return {
+      success: true,
+      message: `Both monthly views regenerated successfully:\n• MonthlyView-Current: ${monthStrings.currentDisplay}\n• MonthlyView-Next: ${monthStrings.nextDisplay}`
+    };
+
+  } catch (e) {
+    Logger.log(`ERROR in regenerateMonthlyViewsManually: ${e.message}`);
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+/**
+ * Generate a custom one-off print schedule.
+ * Creates a schedule for any month/ministry combination with custom sheet name.
+ *
+ * @param {string} monthString - Month to generate (e.g., "2026-02")
+ * @param {string} ministry - Ministry filter (e.g., "Lector") or "All Ministries"
+ * @param {string} sheetName - Custom output sheet name
+ * @returns {object} Result object with success status and message
+ */
+function generateCustomPrint(monthString, ministry, sheetName) {
+  try {
+    // Validate inputs
+    if (!monthString) {
+      throw new Error('Month is required');
+    }
+
+    if (!sheetName) {
+      throw new Error('Sheet name is required');
+    }
+
+    // Validate month format
+    const { year, month } = HELPER_validateMonthString(monthString);
+
+    // Build options
+    const options = {
+      sheetName: sheetName
+    };
+
+    // Add ministry filter if specified
+    if (ministry && ministry !== 'All Ministries') {
+      // Validate ministry exists
+      const ministries = getActiveMinistries();
+      if (!ministries.includes(ministry)) {
+        throw new Error(`Ministry "${ministry}" not found in Ministries sheet`);
+      }
+      options.ministryFilter = [ministry];
+    }
+
+    // Generate the schedule
+    const result = generatePrintableSchedule(monthString, options);
+
+    // Build success message
+    const displayName = HELPER_formatDate(new Date(year, month, 1), 'month-year');
+    const filterText = ministry && ministry !== 'All Ministries' ? ` (${ministry} only)` : '';
+
+    return {
+      success: true,
+      message: `Custom print generated successfully!\n\nSheet: ${sheetName}\nMonth: ${displayName}${filterText}`
+    };
+
+  } catch (e) {
+    Logger.log(`ERROR in generateCustomPrint: ${e.message}`);
+    return {
+      success: false,
+      error: e.message
+    };
+  }
+}
+
+/**
+ * Get list of months for dropdown (next 12 months from current month).
+ * Returns both value (YYYY-MM) and display (Month Year) for each month.
+ *
+ * @returns {Array<object>} Array of month objects with value and display properties
+ */
+function getNext12Months() {
+  try {
+    const months = [];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-indexed
+
+    for (let i = 0; i < 12; i++) {
+      const monthDate = new Date(currentYear, currentMonth + i, 1);
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth() + 1; // 1-indexed
+
+      const monthString = `${year}-${month.toString().padStart(2, '0')}`;
+      const displayName = HELPER_formatDate(monthDate, 'month-year');
+
+      months.push({
+        value: monthString,
+        display: displayName
+      });
+    }
+
+    return months;
+
+  } catch (e) {
+    Logger.log(`ERROR in getNext12Months: ${e.message}`);
+    return [];
+  }
+}
