@@ -492,19 +492,142 @@
     </div>
   </div>
 
-  <!-- Dashboard & Analytics Section -->
+  <!-- Finalize & Export Section -->
   <div class="phase-container">
-    <div class="phase-header" style="background: linear-gradient(135deg, #7c4dff, #6a1b9a);">
-      <span>📊</span>
-      <span>Dashboard & Analytics</span>
+    <div class="phase-header completion">
+      <span>📄</span>
+      <span>Finalize & Export</span>
     </div>
-    <div class="phase-content disabled" id="phase-analytics-content">
+    <div class="phase-content disabled" id="phase-completion-content">
 
+      <!-- STEP 9: Persistent Monthly Views -->
       <div class="step-item">
-        <div class="step-icon" style="background-color: #7c4dff;">8</div>
+        <div class="step-icon" style="background-color: #1e8e3e;">9</div>
         <div class="step-content">
           <div class="step-title">
-            View Dashboard Analytics
+            Persistent Monthly Views
+            <span id="completion-persistent" class="completion-badge hidden">✓ Complete</span>
+          </div>
+          <div class="step-description">
+            View current + next month schedules (auto-update when assignments change)
+          </div>
+
+          <!-- Current Status Display -->
+          <div id="monthly-view-status" style="margin-bottom: 12px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">
+            <div style="margin-bottom: 4px;"><strong>Currently Displaying:</strong></div>
+            <div id="status-current-month" style="color: #5f6368;">• Current: Loading...</div>
+            <div id="status-next-month" style="color: #5f6368;">• Next: Loading...</div>
+            <div id="status-ministry-filter" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8eaed; color: #5f6368;">
+              Filter: <span id="status-filter-value">Loading...</span>
+            </div>
+            <div id="status-auto-update" style="margin-top: 4px; color: #5f6368;">
+              Auto-Update: <span id="status-auto-value">Loading...</span>
+            </div>
+          </div>
+
+          <!-- Ministry Filter Selector -->
+          <div style="margin-bottom: 10px;">
+            <label for="persistent-ministry-filter" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
+              Ministry Filter:
+            </label>
+            <select id="persistent-ministry-filter" class="month-select" style="width: 100%; padding: 8px; margin-bottom: 8px;">
+              <option value="All Ministries">All Ministries</option>
+              <!-- Populated dynamically -->
+            </select>
+            <button id="btn-update-filter" class="btn btn-outline" disabled>
+              Update Filter
+            </button>
+          </div>
+
+          <!-- Action Buttons -->
+          <button id="btn-regenerate-persistent" class="btn btn-secondary" disabled style="margin-top: 8px;">
+            🔄 Regenerate Views Now
+          </button>
+
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f3f4; font-size: 11px; color: #5f6368;">
+            💡 <strong>Tip:</strong> Views auto-update when you edit assignments (if enabled in Admin Tools)
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 10: Custom Print -->
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1e8e3e;">10</div>
+        <div class="step-content">
+          <div class="step-title">
+            Custom Print
+            <span id="completion-custom-print" class="completion-badge hidden">✓ Complete</span>
+          </div>
+          <div class="step-description">Generate one-off print schedule for any month/ministry</div>
+
+          <!-- Month Selector -->
+          <div style="margin-bottom: 10px;">
+            <label for="custom-print-month" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
+              Month to Print:
+            </label>
+            <select id="custom-print-month" class="month-select" style="width: 100%; padding: 8px;">
+              <option value="">Select month...</option>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
+          <!-- Ministry Filter -->
+          <div style="margin-bottom: 10px;">
+            <label for="custom-print-ministry" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
+              Filter by Ministry (optional):
+            </label>
+            <select id="custom-print-ministry" class="month-select" style="width: 100%; padding: 8px;">
+              <option value="All Ministries">All Ministries</option>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
+          <!-- Output Sheet Name -->
+          <div style="margin-bottom: 10px;">
+            <label for="custom-print-sheet-name" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
+              Output Sheet Name:
+            </label>
+            <input type="text" id="custom-print-sheet-name"
+                   style="width: 100%; padding: 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px;"
+                   placeholder="e.g., Lector February 2026">
+          </div>
+
+          <button id="btn-custom-print" class="btn btn-outline" disabled>
+            📄 Generate Custom Print
+          </button>
+
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f3f4; font-size: 11px; color: #5f6368;">
+            💡 Use this for ad-hoc reports, printing specific ministries, or archiving past months
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 11: Weekly Email View -->
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1e8e3e;">11</div>
+        <div class="step-content">
+          <div class="step-title">
+            Weekly Email View
+            <span id="completion-weekly" class="completion-badge hidden">✓ Complete</span>
+          </div>
+          <div class="step-description">Generate upcoming week schedule for Monday emails</div>
+
+          <button id="btn-weekly" class="btn btn-outline" disabled>
+            📅 Refresh Weekly View
+          </button>
+
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f3f4; font-size: 11px; color: #5f6368;">
+            💡 <strong>Smart Logic:</strong> Mon-Wed shows current week, Thu-Sat shows next week (perfect for Monday morning emails)
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 12: Dashboard Analytics -->
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #7c4dff;">12</div>
+        <div class="step-content">
+          <div class="step-title">
+            Dashboard Analytics
             <span id="completion-dashboard" class="completion-badge hidden">✓ Complete</span>
           </div>
           <div class="step-description">Analyze volunteer participation and coverage patterns</div>
@@ -515,85 +638,9 @@
         </div>
       </div>
 
-    </div>
-  </div>
-
-  <!-- Finalize & Export Section -->
-  <div class="phase-container">
-    <div class="phase-header completion">
-      <span>📄</span>
-      <span>Finalize & Export</span>
-    </div>
-    <div class="phase-content disabled" id="phase-completion-content">
-
+      <!-- STEP 13: Publish Schedule -->
       <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">9</div>
-        <div class="step-content">
-          <div class="step-title">
-            Print Schedule
-            <span id="completion-print" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Export completed assignments for distribution</div>
-
-          <!-- Ministry Filter Dropdown -->
-          <div style="margin-bottom: 10px;">
-            <label for="ministry-filter" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
-              Filter by Ministry (optional):
-            </label>
-            <select id="ministry-filter" class="month-select" style="width: 100%; padding: 8px;">
-              <option value="">All Ministries</option>
-              <!-- Populated dynamically -->
-            </select>
-          </div>
-
-          <button id="btn-print" class="btn btn-outline" disabled>
-            Print Schedule
-          </button>
-        </div>
-      </div>
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">10</div>
-        <div class="step-content">
-          <div class="step-title">
-            Generate Weekly View
-            <span id="completion-weekly" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Create email-friendly weekly schedule (auto-updates on open)</div>
-
-          <!-- Week Range Selector -->
-          <div style="margin-bottom: 10px;">
-            <label for="weekly-range-select" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
-              Generate schedule for:
-            </label>
-            <select id="weekly-range-select" class="month-select" style="width: 100%; padding: 8px;">
-              <option value="current">This Week</option>
-              <option value="next">Next Week</option>
-              <option value="2weeks">This + Next Week (2 weeks)</option>
-              <option value="3weeks">Next 3 Weeks</option>
-              <option value="4weeks">Next 4 Weeks</option>
-            </select>
-          </div>
-
-          <!-- Ministry Filter Dropdown -->
-          <div style="margin-bottom: 10px;">
-            <label for="weekly-ministry-filter" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
-              Filter by Ministry (optional):
-            </label>
-            <select id="weekly-ministry-filter" class="month-select" style="width: 100%; padding: 8px;">
-              <option value="">All Ministries</option>
-              <!-- Populated dynamically -->
-            </select>
-          </div>
-
-          <button id="btn-weekly" class="btn btn-outline" disabled>
-            📅 Refresh Weekly View
-          </button>
-        </div>
-      </div>
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">11</div>
+        <div class="step-icon" style="background-color: #1e8e3e;">13</div>
         <div class="step-content">
           <div class="step-title">
             Publish Schedule
@@ -690,14 +737,35 @@
     const btnUpdateForm = document.getElementById('btn-update-form');
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
-    const btnPrint = document.getElementById('btn-print');
+
+    // Persistent Monthly Views (Step 9)
+    const btnUpdateFilter = document.getElementById('btn-update-filter');
+    const btnRegeneratePersistent = document.getElementById('btn-regenerate-persistent');
+    const persistentMinistryFilter = document.getElementById('persistent-ministry-filter');
+    const statusCurrentMonth = document.getElementById('status-current-month');
+    const statusNextMonth = document.getElementById('status-next-month');
+    const statusFilterValue = document.getElementById('status-filter-value');
+    const statusAutoValue = document.getElementById('status-auto-value');
+
+    // Custom Print (Step 10)
+    const customPrintMonth = document.getElementById('custom-print-month');
+    const customPrintMinistry = document.getElementById('custom-print-ministry');
+    const customPrintSheetName = document.getElementById('custom-print-sheet-name');
+    const btnCustomPrint = document.getElementById('btn-custom-print');
+
+    // Weekly View (Step 11)
     const btnWeekly = document.getElementById('btn-weekly');
+
+    // Dashboard (Step 12)
     const btnDashboard = document.getElementById('btn-dashboard');
+
+    // Publish (Step 13)
     const btnPublishAll = document.getElementById('btn-publish-all');
     const btnPublishMinistry = document.getElementById('btn-publish-ministry');
     const publishMinistryFilter = document.getElementById('publish-ministry-filter');
     const autoPublishToggle = document.getElementById('auto-publish-toggle');
     const autoPublishStatus = document.getElementById('auto-publish-status');
+
     const statusMessage = document.getElementById('status-message');
     
     // Phase elements
@@ -804,13 +872,23 @@
       btnTimeoffs.disabled = !hasCalendar || !hasMonthSelected;
       btnStep2.disabled = !hasCalendar || !hasMonthSelected;
 
-      // Completion phase buttons (enable after assignment)
-      btnPrint.disabled = !hasCalendar || !hasMonthSelected;
-      btnWeekly.disabled = !hasCalendar; // Weekly view doesn't require month selection (always shows current week)
-      btnDashboard.disabled = !hasCalendar || !hasMonthSelected;
-      btnPublishAll.disabled = !hasCalendar || !hasMonthSelected;
+      // Step 9: Persistent Monthly Views (always enabled after calendar exists)
+      btnUpdateFilter.disabled = !hasCalendar;
+      btnRegeneratePersistent.disabled = !hasCalendar;
 
-      // Publish ministry button enabled when ministry selected AND month selected
+      // Step 10: Custom Print (requires month selection + sheet name)
+      const hasCustomPrintMonth = customPrintMonth.value !== '';
+      const hasCustomPrintSheetName = customPrintSheetName.value.trim() !== '';
+      btnCustomPrint.disabled = !hasCalendar || !hasCustomPrintMonth || !hasCustomPrintSheetName;
+
+      // Step 11: Weekly Email View (always enabled after calendar exists)
+      btnWeekly.disabled = !hasCalendar;
+
+      // Step 12: Dashboard Analytics (requires month selection)
+      btnDashboard.disabled = !hasCalendar || !hasMonthSelected;
+
+      // Step 13: Publish buttons (require month selection)
+      btnPublishAll.disabled = !hasCalendar || !hasMonthSelected;
       const hasMinistrySelected = publishMinistryFilter.value !== '';
       btnPublishMinistry.disabled = !hasCalendar || !hasMonthSelected || !hasMinistrySelected;
 
@@ -867,6 +945,18 @@
         .withSuccessHandler(onAutoPublishStatusLoaded)
         .withFailureHandler((error) => console.error('Failed to load auto-publish status:', error))
         .AUTOPUBLISH_getStatus();
+
+      // Load monthly view status for persistent views
+      google.script.run
+        .withSuccessHandler(onMonthlyViewStatusLoaded)
+        .withFailureHandler((error) => console.error('Failed to load monthly view status:', error))
+        .getCurrentMonthlyViewStatus();
+
+      // Load next 12 months for custom print dropdown
+      google.script.run
+        .withSuccessHandler(onCustomPrintMonthsLoaded)
+        .withFailureHandler((error) => console.error('Failed to load custom print months:', error))
+        .getNext12Months();
     });
     
     // Month selection handler
@@ -876,41 +966,66 @@
     });
     
     function onMinistriesLoaded(ministries) {
-      const ministryFilter = document.getElementById('ministry-filter');
-      const weeklyMinistryFilter = document.getElementById('weekly-ministry-filter');
-      const publishMinistryFilter = document.getElementById('publish-ministry-filter');
+      // Populate persistent monthly views filter
+      persistentMinistryFilter.innerHTML = '<option value="All Ministries">All Ministries</option>';
 
-      // Populate print filter dropdown
-      ministryFilter.innerHTML = '<option value="">All Ministries</option>';
-
-      // Populate weekly filter dropdown
-      weeklyMinistryFilter.innerHTML = '<option value="">All Ministries</option>';
+      // Populate custom print ministry filter
+      customPrintMinistry.innerHTML = '<option value="All Ministries">All Ministries</option>';
 
       // Populate publish filter dropdown
       publishMinistryFilter.innerHTML = '<option value="">Select ministry...</option>';
 
       // Add ministry options to all dropdowns
       ministries.forEach(ministry => {
-        // Add to print filter dropdown
-        const option1 = document.createElement('option');
-        option1.value = ministry;
-        option1.textContent = ministry;
-        ministryFilter.appendChild(option1);
+        // Add to persistent filter
+        const opt1 = document.createElement('option');
+        opt1.value = ministry;
+        opt1.textContent = ministry;
+        persistentMinistryFilter.appendChild(opt1);
 
-        // Add to weekly filter dropdown
-        const option2 = document.createElement('option');
-        option2.value = ministry;
-        option2.textContent = ministry;
-        weeklyMinistryFilter.appendChild(option2);
+        // Add to custom print filter
+        const opt2 = document.createElement('option');
+        opt2.value = ministry;
+        opt2.textContent = ministry;
+        customPrintMinistry.appendChild(opt2);
 
         // Add to publish filter dropdown
-        const option3 = document.createElement('option');
-        option3.value = ministry;
-        option3.textContent = ministry;
-        publishMinistryFilter.appendChild(option3);
+        const opt3 = document.createElement('option');
+        opt3.value = ministry;
+        opt3.textContent = ministry;
+        publishMinistryFilter.appendChild(opt3);
       });
 
       console.log(`Loaded ${ministries.length} ministries for filter dropdowns`);
+    }
+
+    function onMonthlyViewStatusLoaded(status) {
+      if (status.success) {
+        statusCurrentMonth.textContent = `• Current: ${status.currentMonth}`;
+        statusNextMonth.textContent = `• Next: ${status.nextMonth}`;
+        statusFilterValue.textContent = status.ministryFilter;
+        statusAutoValue.textContent = status.autoUpdateEnabled ? '✅ Enabled' : '❌ Disabled';
+
+        // Set the filter dropdown to match current config
+        persistentMinistryFilter.value = status.ministryFilter;
+
+        console.log('Monthly view status loaded:', status);
+      } else {
+        console.error('Failed to load monthly view status:', status.error);
+      }
+    }
+
+    function onCustomPrintMonthsLoaded(months) {
+      customPrintMonth.innerHTML = '<option value="">Select month...</option>';
+
+      months.forEach(monthObj => {
+        const option = document.createElement('option');
+        option.value = monthObj.value;
+        option.textContent = monthObj.display;
+        customPrintMonth.appendChild(option);
+      });
+
+      console.log(`Loaded ${months.length} months for custom print dropdown`);
     }
 
     function onMonthsLoaded(months) {
@@ -1051,61 +1166,116 @@
         .triggerAssignment(selectedMonth);
     });
     
-    btnPrint.addEventListener('click', () => {
-      const selectedMonth = monthSelect.value;
-      if (!selectedMonth) return;
-
-      // Get ministry filter selection
-      const ministryFilter = document.getElementById('ministry-filter').value;
-      const ministryFilterArray = ministryFilter ? [ministryFilter] : null;
-
-      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const filterText = ministryFilter ? ` (${ministryFilter} only)` : '';
-      const msg = `Generating printable schedule for ${selectedText}${filterText}...`;
-      showLoading(msg);
+    // STEP 9: Update Ministry Filter button
+    btnUpdateFilter.addEventListener('click', () => {
+      const selectedFilter = persistentMinistryFilter.value;
+      showLoading(`Updating ministry filter to "${selectedFilter}"...`);
 
       google.script.run
-        .withSuccessHandler((message) => {
-          const friendlyMessage = message.replace(selectedMonth, selectedText);
-          showSuccess(friendlyMessage);
-          markStepComplete('print');
+        .withSuccessHandler((result) => {
+          if (result.success) {
+            showSuccess(result.message);
+            statusFilterValue.textContent = selectedFilter;
+            markStepComplete('persistent');
+          } else {
+            showError({ message: result.error }, 'print');
+          }
         })
         .withFailureHandler((error) => showError(error, 'print'))
-        .generatePrintableSchedule(selectedMonth, { ministryFilter: ministryFilterArray });
+        .setMonthlyViewMinistryFilter(selectedFilter);
     });
 
-    // Weekly View button
+    // STEP 9: Regenerate Persistent Views button
+    btnRegeneratePersistent.addEventListener('click', () => {
+      showLoading('Regenerating both monthly views...');
+
+      google.script.run
+        .withSuccessHandler((result) => {
+          if (result.success) {
+            showSuccess(result.message);
+            markStepComplete('persistent');
+          } else {
+            showError({ message: result.error }, 'print');
+          }
+        })
+        .withFailureHandler((error) => showError(error, 'print'))
+        .regenerateMonthlyViewsManually();
+    });
+
+    // STEP 10: Custom Print button
+    btnCustomPrint.addEventListener('click', () => {
+      const selectedMonth = customPrintMonth.value;
+      const selectedMinistry = customPrintMinistry.value;
+      const sheetName = customPrintSheetName.value.trim();
+
+      if (!selectedMonth) {
+        showError({ message: 'Please select a month to print' }, 'print');
+        return;
+      }
+
+      if (!sheetName) {
+        showError({ message: 'Please enter an output sheet name' }, 'print');
+        return;
+      }
+
+      const monthText = customPrintMonth.options[customPrintMonth.selectedIndex].text;
+      const filterText = selectedMinistry && selectedMinistry !== 'All Ministries' ? ` (${selectedMinistry})` : '';
+      showLoading(`Generating custom print: ${sheetName}...`);
+
+      google.script.run
+        .withSuccessHandler((result) => {
+          if (result.success) {
+            showSuccess(result.message);
+            markStepComplete('custom-print');
+            // Clear form for next use
+            customPrintMonth.value = '';
+            customPrintSheetName.value = '';
+          } else {
+            showError({ message: result.error }, 'print');
+          }
+        })
+        .withFailureHandler((error) => showError(error, 'print'))
+        .generateCustomPrint(selectedMonth, selectedMinistry, sheetName);
+    });
+
+    // STEP 11: Weekly Email View button
     btnWeekly.addEventListener('click', () => {
-      // Get week range selection
-      const weekRange = document.getElementById('weekly-range-select').value;
-
-      // Get ministry filter selection
-      const ministryFilter = document.getElementById('weekly-ministry-filter').value;
-      const ministryFilterArray = ministryFilter ? [ministryFilter] : null;
-
-      // Build friendly message
-      const rangeText = {
-        'current': 'this week',
-        'next': 'next week',
-        '2weeks': 'next 2 weeks',
-        '3weeks': 'next 3 weeks',
-        '4weeks': 'next 4 weeks'
-      }[weekRange] || 'this week';
-
-      const filterText = ministryFilter ? ` (${ministryFilter} only)` : '';
-      const msg = `Generating weekly view for ${rangeText}${filterText}...`;
-      showLoading(msg);
+      showLoading('Regenerating weekly view with smart upcoming week logic...');
 
       google.script.run
         .withSuccessHandler((message) => {
-          showSuccess(message);
+          showSuccess('Weekly view regenerated!\n\nShows current week (Mon-Wed) or next week (Thu-Sat) for Monday emails.');
           markStepComplete('weekly');
         })
         .withFailureHandler((error) => showError(error, 'print'))
-        .generateWeeklyView(null, {
-          ministryFilter: ministryFilterArray,
-          weekRange: weekRange
-        });
+        .generateWeeklyView(null, { sheetName: 'WeeklyView' });
+    });
+
+    // Auto-suggest sheet name for custom print based on selections
+    function updateCustomPrintSheetName() {
+      const month = customPrintMonth.value;
+      const ministry = customPrintMinistry.value;
+
+      if (month && customPrintSheetName.value.trim() === '') {
+        // Only auto-fill if user hasn't typed anything
+        const monthText = customPrintMonth.options[customPrintMonth.selectedIndex].text;
+        const ministryText = ministry && ministry !== 'All Ministries' ? `${ministry} ` : '';
+        customPrintSheetName.value = `${ministryText}${monthText}`;
+      }
+    }
+
+    customPrintMonth.addEventListener('change', () => {
+      updateCustomPrintSheetName();
+      updateButtonStates();
+    });
+
+    customPrintMinistry.addEventListener('change', () => {
+      updateCustomPrintSheetName();
+      updateButtonStates();
+    });
+
+    customPrintSheetName.addEventListener('input', () => {
+      updateButtonStates();
     });
 
     // Dashboard Analytics button
