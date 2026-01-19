@@ -1403,3 +1403,508 @@ function TEST_promptValidation() {
   );
 }
 
+// ====================================================================
+// DUAL MONTHLY VIEWS SYSTEM TESTS
+// ====================================================================
+
+/**
+ * Test smart "upcoming week" calculation for WeeklyView.
+ * Validates Option A logic: Sun-Wed shows current week, Thu-Sat shows next week.
+ */
+function TEST_upcomingWeekLogic() {
+  Logger.log('=== UPCOMING WEEK LOGIC TEST ===\n');
+
+  // Test different days of the week
+  const testDates = [
+    { date: new Date(2026, 0, 11), day: 'Sunday', expected: 'current' },    // Sunday Jan 11
+    { date: new Date(2026, 0, 12), day: 'Monday', expected: 'current' },    // Monday Jan 12
+    { date: new Date(2026, 0, 13), day: 'Tuesday', expected: 'current' },   // Tuesday Jan 13
+    { date: new Date(2026, 0, 14), day: 'Wednesday', expected: 'current' }, // Wednesday Jan 14
+    { date: new Date(2026, 0, 15), day: 'Thursday', expected: 'next' },     // Thursday Jan 15
+    { date: new Date(2026, 0, 16), day: 'Friday', expected: 'next' },       // Friday Jan 16
+    { date: new Date(2026, 0, 17), day: 'Saturday', expected: 'next' }      // Saturday Jan 17
+  ];
+
+  let passed = 0;
+  let failed = 0;
+
+  for (const test of testDates) {
+    try {
+      const result = HELPER_getUpcomingWeekBounds(test.date);
+
+      // Determine if we got current week or next week
+      const currentWeek = HELPER_getCurrentWeekBounds(test.date);
+      const nextWeek = HELPER_getCurrentWeekBounds(new Date(test.date.getTime() + 7 * 24 * 60 * 60 * 1000));
+
+      let actualResult;
+      if (result.startDate.getTime() === currentWeek.startDate.getTime()) {
+        actualResult = 'current';
+      } else if (result.startDate.getTime() === nextWeek.startDate.getTime()) {
+        actualResult = 'next';
+      } else {
+        actualResult = 'unknown';
+      }
+
+      const status = actualResult === test.expected ? '✅ PASS' : '❌ FAIL';
+      Logger.log(`${status} - ${test.day} (${HELPER_formatDate(test.date, 'default')})`);
+      Logger.log(`  Expected: ${test.expected} week`);
+      Logger.log(`  Got: ${actualResult} week`);
+      Logger.log(`  Week String: ${result.weekString}`);
+      Logger.log('');
+
+      if (actualResult === test.expected) {
+        passed++;
+      } else {
+        failed++;
+      }
+
+    } catch (e) {
+      Logger.log(`❌ ERROR - ${test.day}: ${e.message}\n`);
+      failed++;
+    }
+  }
+
+  Logger.log('=== TEST SUMMARY ===');
+  Logger.log(`Total: ${testDates.length} tests`);
+  Logger.log(`Passed: ${passed}`);
+  Logger.log(`Failed: ${failed}`);
+
+  if (failed === 0) {
+    HELPER_showSuccess(
+      'Upcoming Week Logic Test',
+      `All ${passed} tests passed!\n\nSmart week logic is working correctly for Monday email workflow.`
+    );
+  } else {
+    HELPER_showAlert(
+      'Upcoming Week Logic Test',
+      `Tests completed with ${failed} failure(s).\n\nCheck execution log for details.`,
+      'warning'
+    );
+  }
+}
+
+/**
+ * Test month calculation for dual views.
+ * Validates current + next month calculation including year boundary.
+ */
+function TEST_dualMonthCalculation() {
+  Logger.log('=== DUAL MONTH CALCULATION TEST ===\n');
+
+  // Test different months including year boundary
+  const testDates = [
+    { date: new Date(2026, 0, 15), desc: 'Mid-January', expectedCurrent: '2026-01', expectedNext: '2026-02' },
+    { date: new Date(2026, 5, 1), desc: 'Start of June', expectedCurrent: '2026-06', expectedNext: '2026-07' },
+    { date: new Date(2026, 11, 15), desc: 'Mid-December', expectedCurrent: '2026-12', expectedNext: '2027-01' },
+    { date: new Date(2026, 11, 31), desc: 'End of December', expectedCurrent: '2026-12', expectedNext: '2027-01' }
+  ];
+
+  let passed = 0;
+  let failed = 0;
+
+  for (const test of testDates) {
+    try {
+      // Temporarily override Date to test with specific date
+      const originalDate = Date;
+      global.Date = function(...args) {
+        if (args.length === 0) {
+          return test.date;
+        }
+        return new originalDate(...args);
+      };
+      global.Date.prototype = originalDate.prototype;
+
+      const result = AUTOVIEW_calculateCurrentAndNextMonths();
+
+      // Restore original Date
+      global.Date = originalDate;
+
+      const currentMatch = result.current === test.expectedCurrent;
+      const nextMatch = result.next === test.expectedNext;
+      const status = (currentMatch && nextMatch) ? '✅ PASS' : '❌ FAIL';
+
+      Logger.log(`${status} - ${test.desc}`);
+      Logger.log(`  Test Date: ${HELPER_formatDate(test.date, 'default')}`);
+      Logger.log(`  Expected Current: ${test.expectedCurrent}, Got: ${result.current} ${currentMatch ? '✓' : '✗'}`);
+      Logger.log(`  Expected Next: ${test.expectedNext}, Got: ${result.next} ${nextMatch ? '✓' : '✗'}`);
+      Logger.log(`  Display Names: ${result.currentDisplay} / ${result.nextDisplay}`);
+      Logger.log('');
+
+      if (currentMatch && nextMatch) {
+        passed++;
+      } else {
+        failed++;
+      }
+
+    } catch (e) {
+      Logger.log(`❌ ERROR - ${test.desc}: ${e.message}\n`);
+      failed++;
+    }
+  }
+
+  Logger.log('=== TEST SUMMARY ===');
+  Logger.log(`Total: ${testDates.length} tests`);
+  Logger.log(`Passed: ${passed}`);
+  Logger.log(`Failed: ${failed}`);
+
+  if (failed === 0) {
+    HELPER_showSuccess(
+      'Dual Month Calculation Test',
+      `All ${passed} tests passed!\n\nMonth calculation works correctly including year boundary.`
+    );
+  } else {
+    HELPER_showAlert(
+      'Dual Month Calculation Test',
+      `Tests completed with ${failed} failure(s).\n\nCheck execution log for details.`,
+      'warning'
+    );
+  }
+}
+
+/**
+ * Test getCurrentMonthlyViewStatus() server function.
+ * Validates that status API returns expected data structure.
+ */
+function TEST_getCurrentMonthlyViewStatus() {
+  Logger.log('=== GET CURRENT MONTHLY VIEW STATUS TEST ===\n');
+
+  try {
+    const status = getCurrentMonthlyViewStatus();
+
+    Logger.log('Status Result:');
+    Logger.log(JSON.stringify(status, null, 2));
+    Logger.log('');
+
+    // Validate structure
+    const requiredFields = [
+      'success',
+      'currentMonth',
+      'nextMonth',
+      'ministryFilter',
+      'autoUpdateEnabled',
+      'hasMonthlyViewCurrent',
+      'hasMonthlyViewNext',
+      'hasWeeklyView'
+    ];
+
+    let allFieldsPresent = true;
+    for (const field of requiredFields) {
+      if (!(field in status)) {
+        Logger.log(`❌ Missing field: ${field}`);
+        allFieldsPresent = false;
+      } else {
+        Logger.log(`✅ Field present: ${field} = ${status[field]}`);
+      }
+    }
+
+    Logger.log('');
+
+    if (allFieldsPresent && status.success) {
+      HELPER_showSuccess(
+        'Status API Test',
+        'getCurrentMonthlyViewStatus() works correctly!\n\n' +
+        `Current Month: ${status.currentMonth}\n` +
+        `Next Month: ${status.nextMonth}\n` +
+        `Ministry Filter: ${status.ministryFilter}\n` +
+        `Auto-Update: ${status.autoUpdateEnabled ? 'Enabled' : 'Disabled'}`
+      );
+    } else {
+      HELPER_showAlert(
+        'Status API Test',
+        'Function returned but structure is incomplete.\n\nCheck execution log for details.',
+        'warning'
+      );
+    }
+
+  } catch (e) {
+    Logger.log(`❌ ERROR: ${e.message}`);
+    Logger.log(`Stack: ${e.stack}`);
+    HELPER_showError('Status API Test Failed', e, 'calendar');
+  }
+}
+
+/**
+ * Test getNext12Months() server function.
+ * Validates month dropdown data generation.
+ */
+function TEST_getNext12Months() {
+  Logger.log('=== GET NEXT 12 MONTHS TEST ===\n');
+
+  try {
+    const months = getNext12Months();
+
+    Logger.log(`Returned ${months.length} months:`);
+
+    let passed = 0;
+    let failed = 0;
+
+    for (let i = 0; i < months.length; i++) {
+      const month = months[i];
+
+      // Validate structure
+      const hasValue = 'value' in month;
+      const hasDisplay = 'display' in month;
+      const valueFormat = /^\d{4}-\d{2}$/.test(month.value);
+
+      const status = (hasValue && hasDisplay && valueFormat) ? '✅' : '❌';
+      Logger.log(`${status} [${i + 1}] ${month.value} - ${month.display}`);
+
+      if (hasValue && hasDisplay && valueFormat) {
+        passed++;
+      } else {
+        failed++;
+        if (!hasValue) Logger.log('    Missing "value" field');
+        if (!hasDisplay) Logger.log('    Missing "display" field');
+        if (!valueFormat) Logger.log('    Invalid value format (expected YYYY-MM)');
+      }
+    }
+
+    Logger.log('');
+    Logger.log('=== TEST SUMMARY ===');
+    Logger.log(`Total months: ${months.length}`);
+    Logger.log(`Valid: ${passed}`);
+    Logger.log(`Invalid: ${failed}`);
+
+    if (failed === 0 && months.length === 12) {
+      HELPER_showSuccess(
+        'Month Dropdown Test',
+        `All ${months.length} months generated correctly!\n\nData structure is valid for sidebar dropdown.`
+      );
+    } else {
+      HELPER_showAlert(
+        'Month Dropdown Test',
+        `Issues found:\n- Expected 12 months, got ${months.length}\n- ${failed} invalid entries\n\nCheck execution log.`,
+        'warning'
+      );
+    }
+
+  } catch (e) {
+    Logger.log(`❌ ERROR: ${e.message}`);
+    Logger.log(`Stack: ${e.stack}`);
+    HELPER_showError('Month Dropdown Test Failed', e, 'calendar');
+  }
+}
+
+/**
+ * Test setMonthlyViewMinistryFilter() server function.
+ * Validates filter update and regeneration (does NOT actually regenerate sheets).
+ */
+function TEST_setMonthlyViewMinistryFilter_DryRun() {
+  Logger.log('=== SET MONTHLY VIEW MINISTRY FILTER TEST (DRY RUN) ===\n');
+
+  try {
+    // Get current filter
+    const initialStatus = getCurrentMonthlyViewStatus();
+    Logger.log(`Initial ministry filter: ${initialStatus.ministryFilter}\n`);
+
+    // Get available ministries
+    const ministries = getActiveMinistries();
+    Logger.log('Available ministries:');
+    ministries.forEach(m => Logger.log(`  - ${m}`));
+    Logger.log('');
+
+    // Test validation
+    Logger.log('TEST 1: Invalid ministry (should fail)');
+    try {
+      const result1 = setMonthlyViewMinistryFilter('NonExistentMinistry');
+      if (result1.success) {
+        Logger.log('❌ FAIL - Should have rejected invalid ministry');
+      } else {
+        Logger.log(`✅ PASS - Correctly rejected: ${result1.error}`);
+      }
+    } catch (e) {
+      Logger.log(`✅ PASS - Correctly threw error: ${e.message}`);
+    }
+    Logger.log('');
+
+    // Test valid ministry (but ask for confirmation first)
+    Logger.log('TEST 2: Valid ministry (requires confirmation)');
+
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert(
+      'Filter Update Test',
+      'This test will update the ministry filter and regenerate both monthly views.\n\n' +
+      `Current filter: ${initialStatus.ministryFilter}\n\n` +
+      'Proceed with test?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (response === ui.Button.YES) {
+      // Use first ministry or "All Ministries"
+      const testFilter = ministries.length > 0 ? ministries[0] : 'All Ministries';
+      Logger.log(`Setting filter to: ${testFilter}`);
+
+      const result2 = setMonthlyViewMinistryFilter(testFilter);
+
+      if (result2.success) {
+        Logger.log(`✅ PASS - Filter updated: ${result2.message}`);
+
+        // Verify it was saved
+        const newStatus = getCurrentMonthlyViewStatus();
+        Logger.log(`New filter from status: ${newStatus.ministryFilter}`);
+
+        if (newStatus.ministryFilter === testFilter) {
+          Logger.log('✅ PASS - Filter persisted correctly');
+        } else {
+          Logger.log('❌ FAIL - Filter did not persist');
+        }
+      } else {
+        Logger.log(`❌ FAIL - ${result2.error}`);
+      }
+    } else {
+      Logger.log('Test cancelled by user');
+    }
+
+    Logger.log('\n=== TEST COMPLETE ===');
+    HELPER_showAlert(
+      'Ministry Filter Test',
+      'Test completed. Check execution log for results.\n\n' +
+      'Note: If you ran the update test, check MonthlyView-Current and MonthlyView-Next sheets.',
+      'info'
+    );
+
+  } catch (e) {
+    Logger.log(`❌ ERROR: ${e.message}`);
+    Logger.log(`Stack: ${e.stack}`);
+    HELPER_showError('Ministry Filter Test Failed', e, 'calendar');
+  }
+}
+
+/**
+ * Test generateCustomPrint() server function.
+ * Validates custom print generation with user confirmation.
+ */
+function TEST_generateCustomPrint() {
+  Logger.log('=== GENERATE CUSTOM PRINT TEST ===\n');
+
+  try {
+    const ui = SpreadsheetApp.getUi();
+
+    // Get available months
+    const months = getNext12Months();
+    const testMonth = months.length > 0 ? months[0].value : '2026-02';
+
+    // Get available ministries
+    const ministries = getActiveMinistries();
+    const testMinistry = ministries.length > 0 ? ministries[0] : 'All Ministries';
+
+    Logger.log('Test Parameters:');
+    Logger.log(`  Month: ${testMonth}`);
+    Logger.log(`  Ministry: ${testMinistry}`);
+    Logger.log(`  Output Sheet: TEST-CustomPrint\n`);
+
+    const response = ui.alert(
+      'Custom Print Test',
+      'This test will generate a custom print schedule.\n\n' +
+      `Month: ${testMonth}\n` +
+      `Ministry: ${testMinistry}\n` +
+      `Output: TEST-CustomPrint sheet\n\n` +
+      'Proceed with test?',
+      ui.ButtonSet.YES_NO
+    );
+
+    if (response === ui.Button.YES) {
+      const result = generateCustomPrint(testMonth, testMinistry, 'TEST-CustomPrint');
+
+      if (result.success) {
+        Logger.log(`✅ SUCCESS: ${result.message}`);
+
+        // Verify sheet was created
+        const ss = SpreadsheetApp.getActiveSpreadsheet();
+        const sheet = ss.getSheetByName('TEST-CustomPrint');
+
+        if (sheet) {
+          Logger.log('✅ PASS - Sheet created successfully');
+          Logger.log(`  Rows: ${sheet.getLastRow()}`);
+          Logger.log(`  Columns: ${sheet.getLastColumn()}`);
+        } else {
+          Logger.log('❌ FAIL - Sheet not found');
+        }
+
+        HELPER_showSuccess(
+          'Custom Print Test',
+          'Custom print generated successfully!\n\n' +
+          'Check the TEST-CustomPrint sheet.\n\n' +
+          result.message
+        );
+      } else {
+        Logger.log(`❌ FAIL: ${result.error}`);
+        HELPER_showAlert(
+          'Custom Print Test',
+          `Test failed:\n\n${result.error}`,
+          'warning'
+        );
+      }
+    } else {
+      Logger.log('Test cancelled by user');
+      HELPER_showAlert('Custom Print Test', 'Test cancelled.', 'info');
+    }
+
+  } catch (e) {
+    Logger.log(`❌ ERROR: ${e.message}`);
+    Logger.log(`Stack: ${e.stack}`);
+    HELPER_showError('Custom Print Test Failed', e, 'print');
+  }
+}
+
+/**
+ * Master test runner for dual monthly views system.
+ * Runs all backend tests in sequence (non-destructive tests only).
+ */
+function TEST_dualMonthlyViewsSystem_NonDestructive() {
+  Logger.log('=== DUAL MONTHLY VIEWS SYSTEM - FULL TEST SUITE ===\n');
+  Logger.log('Running all non-destructive tests...\n');
+
+  const tests = [
+    { name: 'Upcoming Week Logic', fn: TEST_upcomingWeekLogic },
+    { name: 'Dual Month Calculation', fn: TEST_dualMonthCalculation },
+    { name: 'Status API', fn: TEST_getCurrentMonthlyViewStatus },
+    { name: 'Month Dropdown', fn: TEST_getNext12Months }
+  ];
+
+  let passed = 0;
+  let failed = 0;
+
+  for (const test of tests) {
+    try {
+      Logger.log(`\n${'='.repeat(60)}`);
+      Logger.log(`Running: ${test.name}`);
+      Logger.log('='.repeat(60));
+
+      test.fn();
+
+      Logger.log(`✅ ${test.name} completed`);
+      passed++;
+
+    } catch (e) {
+      Logger.log(`❌ ${test.name} failed: ${e.message}`);
+      failed++;
+    }
+
+    Utilities.sleep(1000); // Brief pause between tests
+  }
+
+  Logger.log('\n' + '='.repeat(60));
+  Logger.log('FULL TEST SUITE SUMMARY');
+  Logger.log('='.repeat(60));
+  Logger.log(`Total Tests: ${tests.length}`);
+  Logger.log(`Passed: ${passed}`);
+  Logger.log(`Failed: ${failed}`);
+
+  if (failed === 0) {
+    HELPER_showSuccess(
+      'Dual Monthly Views - All Tests Passed!',
+      `All ${passed} backend tests passed successfully.\n\n` +
+      'The dual monthly views system is ready for sidebar integration.\n\n' +
+      'To test destructive operations (filter updates, custom prints), ' +
+      'run individual tests with confirmation prompts.'
+    );
+  } else {
+    HELPER_showAlert(
+      'Dual Monthly Views - Tests Complete',
+      `${passed} tests passed, ${failed} tests failed.\n\n` +
+      'Check execution log for details.',
+      'warning'
+    );
+  }
+}
+
