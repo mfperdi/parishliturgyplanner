@@ -997,6 +997,9 @@
       });
 
       console.log(`Loaded ${ministries.length} ministries for filter dropdowns`);
+
+      // Update button states now that ministries are loaded
+      updateButtonStates();
     }
 
     function onMonthlyViewStatusLoaded(status) {
@@ -1010,6 +1013,9 @@
         persistentMinistryFilter.value = status.ministryFilter;
 
         console.log('Monthly view status loaded:', status);
+
+        // Update button states now that status is loaded
+        updateButtonStates();
       } else {
         console.error('Failed to load monthly view status:', status.error);
       }
