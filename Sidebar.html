@@ -862,10 +862,12 @@
     function updateButtonStates() {
       const hasCalendar = monthSelect.options.length > 1;
       const hasMonthSelected = monthSelect.value !== '';
-      
+
+      console.log('updateButtonStates called:', { hasCalendar, hasMonthSelected });
+
       // Month selection
       monthSelect.disabled = !hasCalendar;
-      
+
       // Scheduling phase buttons
       btnStep1.disabled = !hasCalendar || !hasMonthSelected;
       btnUpdateForm.disabled = !hasCalendar || !hasMonthSelected;
@@ -873,10 +875,14 @@
       btnStep2.disabled = !hasCalendar || !hasMonthSelected;
 
       // Step 9: Persistent Monthly Views (always enabled after calendar exists)
+      persistentMinistryFilter.disabled = !hasCalendar;
       btnUpdateFilter.disabled = !hasCalendar;
       btnRegeneratePersistent.disabled = !hasCalendar;
 
       // Step 10: Custom Print (requires month selection + sheet name)
+      customPrintMonth.disabled = !hasCalendar;
+      customPrintMinistry.disabled = !hasCalendar;
+      customPrintSheetName.disabled = !hasCalendar;
       const hasCustomPrintMonth = customPrintMonth.value !== '';
       const hasCustomPrintSheetName = customPrintSheetName.value.trim() !== '';
       btnCustomPrint.disabled = !hasCalendar || !hasCustomPrintMonth || !hasCustomPrintSheetName;
@@ -888,6 +894,7 @@
       btnDashboard.disabled = !hasCalendar || !hasMonthSelected;
 
       // Step 13: Publish buttons (require month selection)
+      publishMinistryFilter.disabled = !hasCalendar || !hasMonthSelected;
       btnPublishAll.disabled = !hasCalendar || !hasMonthSelected;
       const hasMinistrySelected = publishMinistryFilter.value !== '';
       btnPublishMinistry.disabled = !hasCalendar || !hasMonthSelected || !hasMinistrySelected;
