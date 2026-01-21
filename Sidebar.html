@@ -776,7 +776,6 @@
     // Phase content elements
     const phaseSetupContent = document.getElementById('phase-setup-content');
     const phaseSchedulingContent = document.getElementById('phase-scheduling-content');
-    const phaseAnalyticsContent = document.getElementById('phase-analytics-content');
     const phaseCompletionContent = document.getElementById('phase-completion-content');
     
     // Badge elements
@@ -838,21 +837,10 @@
       // Enable/disable phase content based on dependencies
       if (hasCalendar) {
         phaseSchedulingContent.classList.remove('disabled');
-
-        if (hasMonthSelected) {
-          // Enable analytics and completion phases when month is selected
-          phaseAnalyticsContent.classList.remove('disabled');
-          phaseCompletionContent.classList.remove('disabled');
-          updatePhaseProgress('scheduling');
-        } else {
-          // Disable analytics and completion if no month selected
-          phaseAnalyticsContent.classList.add('disabled');
-          phaseCompletionContent.classList.add('disabled');
-          updatePhaseProgress('scheduling');
-        }
+        phaseCompletionContent.classList.remove('disabled');
+        updatePhaseProgress('scheduling');
       } else {
         phaseSchedulingContent.classList.add('disabled');
-        phaseAnalyticsContent.classList.add('disabled');
         phaseCompletionContent.classList.add('disabled');
         updatePhaseProgress('setup');
       }
