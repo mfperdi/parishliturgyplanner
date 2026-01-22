@@ -63,15 +63,6 @@ function HELPER_FORMULAS_setup() {
       sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
     }
 
-    // Format columns
-    sheet.getRange(2, COL_QUALIFIED, lastRow - 1, 3).setHorizontalAlignment("center");
-    sheet.getRange(1, COL_QUALIFIED, 1, 3).setFontWeight("bold").setBackground("#f3f3f3");
-
-    // Auto-resize columns
-    sheet.autoResizeColumn(COL_QUALIFIED);
-    sheet.autoResizeColumn(COL_ACTIVE);
-    sheet.autoResizeColumn(COL_FREE);
-
     const rowCount = lastRow - 1;
     return `✓ Helper formulas added to ${rowCount} rows in Assignments sheet (columns N-P)`;
 
