@@ -78,6 +78,7 @@ function onOpen(e) {
           .addSeparator()
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
+          .addItem('Setup Assignment Helper Formulas', 'setupAssignmentHelperFormulas')
           .addItem('Format Assignment Checkboxes', 'setupAssignmentCheckboxes')
           .addSeparator()
           .addItem('Update Timeoff Form', 'promptUpdateTimeoffForm')
