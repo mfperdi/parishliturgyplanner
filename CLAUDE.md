@@ -760,16 +760,22 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
 - Checks for approved timeoff conflicts with proper blacklist/whitelist handling
 - Searches Timeoffs sheet for volunteer name (column B) and approved timeoffs (column G)
 - Checks TYPE column (column C) to distinguish between blacklist and whitelist
+- Checks SCHEDULING_PERIOD column (column F) to match timeoffs to assignment month
 - Returns:
   - ✓ if no timeoff conflicts (volunteer is available)
-  - ⚠️ BLACKLIST if volunteer has "I CANNOT serve these dates" containing this date
-  - ⚠️ NOT ON WHITELIST if volunteer has "I can ONLY serve these dates" but this date is NOT on it
+  - ⚠️ BLACKLIST if volunteer has "I CANNOT serve these dates" containing this date (for this period)
+  - ⚠️ NOT ON WHITELIST if volunteer has "I can ONLY serve these dates" but this date is NOT on it (for this period)
   - Blank if no volunteer assigned yet
 
 **Logic Flow**:
-1. **Check blacklist**: If volunteer has approved "I CANNOT serve these dates" AND this date appears in SELECTED_DATES → "⚠️ BLACKLIST"
-2. **Check whitelist**: If volunteer has approved "I can ONLY serve these dates" AND this date does NOT appear in SELECTED_DATES → "⚠️ NOT ON WHITELIST"
+1. **Check blacklist**: If volunteer has approved "I CANNOT serve these dates" for this period AND this date appears in SELECTED_DATES → "⚠️ BLACKLIST"
+2. **Check whitelist**: If volunteer has approved "I can ONLY serve these dates" for this period AND this date does NOT appear in SELECTED_DATES → "⚠️ NOT ON WHITELIST"
 3. **Otherwise**: "✓" (available)
+
+**Period Matching**:
+- Timeoffs are period-limited (e.g., "February 2026" in SCHEDULING_PERIOD column)
+- Formula only applies timeoffs where SCHEDULING_PERIOD matches the assignment date's month-year
+- Example: February 2026 whitelist won't affect March 2026 assignments
 
 **Note**: This is still a simplified check. It doesn't account for:
 - Vigil vs non-vigil mass type distinctions (e.g., "Saturday vigil only" in notes)
@@ -782,11 +788,12 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
   IF(SUMPRODUCT(
     (Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*
     (Timeoffs!C:C="I CANNOT serve these dates")*
+    (Timeoffs!F:F=TEXT(A2,"MMMM YYYY"))*
     (ISNUMBER(SEARCH(TEXT(A2,"M/D/YYYY"),Timeoffs!D:D)))
   )>0, "⚠️ BLACKLIST",
   IF(AND(
-    SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates"))>0,
-    SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(ISNUMBER(SEARCH(TEXT(A2,"M/D/YYYY"),Timeoffs!D:D))))=0
+    SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A2,"MMMM YYYY")))>0,
+    SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A2,"MMMM YYYY"))*(ISNUMBER(SEARCH(TEXT(A2,"M/D/YYYY"),Timeoffs!D:D))))=0
   ), "⚠️ NOT ON WHITELIST", "✓")))
 ```
 
@@ -1464,7 +1471,8 @@ The system includes comprehensive documentation to support deployment and testin
   - Column P (Free?): Checks for approved timeoff conflicts with blacklist/whitelist handling
     - "⚠️ BLACKLIST": Volunteer has "I CANNOT serve these dates" for this date
     - "⚠️ NOT ON WHITELIST": Volunteer has "I can ONLY serve these dates" but this date is not on it
-    - Properly handles both timeoff types for accurate availability checking
+    - Properly handles both timeoff types with SCHEDULING_PERIOD matching
+    - Period-limited: Only applies timeoffs where period matches assignment date's month-year
   - Formulas auto-update when volunteer name is entered in column L
   - Setup via Admin Tools → Setup Assignment Helper Formulas
   - Supports manual volunteer assignment workflow with real-time eligibility feedback

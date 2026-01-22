@@ -121,16 +121,19 @@ function buildActiveFormula(row) {
  *
  * Logic:
  * - If no volunteer assigned (L is blank) → return blank
- * - Check BLACKLIST: Count approved timeoffs where TYPE = "I CANNOT serve these dates" AND date appears in SELECTED_DATES
+ * - Check BLACKLIST: Count approved timeoffs where TYPE = "I CANNOT serve these dates"
+ *   AND date appears in SELECTED_DATES AND SCHEDULING_PERIOD matches
  *   - If found → return "⚠️ BLACKLIST"
  * - Check WHITELIST: Count approved timeoffs where TYPE = "I can ONLY serve these dates"
- *   - If whitelist exists AND date NOT in SELECTED_DATES → return "⚠️ NOT ON WHITELIST"
+ *   AND SCHEDULING_PERIOD matches
+ *   - If whitelist exists for this period AND date NOT in SELECTED_DATES → return "⚠️ NOT ON WHITELIST"
  * - Otherwise → return "✓"
  *
  * This properly handles:
- * - Blacklists: Warns when volunteer said they CANNOT serve this date
- * - Whitelists: Warns when volunteer has whitelist but this date is NOT on it
+ * - Blacklists: Warns when volunteer said they CANNOT serve this date (in this period)
+ * - Whitelists: Warns when volunteer has whitelist for this period but this date is NOT on it
  * - No timeoffs: Shows ✓ (available)
+ * - Period-limited whitelists: Only applies whitelist if SCHEDULING_PERIOD matches assignment date's month
  *
  * Note: This is still a simplified check for date matching. It doesn't account for:
  * - Vigil vs non-vigil mass type distinctions
@@ -140,25 +143,25 @@ function buildActiveFormula(row) {
  * @returns {string} Google Sheets formula
  */
 function buildFreeFormula(row) {
-  // Complex logic with three SUMPRODUCT checks:
-  // 1. Blacklist hit: TYPE = blacklist AND date in list
-  // 2. Whitelist exists: TYPE = whitelist (any)
-  // 3. Whitelist match: TYPE = whitelist AND date in list
+  // Complex logic with SUMPRODUCT checks that include SCHEDULING_PERIOD matching
+  // Timeoffs sheet column F contains SCHEDULING_PERIOD (e.g., "February 2026")
+  // Assignment date (column A) is converted to same format using TEXT(A, "MMMM YYYY")
 
   return `=IF(L${row}="", "", ` +
-    // Check 1: Blacklist conflict (date appears in "I CANNOT serve" list)
+    // Check 1: Blacklist conflict (date appears in "I CANNOT serve" list for this period)
     `IF(SUMPRODUCT(` +
       `(Timeoffs!B:B=L${row})*` +
       `(Timeoffs!G:G="Approved")*` +
       `(Timeoffs!C:C="I CANNOT serve these dates")*` +
+      `(Timeoffs!F:F=TEXT(A${row},"MMMM YYYY"))*` +  // SCHEDULING_PERIOD matches
       `(ISNUMBER(SEARCH(TEXT(A${row},"M/D/YYYY"),Timeoffs!D:D)))` +
     `)>0, "⚠️ BLACKLIST", ` +
-    // Check 2: Whitelist exists but date not on it
+    // Check 2: Whitelist exists for this period but date not on it
     `IF(AND(` +
-      // Has whitelist
-      `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates"))>0, ` +
+      // Has whitelist for this scheduling period
+      `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A${row},"MMMM YYYY")))>0, ` +
       // Date NOT in whitelist
-      `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(ISNUMBER(SEARCH(TEXT(A${row},"M/D/YYYY"),Timeoffs!D:D))))=0` +
+      `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A${row},"MMMM YYYY"))*(ISNUMBER(SEARCH(TEXT(A${row},"M/D/YYYY"),Timeoffs!D:D))))=0` +
     `), "⚠️ NOT ON WHITELIST", "✓")))`;
 }
 
