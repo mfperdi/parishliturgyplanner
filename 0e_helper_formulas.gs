@@ -126,32 +126,49 @@ function buildActiveFormula(row) {
 
 /**
  * Builds the "Free?" formula for a given row.
- * Checks for approved timeoff conflicts.
+ * Checks for approved timeoff conflicts with proper blacklist/whitelist handling.
  *
  * Logic:
  * - If no volunteer assigned (L is blank) → return blank
- * - Search Timeoffs sheet for approved timeoffs (status = "Approved")
- * - Check if volunteer name matches (column B in Timeoffs)
- * - Check if mass date (A) appears in SELECTED_DATES (column D in Timeoffs)
- * - If any approved timeoffs found containing this date → show warning
- * - Otherwise → show ✓
+ * - Check BLACKLIST: Count approved timeoffs where TYPE = "I CANNOT serve these dates" AND date appears in SELECTED_DATES
+ *   - If found → return "⚠️ BLACKLIST"
+ * - Check WHITELIST: Count approved timeoffs where TYPE = "I can ONLY serve these dates"
+ *   - If whitelist exists AND date NOT in SELECTED_DATES → return "⚠️ NOT ON WHITELIST"
+ * - Otherwise → return "✓"
  *
- * Note: This is a simplified check. Admin should manually verify:
- * - Whether it's a blacklist ("I CANNOT serve") or whitelist ("I can ONLY serve")
- * - Whether vigil vs non-vigil mass type matters
- * - Exact date matching and date range parsing
+ * This properly handles:
+ * - Blacklists: Warns when volunteer said they CANNOT serve this date
+ * - Whitelists: Warns when volunteer has whitelist but this date is NOT on it
+ * - No timeoffs: Shows ✓ (available)
+ *
+ * Note: This is still a simplified check for date matching. It doesn't account for:
+ * - Vigil vs non-vigil mass type distinctions
+ * - Date range parsing beyond exact string matching
  *
  * @param {number} row - Row number for the formula
  * @returns {string} Google Sheets formula
  */
 function buildFreeFormula(row) {
-  // Use SUMPRODUCT to count approved timeoffs that contain this date
+  // Complex logic with three SUMPRODUCT checks:
+  // 1. Blacklist hit: TYPE = blacklist AND date in list
+  // 2. Whitelist exists: TYPE = whitelist (any)
+  // 3. Whitelist match: TYPE = whitelist AND date in list
+
   return `=IF(L${row}="", "", ` +
+    // Check 1: Blacklist conflict (date appears in "I CANNOT serve" list)
     `IF(SUMPRODUCT(` +
-      `(Timeoffs!B:B=L${row})*` +  // Volunteer name matches
-      `(Timeoffs!G:G="Approved")*` +  // Status is Approved
-      `(ISNUMBER(SEARCH(TEXT(A${row},"M/D/YYYY"),Timeoffs!D:D)))` +  // Date appears in SELECTED_DATES
-    `)>0, "⚠️ CHECK TIMEOFFS", "✓"))`;
+      `(Timeoffs!B:B=L${row})*` +
+      `(Timeoffs!G:G="Approved")*` +
+      `(Timeoffs!C:C="I CANNOT serve these dates")*` +
+      `(ISNUMBER(SEARCH(TEXT(A${row},"M/D/YYYY"),Timeoffs!D:D)))` +
+    `)>0, "⚠️ BLACKLIST", ` +
+    // Check 2: Whitelist exists but date not on it
+    `IF(AND(` +
+      // Has whitelist
+      `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates"))>0, ` +
+      // Date NOT in whitelist
+      `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(ISNUMBER(SEARCH(TEXT(A${row},"M/D/YYYY"),Timeoffs!D:D))))=0` +
+    `), "⚠️ NOT ON WHITELIST", "✓")))`;
 }
 
 /**

@@ -757,28 +757,37 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
 ```
 
 **Column P: Free?** ✓/⚠️
-- Checks for approved timeoff conflicts
-- Searches Timeoffs sheet for volunteer name (column B)
-- Filters by STATUS = "Approved" (column G)
-- Checks if mass date (column A) appears in SELECTED_DATES (column D)
+- Checks for approved timeoff conflicts with proper blacklist/whitelist handling
+- Searches Timeoffs sheet for volunteer name (column B) and approved timeoffs (column G)
+- Checks TYPE column (column C) to distinguish between blacklist and whitelist
 - Returns:
-  - ✓ if no approved timeoffs found containing this date
-  - ⚠️ CHECK TIMEOFFS if approved timeoffs found
+  - ✓ if no timeoff conflicts (volunteer is available)
+  - ⚠️ BLACKLIST if volunteer has "I CANNOT serve these dates" containing this date
+  - ⚠️ NOT ON WHITELIST if volunteer has "I can ONLY serve these dates" but this date is NOT on it
   - Blank if no volunteer assigned yet
 
-**Note**: This is a **simplified check**. When you see "⚠️ CHECK TIMEOFFS", manually verify:
-- Is it a blacklist ("I CANNOT serve") or whitelist ("I can ONLY serve")?
-- Does vigil vs non-vigil mass type matter?
-- Does the date exactly match (not just similar dates)?
+**Logic Flow**:
+1. **Check blacklist**: If volunteer has approved "I CANNOT serve these dates" AND this date appears in SELECTED_DATES → "⚠️ BLACKLIST"
+2. **Check whitelist**: If volunteer has approved "I can ONLY serve these dates" AND this date does NOT appear in SELECTED_DATES → "⚠️ NOT ON WHITELIST"
+3. **Otherwise**: "✓" (available)
+
+**Note**: This is still a simplified check. It doesn't account for:
+- Vigil vs non-vigil mass type distinctions (e.g., "Saturday vigil only" in notes)
+- Date range parsing beyond exact string matching
+- When you see warnings, verify the actual timeoff details for context
 
 **Example Formula (Row 2)**:
 ```
 =IF(L2="", "",
   IF(SUMPRODUCT(
-    (Timeoffs!B:B=L2)*
-    (Timeoffs!G:G="Approved")*
+    (Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*
+    (Timeoffs!C:C="I CANNOT serve these dates")*
     (ISNUMBER(SEARCH(TEXT(A2,"M/D/YYYY"),Timeoffs!D:D)))
-  )>0, "⚠️ CHECK TIMEOFFS", "✓"))
+  )>0, "⚠️ BLACKLIST",
+  IF(AND(
+    SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates"))>0,
+    SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(ISNUMBER(SEARCH(TEXT(A2,"M/D/YYYY"),Timeoffs!D:D))))=0
+  ), "⚠️ NOT ON WHITELIST", "✓")))
 ```
 
 **How Formulas Auto-Update**:
@@ -805,7 +814,7 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
 2. **Re-run if formulas disappear**: Sometimes bulk operations can clear formula columns
 3. **Use with onEdit validation**: Formulas provide pre-assignment checks, onEdit provides post-assignment validation
 4. **Don't override errors without investigation**: ✗ and ⚠️ indicators mean real issues exist
-5. **Column P is a warning, not a blocker**: Always manually review timeoffs for context
+5. **Respect Column P warnings**: "⚠️ BLACKLIST" and "⚠️ NOT ON WHITELIST" indicate real timeoff conflicts (though you may still review for vigil/mass time nuances)
 
 **Complementary Systems**:
 - **Workflow 5b (onEdit validation)**: Post-assignment validation with override tracking
@@ -1452,7 +1461,10 @@ The system includes comprehensive documentation to support deployment and testin
   - Added pure Google Sheets formulas to Assignments sheet columns N-P
   - Column N (Qualified?): Checks if volunteer has required ministry/role from Ministries sheet
   - Column O (Active?): Checks if volunteer status is "Active"
-  - Column P (Free?): Checks for approved timeoff conflicts (simplified check with manual review prompt)
+  - Column P (Free?): Checks for approved timeoff conflicts with blacklist/whitelist handling
+    - "⚠️ BLACKLIST": Volunteer has "I CANNOT serve these dates" for this date
+    - "⚠️ NOT ON WHITELIST": Volunteer has "I can ONLY serve these dates" but this date is not on it
+    - Properly handles both timeoff types for accurate availability checking
   - Formulas auto-update when volunteer name is entered in column L
   - Setup via Admin Tools → Setup Assignment Helper Formulas
   - Supports manual volunteer assignment workflow with real-time eligibility feedback
