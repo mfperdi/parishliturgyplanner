@@ -725,13 +725,15 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
 - Returns:
   - ✓ if qualified (ministry OR role matches)
   - ✗ if not qualified (neither matches)
+  - Group if this is a group assignment (column J has a value)
   - ⚠️ NOT FOUND if volunteer doesn't exist
   - Blank if no volunteer assigned yet
 
 **Example Formula (Row 2)**:
 ```
 =IF(L2="", "",
-  IF(ISERROR(MATCH(L2, Volunteers!D:D, 0)), "⚠️ NOT FOUND",
+  IF(ISERROR(MATCH(L2, Volunteers!D:D, 0)),
+    IF(J2<>"", "Group", "⚠️ NOT FOUND"),
     IF(OR(
       NOT(ISERROR(SEARCH(E2, INDEX(Volunteers!J:J, MATCH(L2, Volunteers!D:D, 0))))),
       NOT(ISERROR(SEARCH(F2, INDEX(Volunteers!K:K, MATCH(L2, Volunteers!D:D, 0)))))
@@ -745,13 +747,15 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
 - Returns:
   - ✓ if status = "Active"
   - ⚠️ [STATUS] if not active (shows actual status like "Inactive", "Substitute Only")
+  - Group if this is a group assignment (column J has a value)
   - ⚠️ NOT FOUND if volunteer doesn't exist
   - Blank if no volunteer assigned yet
 
 **Example Formula (Row 2)**:
 ```
 =IF(L2="", "",
-  IF(ISERROR(MATCH(L2, Volunteers!D:D, 0)), "⚠️ NOT FOUND",
+  IF(ISERROR(MATCH(L2, Volunteers!D:D, 0)),
+    IF(J2<>"", "Group", "⚠️ NOT FOUND"),
     IF(INDEX(Volunteers!I:I, MATCH(L2, Volunteers!D:D, 0))="Active", "✓",
       "⚠️ " & INDEX(Volunteers!I:I, MATCH(L2, Volunteers!D:D, 0)))))
 ```
@@ -763,14 +767,16 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
 - Checks SCHEDULING_PERIOD column (column F) to match timeoffs to assignment month
 - Returns:
   - ✓ if no timeoff conflicts (volunteer is available)
+  - Group if this is a group assignment (column J has a value)
   - ⚠️ BLACKLIST if volunteer has "I CANNOT serve these dates" containing this date (for this period)
   - ⚠️ NOT ON WHITELIST if volunteer has "I can ONLY serve these dates" but this date is NOT on it (for this period)
   - Blank if no volunteer assigned yet
 
 **Logic Flow**:
-1. **Check blacklist**: If volunteer has approved "I CANNOT serve these dates" for this period AND this date appears in SELECTED_DATES → "⚠️ BLACKLIST"
-2. **Check whitelist**: If volunteer has approved "I can ONLY serve these dates" for this period AND this date does NOT appear in SELECTED_DATES → "⚠️ NOT ON WHITELIST"
-3. **Otherwise**: "✓" (available)
+1. **Check group assignment**: If J (Assigned Group) has a value → "Group" (group assignments don't have individual timeoffs)
+2. **Check blacklist**: If volunteer has approved "I CANNOT serve these dates" for this period AND this date appears in SELECTED_DATES → "⚠️ BLACKLIST"
+3. **Check whitelist**: If volunteer has approved "I can ONLY serve these dates" for this period AND this date does NOT appear in SELECTED_DATES → "⚠️ NOT ON WHITELIST"
+4. **Otherwise**: "✓" (available)
 
 **Period Matching**:
 - Timeoffs are period-limited (e.g., "February 2026" in SCHEDULING_PERIOD column)
@@ -785,16 +791,17 @@ The dashboard uses **pure Google Sheets formulas** that pull directly from sourc
 **Example Formula (Row 2)**:
 ```
 =IF(L2="", "",
-  IF(SUMPRODUCT(
-    (Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*
-    (Timeoffs!C:C="I CANNOT serve these dates")*
-    (Timeoffs!F:F=TEXT(A2,"MMMM YYYY"))*
-    (ISNUMBER(SEARCH(TEXT(A2,"M/D/YYYY"),Timeoffs!D:D)))
-  )>0, "⚠️ BLACKLIST",
-  IF(AND(
-    SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A2,"MMMM YYYY")))>0,
-    SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A2,"MMMM YYYY"))*(ISNUMBER(SEARCH(TEXT(A2,"M/D/YYYY"),Timeoffs!D:D))))=0
-  ), "⚠️ NOT ON WHITELIST", "✓")))
+  IF(J2<>"", "Group",
+    IF(SUMPRODUCT(
+      (Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*
+      (Timeoffs!C:C="I CANNOT serve these dates")*
+      (Timeoffs!F:F=TEXT(A2,"MMMM YYYY"))*
+      (ISNUMBER(SEARCH(TEXT(A2,"M/D/YYYY"),Timeoffs!D:D)))
+    )>0, "⚠️ BLACKLIST",
+    IF(AND(
+      SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A2,"MMMM YYYY")))>0,
+      SUMPRODUCT((Timeoffs!B:B=L2)*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A2,"MMMM YYYY"))*(ISNUMBER(SEARCH(TEXT(A2,"M/D/YYYY"),Timeoffs!D:D))))=0
+    ), "⚠️ NOT ON WHITELIST", "✓"))))
 ```
 
 **How Formulas Auto-Update**:

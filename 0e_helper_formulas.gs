@@ -79,6 +79,9 @@ function HELPER_FORMULAS_setup() {
  * Logic:
  * - If no volunteer assigned (L is blank) → return blank
  * - Find volunteer in Volunteers sheet by name (column D)
+ * - If not found in Volunteers sheet:
+ *   - Check if J (Assigned Group) has a value → return "Group"
+ *   - Otherwise → return "⚠️ NOT FOUND"
  * - Check if ministry (E) appears in volunteer's MINISTRIES (column J)
  * - OR check if role (F) appears in volunteer's ROLES (column K)
  * - Return ✓ if qualified, ✗ if not qualified
@@ -88,7 +91,8 @@ function HELPER_FORMULAS_setup() {
  */
 function buildQualifiedFormula(row) {
   return `=IF(L${row}="", "", ` +
-    `IF(ISERROR(MATCH(L${row}, Volunteers!D:D, 0)), "⚠️ NOT FOUND", ` +
+    `IF(ISERROR(MATCH(L${row}, Volunteers!D:D, 0)), ` +
+      `IF(J${row}<>"", "Group", "⚠️ NOT FOUND"), ` +
     `IF(OR(` +
       `NOT(ISERROR(SEARCH(E${row}, INDEX(Volunteers!J:J, MATCH(L${row}, Volunteers!D:D, 0))))), ` +
       `NOT(ISERROR(SEARCH(F${row}, INDEX(Volunteers!K:K, MATCH(L${row}, Volunteers!D:D, 0)))))` +
@@ -102,6 +106,9 @@ function buildQualifiedFormula(row) {
  * Logic:
  * - If no volunteer assigned (L is blank) → return blank
  * - Find volunteer in Volunteers sheet by name (column D)
+ * - If not found in Volunteers sheet:
+ *   - Check if J (Assigned Group) has a value → return "Group"
+ *   - Otherwise → return "⚠️ NOT FOUND"
  * - Get status from column I
  * - Return ✓ if "Active", otherwise show warning with actual status
  *
@@ -110,7 +117,8 @@ function buildQualifiedFormula(row) {
  */
 function buildActiveFormula(row) {
   return `=IF(L${row}="", "", ` +
-    `IF(ISERROR(MATCH(L${row}, Volunteers!D:D, 0)), "⚠️ NOT FOUND", ` +
+    `IF(ISERROR(MATCH(L${row}, Volunteers!D:D, 0)), ` +
+      `IF(J${row}<>"", "Group", "⚠️ NOT FOUND"), ` +
     `IF(INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Active", "✓", ` +
     `"⚠️ " & INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0)))))`;
 }
@@ -121,6 +129,7 @@ function buildActiveFormula(row) {
  *
  * Logic:
  * - If no volunteer assigned (L is blank) → return blank
+ * - If J (Assigned Group) has a value → return "Group" (group assignments don't have individual timeoffs)
  * - Check BLACKLIST: Count approved timeoffs where TYPE = "I CANNOT serve these dates"
  *   AND date appears in SELECTED_DATES AND SCHEDULING_PERIOD matches
  *   - If found → return "⚠️ BLACKLIST"
@@ -130,6 +139,7 @@ function buildActiveFormula(row) {
  * - Otherwise → return "✓"
  *
  * This properly handles:
+ * - Group assignments: Shows "Group" (no individual timeoff checking)
  * - Blacklists: Warns when volunteer said they CANNOT serve this date (in this period)
  * - Whitelists: Warns when volunteer has whitelist for this period but this date is NOT on it
  * - No timeoffs: Shows ✓ (available)
@@ -148,6 +158,7 @@ function buildFreeFormula(row) {
   // Assignment date (column A) is converted to same format using TEXT(A, "MMMM YYYY")
 
   return `=IF(L${row}="", "", ` +
+    `IF(J${row}<>"", "Group", ` +
     // Check 1: Blacklist conflict (date appears in "I CANNOT serve" list for this period)
     `IF(SUMPRODUCT(` +
       `(Timeoffs!B:B=L${row})*` +
@@ -162,7 +173,7 @@ function buildFreeFormula(row) {
       `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A${row},"MMMM YYYY")))>0, ` +
       // Date NOT in whitelist
       `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A${row},"MMMM YYYY"))*(ISNUMBER(SEARCH(TEXT(A${row},"M/D/YYYY"),Timeoffs!D:D))))=0` +
-    `), "⚠️ NOT ON WHITELIST", "✓")))`;
+    `), "⚠️ NOT ON WHITELIST", "✓"))))`;
 }
 
 /**
