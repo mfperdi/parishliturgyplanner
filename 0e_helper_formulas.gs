@@ -101,7 +101,7 @@ function buildQualifiedFormula(row) {
 
 /**
  * Builds the "Active?" formula for a given row.
- * Checks if volunteer status is "Active".
+ * Checks if volunteer status is appropriate for the assignment type.
  *
  * Logic:
  * - If no volunteer assigned (L is blank) → return blank
@@ -110,7 +110,12 @@ function buildQualifiedFormula(row) {
  *   - Check if J (Assigned Group) has a value → return "Group"
  *   - Otherwise → return "⚠️ NOT FOUND"
  * - Get status from column I
- * - Return ✓ if "Active", otherwise show warning with actual status
+ * - For GROUP assignments (J has value): Accept "Active" OR "Ministry Sponsor" → ✓
+ * - For INDIVIDUAL assignments (J is blank): Only "Active" → ✓
+ * - Otherwise show warning with actual status
+ *
+ * Ministry Sponsors lead their groups and are valid for group assignments,
+ * but should not be individually auto-assigned to non-group masses.
  *
  * @param {number} row - Row number for the formula
  * @returns {string} Google Sheets formula
@@ -119,8 +124,12 @@ function buildActiveFormula(row) {
   return `=IF(L${row}="", "", ` +
     `IF(ISERROR(MATCH(L${row}, Volunteers!D:D, 0)), ` +
       `IF(J${row}<>"", "Group", "⚠️ NOT FOUND"), ` +
-    `IF(INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Active", "✓", ` +
-    `"⚠️ " & INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0)))))`;
+    // Get the status
+    `IF(J${row}<>"", ` +
+      // Group assignment: Accept "Active" OR "Ministry Sponsor"
+      `IF(OR(INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Active", INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Ministry Sponsor"), "✓", "⚠️ " & INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))), ` +
+      // Individual assignment: Only "Active"
+      `IF(INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Active", "✓", "⚠️ " & INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))))))`;
 }
 
 /**
