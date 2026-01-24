@@ -145,34 +145,41 @@ function buildActiveFormula(row) {
  * - No timeoffs: Shows ✓ (available)
  * - Period-limited whitelists: Only applies whitelist if SCHEDULING_PERIOD matches assignment date's month
  *
- * Note: This is still a simplified check for date matching. It doesn't account for:
- * - Vigil vs non-vigil mass type distinctions
- * - Date range parsing beyond exact string matching
+ * Implementation Notes:
+ * - Uses COUNTIFS with wildcard matching ("*"&date&"*") instead of SEARCH in SUMPRODUCT
+ * - SEARCH inside SUMPRODUCT with column ranges is unreliable in Google Sheets
+ * - COUNTIFS properly handles text search across all rows and is more efficient
+ *
+ * Limitations:
+ * - Doesn't account for vigil vs non-vigil mass type distinctions (relies on notes field)
+ * - Uses simple substring matching for dates (good for standard M/D/YYYY format)
  *
  * @param {number} row - Row number for the formula
  * @returns {string} Google Sheets formula
  */
 function buildFreeFormula(row) {
-  // Complex logic with SUMPRODUCT checks that include SCHEDULING_PERIOD matching
+  // Complex logic with COUNTIFS checks that include SCHEDULING_PERIOD matching
   // Timeoffs sheet column F contains SCHEDULING_PERIOD (e.g., "February 2026")
   // Assignment date (column A) is converted to same format using TEXT(A, "MMMM YYYY")
+  //
+  // FIXED: Replaced SUMPRODUCT+SEARCH (unreliable with column ranges) with COUNTIFS+wildcards
 
   return `=IF(L${row}="", "", ` +
     `IF(J${row}<>"", "Group", ` +
     // Check 1: Blacklist conflict (date appears in "I CANNOT serve" list for this period)
-    `IF(SUMPRODUCT(` +
-      `(Timeoffs!B:B=L${row})*` +
-      `(Timeoffs!G:G="Approved")*` +
-      `(Timeoffs!C:C="I CANNOT serve these dates")*` +
-      `(Timeoffs!F:F=TEXT(A${row},"MMMM YYYY"))*` +  // SCHEDULING_PERIOD matches
-      `(ISNUMBER(SEARCH(TEXT(A${row},"M/D/YYYY"),Timeoffs!D:D)))` +
+    `IF(COUNTIFS(` +
+      `Timeoffs!B:B,L${row},` +
+      `Timeoffs!G:G,"Approved",` +
+      `Timeoffs!C:C,"I CANNOT serve these dates",` +
+      `Timeoffs!F:F,TEXT(A${row},"MMMM YYYY"),` +  // SCHEDULING_PERIOD matches
+      `Timeoffs!D:D,"*"&TEXT(A${row},"M/D/YYYY")&"*"` +  // Date found using wildcard
     `)>0, "⚠️ BLACKLIST", ` +
     // Check 2: Whitelist exists for this period but date not on it
     `IF(AND(` +
       // Has whitelist for this scheduling period
-      `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A${row},"MMMM YYYY")))>0, ` +
-      // Date NOT in whitelist
-      `SUMPRODUCT((Timeoffs!B:B=L${row})*(Timeoffs!G:G="Approved")*(Timeoffs!C:C="I can ONLY serve these dates")*(Timeoffs!F:F=TEXT(A${row},"MMMM YYYY"))*(ISNUMBER(SEARCH(TEXT(A${row},"M/D/YYYY"),Timeoffs!D:D))))=0` +
+      `COUNTIFS(Timeoffs!B:B,L${row},Timeoffs!G:G,"Approved",Timeoffs!C:C,"I can ONLY serve these dates",Timeoffs!F:F,TEXT(A${row},"MMMM YYYY"))>0, ` +
+      // Date NOT in whitelist (using wildcard match)
+      `COUNTIFS(Timeoffs!B:B,L${row},Timeoffs!G:G,"Approved",Timeoffs!C:C,"I can ONLY serve these dates",Timeoffs!F:F,TEXT(A${row},"MMMM YYYY"),Timeoffs!D:D,"*"&TEXT(A${row},"M/D/YYYY")&"*")=0` +
     `), "⚠️ NOT ON WHITELIST", "✓"))))`;
 }
 
