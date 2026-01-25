@@ -101,7 +101,7 @@ function buildQualifiedFormula(row) {
 
 /**
  * Builds the "Active?" formula for a given row.
- * Checks if volunteer status is appropriate for the assignment type.
+ * Checks if volunteer status is appropriate for manual assignment.
  *
  * Logic:
  * - If no volunteer assigned (L is blank) → return blank
@@ -110,12 +110,15 @@ function buildQualifiedFormula(row) {
  *   - Check if J (Assigned Group) has a value → return "Group"
  *   - Otherwise → return "⚠️ NOT FOUND"
  * - Get status from column I
- * - For GROUP assignments (J has value): Accept "Active" OR "Ministry Sponsor" → ✓
- * - For INDIVIDUAL assignments (J is blank): Only "Active" → ✓
+ * - For GROUP assignments (J has value): Accept "Active", "Substitute Only", OR "Ministry Sponsor" → ✓
+ * - For INDIVIDUAL assignments (J is blank): Accept "Active" OR "Substitute Only" → ✓
  * - Otherwise show warning with actual status
  *
- * Ministry Sponsors lead their groups and are valid for group assignments,
- * but should not be individually auto-assigned to non-group masses.
+ * Rationale:
+ * - "Active" volunteers are the default, always okay for any assignment
+ * - "Substitute Only" volunteers are designed for manual assignment (their intended workflow)
+ * - "Ministry Sponsor" volunteers are okay for group assignments (leading their groups)
+ * - "Inactive" and "Parent/Guardian" should show warnings (likely unintended assignments)
  *
  * @param {number} row - Row number for the formula
  * @returns {string} Google Sheets formula
@@ -126,10 +129,10 @@ function buildActiveFormula(row) {
       `IF(J${row}<>"", "Group", "⚠️ NOT FOUND"), ` +
     // Get the status
     `IF(J${row}<>"", ` +
-      // Group assignment: Accept "Active" OR "Ministry Sponsor"
-      `IF(OR(INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Active", INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Ministry Sponsor"), "✓", "⚠️ " & INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))), ` +
-      // Individual assignment: Only "Active"
-      `IF(INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Active", "✓", "⚠️ " & INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))))))`;
+      // Group assignment: Accept "Active", "Substitute Only", OR "Ministry Sponsor"
+      `IF(OR(INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Active", INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Substitute Only", INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Ministry Sponsor"), "✓", "⚠️ " & INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))), ` +
+      // Individual assignment: Accept "Active" OR "Substitute Only"
+      `IF(OR(INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Active", INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))="Substitute Only"), "✓", "⚠️ " & INDEX(Volunteers!I:I, MATCH(L${row}, Volunteers!D:D, 0))))))`;
 }
 
 /**
