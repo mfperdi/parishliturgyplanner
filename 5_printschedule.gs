@@ -2158,6 +2158,168 @@ function formatTimeDisplay(time) {
 }
 
 
+// =============================================================================
+// PLAIN TEXT SCHEDULE FOR EMAIL COPY-PASTE
+// =============================================================================
+
+/**
+ * Generate plain text schedule for easy email copy-paste.
+ * Returns formatted text string that can be copied directly into email.
+ *
+ * @param {object} options - Configuration options
+ * @param {string} options.weekRange - Week range ('current', 'next', '2weeks', etc.)
+ * @param {Array} options.ministryFilter - Ministry names to filter
+ * @returns {object} { text: string, weekString: string }
+ */
+function generateScheduleEmailText(options = {}) {
+  try {
+    // Calculate week boundaries
+    let weekBounds;
+    const weekRange = options.weekRange || null;
+
+    if (weekRange) {
+      weekBounds = HELPER_getWeekRangeBounds(weekRange);
+    } else {
+      // Default to smart "upcoming week" for Monday email workflow
+      weekBounds = HELPER_getUpcomingWeekBounds();
+    }
+
+    const { startDate, endDate, weekString } = weekBounds;
+    Logger.log(`Generating email text for: ${weekString}`);
+
+    // Build config
+    const config = {
+      ministryFilter: options.ministryFilter || null
+    };
+
+    // Build schedule data
+    const scheduleData = buildWeeklyScheduleData(startDate, endDate, config);
+
+    // Handle extended range if vigil spillover detected
+    let finalWeekString = weekString;
+    if (scheduleData.rangeExtended) {
+      finalWeekString = HELPER_getWeekString(scheduleData.weekStart, scheduleData.weekEnd);
+    }
+
+    // Get parish config
+    let parishName = 'Parish';
+    let ministryName = 'Ministry';
+    try {
+      const configData = HELPER_readConfigSafe();
+      parishName = configData['Parish Name'] || parishName;
+      ministryName = configData['Ministry Name'] || ministryName;
+    } catch (e) {
+      Logger.log(`Could not read config: ${e.message}`);
+    }
+
+    // Build plain text output
+    const lines = [];
+
+    // Header
+    lines.push(`${parishName} - ${ministryName}`);
+    lines.push(finalWeekString);
+    lines.push('');
+
+    if (!scheduleData.assignments || scheduleData.assignments.length === 0) {
+      lines.push('No assignments found for this week.');
+      return { text: lines.join('\n'), weekString: finalWeekString };
+    }
+
+    // Group by liturgical celebration
+    const assignmentsByCelebration = new Map();
+    for (const assignment of scheduleData.assignments) {
+      const celebration = assignment.liturgicalCelebration || 'Other Masses';
+      if (!assignmentsByCelebration.has(celebration)) {
+        assignmentsByCelebration.set(celebration, []);
+      }
+      assignmentsByCelebration.get(celebration).push(assignment);
+    }
+
+    // Sort celebrations chronologically
+    const sortedCelebrations = Array.from(assignmentsByCelebration.keys()).sort((a, b) => {
+      const aFirstDate = assignmentsByCelebration.get(a)[0].date.getTime();
+      const bFirstDate = assignmentsByCelebration.get(b)[0].date.getTime();
+      return aFirstDate - bFirstDate;
+    });
+
+    // Process each celebration
+    for (const celebration of sortedCelebrations) {
+      const celebrationAssignments = assignmentsByCelebration.get(celebration);
+
+      // Celebration header
+      lines.push(celebration);
+      lines.push('-'.repeat(Math.min(celebration.length, 50)));
+
+      // Group by Mass
+      const massesByDateTime = new Map();
+      for (const assignment of celebrationAssignments) {
+        const massKey = `${assignment.date.getTime()}_${assignment.time}_${assignment.eventId || ''}`;
+        if (!massesByDateTime.has(massKey)) {
+          massesByDateTime.set(massKey, {
+            date: assignment.date,
+            time: assignment.time,
+            description: assignment.massName,
+            isAnticipated: assignment.isAnticipated,
+            assignments: []
+          });
+        }
+        massesByDateTime.get(massKey).assignments.push(assignment);
+      }
+
+      // Sort masses chronologically
+      const masses = Array.from(massesByDateTime.values()).sort((a, b) => {
+        if (a.date.getTime() !== b.date.getTime()) {
+          return a.date.getTime() - b.date.getTime();
+        }
+        if (a.time instanceof Date && b.time instanceof Date) {
+          return a.time.getTime() - b.time.getTime();
+        }
+        return 0;
+      });
+
+      // Output each Mass
+      for (const mass of masses) {
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayName = dayNames[mass.date.getDay()];
+        const dateStr = HELPER_formatDate(mass.date, 'default');
+        const timeStr = formatTimeDisplay(mass.time);
+        const massType = mass.isAnticipated ? ' (Vigil)' : '';
+
+        lines.push('');
+        lines.push(`${dayName} ${dateStr} - ${timeStr}${massType}`);
+
+        // Sort assignments by role
+        mass.assignments.sort((a, b) => a.role.localeCompare(b.role));
+
+        for (const assignment of mass.assignments) {
+          const volunteerName = assignment.assignedVolunteerName || 'UNASSIGNED';
+          lines.push(`  ${assignment.role}: ${volunteerName}`);
+        }
+      }
+
+      lines.push('');
+    }
+
+    return { text: lines.join('\n'), weekString: finalWeekString };
+
+  } catch (e) {
+    Logger.log(`ERROR in generateScheduleEmailText: ${e.message}`);
+    throw new Error(`Could not generate email text: ${e.message}`);
+  }
+}
+
+/**
+ * Server function for sidebar - generates email-ready schedule text.
+ * Called via google.script.run from sidebar.
+ *
+ * @param {object} options - Options passed from sidebar
+ * @returns {object} { text: string, weekString: string }
+ */
+function getScheduleForEmailCopy(options = {}) {
+  return generateScheduleEmailText(options);
+}
+
+
 /**
  * Apply email-friendly formatting to weekly schedule sheet.
  * Single column format for easy copy-paste.
