@@ -1353,11 +1353,14 @@ function HELPER_getWeekRangeBounds(weekRange = 'current', referenceDate = new Da
 /**
  * Calculate "upcoming week" bounds for Monday email workflow (Option A logic).
  * Smart logic that determines which week to show based on the current day:
- * - Sunday-Wednesday: Show current week (Mon-Sun containing today)
- * - Thursday-Saturday: Show next week (upcoming Mon-Sun)
+ * - Monday-Wednesday: Show current week (the week you're currently in)
+ * - Thursday-Sunday: Show next week (prep for Monday email)
  *
- * This gives the user flexibility to prepare the email on Monday morning or Sunday evening,
- * while keeping it focused on the relevant upcoming week.
+ * This is optimized for the Monday email workflow:
+ * - Sunday: You're prepping for tomorrow's Monday email → show next week
+ * - Monday: You're sending today's email → show this week
+ * - Tue-Wed: Late reminder for this week → show this week
+ * - Thu-Sat: Past mid-week, prep for next Monday → show next week
  *
  * @param {Date} referenceDate - Reference date (default: today)
  * @returns {object} { startDate, endDate, weekString }
@@ -1367,9 +1370,9 @@ function HELPER_getWeekRangeBounds(weekRange = 'current', referenceDate = new Da
  * HELPER_getUpcomingWeekBounds()
  * // Returns: Week of January 13-19, 2026 (current week)
  *
- * // If today is Thursday Jan 16, 2026:
+ * // If today is Sunday Jan 19, 2026:
  * HELPER_getUpcomingWeekBounds()
- * // Returns: Week of January 20-26, 2026 (next week)
+ * // Returns: Week of January 20-26, 2026 (next week, for Monday email)
  */
 function HELPER_getUpcomingWeekBounds(referenceDate = new Date()) {
   try {
@@ -1377,9 +1380,9 @@ function HELPER_getUpcomingWeekBounds(referenceDate = new Date()) {
     const dayOfWeek = referenceDate.getDay();
 
     // Determine which week to show
-    // Sunday (0), Monday (1), Tuesday (2), Wednesday (3) → current week
-    // Thursday (4), Friday (5), Saturday (6) → next week
-    const useNextWeek = dayOfWeek >= 4 && dayOfWeek <= 6;
+    // Monday (1), Tuesday (2), Wednesday (3) → current week
+    // Sunday (0), Thursday (4), Friday (5), Saturday (6) → next week
+    const useNextWeek = dayOfWeek === 0 || (dayOfWeek >= 4 && dayOfWeek <= 6);
 
     if (useNextWeek) {
       // Calculate next week (7 days from today, then get that week's bounds)
