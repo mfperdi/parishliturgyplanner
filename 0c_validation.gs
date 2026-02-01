@@ -92,11 +92,17 @@ function VALIDATE_config() {
     }
 
     // Recommended: Calendar Region
-    const validRegions = ["General Roman Calendar", "USA", "Canada", "Mexico", "Diocese of Sacramento"];
+    const validRegions = ["General Roman Calendar", "USA", "Canada", "Mexico"];
     if (!config["Calendar Region"]) {
       results.warnings.push("Config: 'Calendar Region' not set (defaulting to General Roman Calendar)");
     } else if (!validRegions.includes(config["Calendar Region"])) {
       results.warnings.push(`Config: '${config["Calendar Region"]}' is not a standard region. Valid: ${validRegions.join(', ')}`);
+    }
+
+    // Optional: Diocese (for diocese-specific celebrations)
+    if (config["Diocese"]) {
+      results.info = results.info || [];
+      results.info.push(`Config: Diocese set to '${config["Diocese"]}'`);
     }
 
   } catch (e) {

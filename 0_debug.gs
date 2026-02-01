@@ -65,14 +65,16 @@ function DEBUG_testCalendarGeneration() {
     
     const scheduleYear = config["Year to Schedule"];
     const calendarRegion = config["Calendar Region"];
-    
+    const diocese = config["Diocese"];
+
     if (!scheduleYear) {
       Logger.log("ERROR: 'Year to Schedule' not found in Config!");
       return;
     }
     Logger.log(`✓ Year to Schedule: ${scheduleYear}`);
     Logger.log(`✓ Calendar Region: ${calendarRegion || "Not set"}`);
-    
+    Logger.log(`✓ Diocese: ${diocese || "Not set"}`);
+
     // 3. Test Date Calculations
     Logger.log("\n--- Step 3: Testing Date Calculations ---");
     const dates = CALENDAR_calculateLiturgicalDates(scheduleYear, config);
@@ -95,7 +97,7 @@ function DEBUG_testCalendarGeneration() {
     Logger.log("\n--- Step 5: Testing Saint Map ---");
     const saintsData = HELPER_readSheetData(CONSTANTS.SHEETS.SAINTS_CALENDAR);
     Logger.log(`Saints data rows: ${saintsData.length}`);
-    const saintMap = CALENDAR_buildSaintMap(saintsData, calendarRegion);
+    const saintMap = CALENDAR_buildSaintMap(saintsData, calendarRegion, diocese);
     Logger.log(`Saint map size: ${saintMap.size}`);
     if (saintMap.size > 0) {
       Logger.log("Sample saint: " + JSON.stringify(Array.from(saintMap.entries())[0]));

@@ -215,5 +215,34 @@ const CONSTANTS = {
 
     // Archive metadata
     METADATA_SHEET_NAME: 'Archive_Info'
+  },
+
+  // 7. Scoring Algorithm Constants
+  // Used in HELPER_calculateVolunteerScore() in 0b_helper.gs
+  SCORING: {
+    BASE_SCORE: 100,                      // Starting score for all volunteers
+    FREQUENCY_PENALTY: 25,                // Penalty per previous assignment this month
+    MASS_PREFERENCE_BONUS: 20,            // Bonus for preferred mass time
+    MASS_ROTATION_PENALTY: 3,             // Reduction per repeat at same mass (min 5 bonus)
+    MASS_PREFERENCE_MIN: 5,               // Minimum mass preference bonus after rotation
+    ROLE_PREFERENCE_BONUS: 15,            // Bonus for preferred role
+    FAMILY_TEAM_BONUS: 25,                // Bonus if family member already assigned
+    LIMITED_AVAILABILITY_BONUS: 15,       // Bonus for whitelist volunteers
+    FLEXIBILITY_BONUS: 3,                 // Bonus for volunteers with no preferences
+    SPACING_PENALTY_SAME_WEEK: 30,        // Penalty for 0-6 days since last assignment
+    SPACING_PENALTY_RECENT: 15,           // Penalty for 7-13 days since last assignment
+    RANDOM_TIEBREAKER_RANGE: 6            // Random range (±3 points)
+  },
+
+  // 8. Cache Configuration
+  CACHE: {
+    EXPIRY_MS: 5 * 60 * 1000,             // Cache expiration (5 minutes)
+    MAX_LOGO_HEIGHT: 300                  // Maximum logo height in pixels
+  },
+
+  // 9. Validation Sample Sizes
+  SAMPLE: {
+    VALIDATION_ROWS: 10,                  // Number of rows to sample for validation
+    MAX_DIAGNOSTIC_ENTRIES: 50            // Max entries to show in diagnostic reports
   }
 };
