@@ -74,7 +74,9 @@ The system uses multiple interconnected sheets within a single spreadsheet:
 **Config** - System settings
 - `Setting` (Column A): Setting name
 - `Value` (Column B): Setting value
-- Key settings: `Year to Schedule`, `Calendar Region`, `Parish Name`, `Ministry Name`, `Ministry Coordinator`
+- Key settings: `Year to Schedule`, `Calendar Region`, `Diocese`, `Parish Name`, `Ministry Name`, `Ministry Coordinator`
+- `Calendar Region`: Region for liturgical calendar (e.g., "USA", "Canada", "Mexico")
+- `Diocese`: Optional diocese-specific calendar (e.g., "Diocese of Sacramento") for including diocesan feast days from SaintsCalendar
 - `Parish Name`: Used in form titles (e.g., "St. Catherine of Siena")
 - `Ministry Name`: Used in form titles (e.g., "Word Ministry")
 - `Ministry Coordinator`: Contact person referenced in form help text and messages (e.g., "Word Ministry Coordinator")
@@ -282,15 +284,54 @@ Layer 3 (Yearly):
 - **Blacklist** (Not Available): Volunteer is excluded from assignment on specified dates
 - Whitelist takes precedence: if a whitelist exists for a volunteer, they must match the whitelist to be eligible
 
-**Volunteer Scoring Algorithm** (in `HELPER_calculateVolunteerScore()`):
-```javascript
-Base score: 100
-- Frequency penalty: -5 per previous assignment
-+ Mass preference match: +20
-+ Role preference match: +15
-+ Family team serving together: +25
-+ Flexibility (no preferences): +3
+**Volunteer Scoring Algorithm** (in `HELPER_calculateVolunteerScore()` in 0b_helper.gs):
+
+The scoring algorithm determines which volunteer gets assigned to a role. Higher score wins.
+
 ```
+Base score: 100
+
+PENALTIES (subtracted from score):
+  - Frequency penalty:       -25 points per previous assignment this month
+                             (ensures no volunteer serves more than 2-3 times)
+  - Spacing penalty:         -30 points if last assignment was 0-6 days ago
+                             -15 points if last assignment was 7-13 days ago
+                             (encourages 2+ week gaps between assignments)
+
+BONUSES (added to score):
+  + Mass preference match:   +20 points if this Mass is in volunteer's preferences
+                             (reduced by -3 per previous assignment to SAME mass,
+                              minimum +5 points - enables rotation between preferences)
+  + Role preference match:   +15 points if volunteer prefers this specific role
+  + Family team bonus:       +25 points if family member already assigned to this Mass
+                             (keeps families serving together)
+  + Limited availability:    +15 points if volunteer has whitelist for this date
+                             (prioritizes using volunteers during their limited windows)
+  + Flexibility bonus:       +3 points if volunteer has no preferences
+                             (easy-to-schedule volunteers get slight priority)
+  + Random tiebreaker:       ±3 points (range -3 to +3)
+                             (creates natural variation between otherwise-equal volunteers)
+```
+
+**Example Calculation**:
+```
+Volunteer "Mary" for Sunday 10am Mass, 2nd reading role:
+  Base:                  100
+  - 1 prior assignment:  -25  (she's served once this month)
+  + Mass preference:     +17  (prefers this mass, reduced from 20 because served it before)
+  + Role preference:     +15  (prefers 2nd reading)
+  + Family bonus:        +25  (husband already assigned to this Mass)
+  - Spacing:              -0  (last assignment was 16 days ago)
+  + Random:               +2  (tiebreaker)
+  TOTAL:                 134 points
+```
+
+**Key Design Decisions**:
+1. **Strong frequency penalty (-25)**: Prevents any volunteer from dominating assignments
+2. **Family bonus (+25)**: Highest bonus - prioritizes keeping families together
+3. **Mass rotation (-3 per repeat)**: Volunteers cycle through their preferred mass times
+4. **Spacing penalty (-30/-15)**: Ensures volunteers get adequate rest between assignments
+5. **Random tiebreaker (±3)**: Small enough not to override real preferences
 
 ### Workflow 4: Print Schedule Generation
 

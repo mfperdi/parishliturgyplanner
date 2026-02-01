@@ -76,8 +76,14 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
         liturgicalCelebration = nextDayLiturgy;
       } else {
         Logger.log(`WARNING: Could not find liturgy for next day ${nextDay.toDateString()} for anticipated Mass on ${mass.date.toDateString()}`);
-        const sundayOrdinal = Math.ceil(nextDay.getDate() / 7);
-        liturgicalCelebration = `${sundayOrdinal}${sundayOrdinal === 1 ? 'st' : sundayOrdinal === 2 ? 'nd' : sundayOrdinal === 3 ? 'rd' : 'th'} Sunday in Ordinary Time`;
+        // Generate fallback text - verify it's actually a Sunday before claiming it is
+        if (nextDay.getDay() === 0) { // 0 = Sunday
+          const sundayOrdinal = HELPER_getWeekdayOccurrenceInMonth(nextDay);
+          liturgicalCelebration = `${HELPER_getOrdinalSuffix(sundayOrdinal)} Sunday in Ordinary Time`;
+        } else {
+          // Not a Sunday - use the mass description as fallback
+          liturgicalCelebration = mass.description || 'Unknown Celebration';
+        }
       }
     } else {
       // Regular Mass uses the liturgy from the same day

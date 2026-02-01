@@ -19,7 +19,8 @@ function CALENDAR_generateLiturgicalCalendar() {
   const config = HELPER_readConfig();
   const scheduleYear = config["Year to Schedule"];
   const calendarRegion = config["Calendar Region"];
-  
+  const diocese = config["Diocese"]; // Optional diocese-specific calendar (e.g., "Diocese of Sacramento")
+
   const overrideData = HELPER_readSheetData(CONSTANTS.SHEETS.OVERRIDES);
   const saintsData = HELPER_readSheetData(CONSTANTS.SHEETS.SAINTS_CALENDAR);
   // 2. Calculate all critical (moveable) feast dates
@@ -27,7 +28,7 @@ function CALENDAR_generateLiturgicalCalendar() {
   const dates = CALENDAR_calculateLiturgicalDates(scheduleYear, config);
   // 3. Build lookup maps for overrides and saints
   const overrideMap = CALENDAR_buildOverrideMap(overrideData, scheduleYear);
-  const saintMap = CALENDAR_buildSaintMap(saintsData, calendarRegion);
+  const saintMap = CALENDAR_buildSaintMap(saintsData, calendarRegion, diocese);
   // 4. --- Main Generation Loop ---
   Logger.log(`Starting calendar generation for ${scheduleYear}...`);
   const newCalendarRows = [];
@@ -165,10 +166,11 @@ function CALENDAR_buildOverrideMap(overrideData, scheduleYear) {
  * Builds a Map of all saints and fixed feasts for the year.
  * @param {Array<Array<any>>} saintsData Data from 'SaintsCalendar' sheet.
  * @param {string} calendarRegion The region to filter by (e.g., "USA").
+ * @param {string} [diocese] Optional diocese to include (e.g., "Diocese of Sacramento").
  * @returns {Map<string, object>} A map where key is "M/D"
  * and value is { celebration, rank, color, season: 'Saints' }.
  */
-function CALENDAR_buildSaintMap(saintsData, calendarRegion) {
+function CALENDAR_buildSaintMap(saintsData, calendarRegion, diocese) {
   const map = new Map();
   const saintsCols = CONSTANTS.COLS.SAINTS_CALENDAR;
   for (const row of saintsData) {
@@ -183,11 +185,11 @@ function CALENDAR_buildSaintMap(saintsData, calendarRegion) {
 
     if (!month || !day || !celebration || !rank) continue;
     // Add the saint if they are "General Roman Calendar", match the user's region,
-    // or are explicitly for the Parish or Diocese.
-    if (calendarName === "General Roman Calendar" || 
-        calendarName === calendarRegion || 
-        calendarName === "Parish" || 
-        calendarName === "Diocese of Sacramento") { // This should be dynamic, but hardcoded for now
+    // match the user's diocese, or are explicitly for the Parish.
+    if (calendarName === "General Roman Calendar" ||
+        calendarName === calendarRegion ||
+        calendarName === "Parish" ||
+        (diocese && calendarName === diocese)) {
       
       const key = month + "/" + day;
       const newSaint = {

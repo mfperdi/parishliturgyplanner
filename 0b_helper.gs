@@ -9,14 +9,16 @@
  * Enhanced data reading with caching and error handling
  */
 const SHEET_CACHE = new Map();
-const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
+// Note: Cache expiry is defined in CONSTANTS.CACHE.EXPIRY_MS but we keep a local
+// constant here for initialization order (CONSTANTS may not be loaded yet)
 
 function HELPER_readSheetDataCached(sheetName, useCache = true) {
   const now = new Date().getTime();
-  
+  const cacheExpiry = CONSTANTS.CACHE ? CONSTANTS.CACHE.EXPIRY_MS : (5 * 60 * 1000);
+
   if (useCache && SHEET_CACHE.has(sheetName)) {
     const cached = SHEET_CACHE.get(sheetName);
-    if (now - cached.timestamp < CACHE_EXPIRY) {
+    if (now - cached.timestamp < cacheExpiry) {
       return cached.data;
     }
   }
@@ -105,6 +107,41 @@ function HELPER_formatTime(time) {
   }
   
   return String(time);
+}
+
+/**
+ * Get ordinal suffix for a number (1st, 2nd, 3rd, 4th, etc.)
+ * @param {number} n - The number
+ * @returns {string} The number with its ordinal suffix
+ */
+function HELPER_getOrdinalSuffix(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/**
+ * Calculate which occurrence of a weekday this date is within its month.
+ * For example, if date is the 2nd Tuesday of the month, returns 2.
+ * @param {Date} date - The date to check
+ * @returns {number} The occurrence number (1-5)
+ */
+function HELPER_getWeekdayOccurrenceInMonth(date) {
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+    return 0;
+  }
+
+  // Find the first occurrence of this weekday in the month
+  const dayOfWeek = date.getDay();
+  const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+  const firstDayOfWeek = firstOfMonth.getDay();
+
+  // Calculate day of first occurrence of this weekday
+  let firstOccurrence = dayOfWeek - firstDayOfWeek + 1;
+  if (firstOccurrence <= 0) firstOccurrence += 7;
+
+  // Calculate which occurrence this is
+  return Math.floor((date.getDate() - firstOccurrence) / 7) + 1;
 }
 
 /**
@@ -250,85 +287,81 @@ function HELPER_readPrintScheduleConfig() {
 /**
  * Consolidated volunteer scoring (extracted from assignment logic)
  * PERFORMANCE: Removed verbose logging (was generating thousands of log lines)
+ *
+ * Uses CONSTANTS.SCORING for all scoring weights - see 0a_constants.gs
  */
 function HELPER_calculateVolunteerScore(volunteer, roleToFill, eventId, assignmentCounts, massAssignments, volunteers, date, timeoffMaps) {
-  let score = 100; // Base score
+  const S = CONSTANTS.SCORING;  // Shorthand for readability
+  let score = S.BASE_SCORE;
   const counts = assignmentCounts.get(volunteer.id) || { total: 0, recent: new Date(0), byEventId: {} };
   const roleLower = roleToFill.toLowerCase();
 
-  // Frequency penalty: -25 points per previous assignment
-  // Stronger penalty ensures better rotation (max 2 assignments per volunteer per month)
-  const frequencyPenalty = counts.total * 25;
+  // Frequency penalty: stronger penalty ensures better rotation (max 2 assignments per month)
+  const frequencyPenalty = counts.total * S.FREQUENCY_PENALTY;
   score -= frequencyPenalty;
 
   // Mass preference bonus with rotation: favor least-used preferred masses
   if (eventId && volunteer.massPrefs.includes(eventId)) {
-    // Base bonus for preferred mass
-    let massBonus = 20;
+    let massBonus = S.MASS_PREFERENCE_BONUS;
 
     // Rotation logic: reduce bonus for frequently-used preferred masses
     if (counts.byEventId && counts.byEventId[eventId]) {
       const timesAtThisMass = counts.byEventId[eventId];
-      const rotationPenalty = timesAtThisMass * 3; // -3 per previous assignment to this mass
-      massBonus = Math.max(5, massBonus - rotationPenalty); // Min 5 points, max 20
+      const rotationPenalty = timesAtThisMass * S.MASS_ROTATION_PENALTY;
+      massBonus = Math.max(S.MASS_PREFERENCE_MIN, massBonus - rotationPenalty);
     }
 
     score += massBonus;
   }
 
-  // Role preference bonus: +15 points if volunteer prefers this role
+  // Role preference bonus
   if (volunteer.rolePrefs.includes(roleLower)) {
-    score += 15;
+    score += S.ROLE_PREFERENCE_BONUS;
   }
 
-  // Family team bonus: +25 points if family member already assigned to this Mass
+  // Family team bonus: if family member already assigned to this Mass
   if (volunteer.familyTeam && massAssignments) {
     for (const [assignedVolId, assignedRole] of massAssignments) {
       const assignedVol = volunteers.get(assignedVolId);
       if (assignedVol && assignedVol.familyTeam === volunteer.familyTeam) {
-        score += 25;
+        score += S.FAMILY_TEAM_BONUS;
         break;
       }
     }
   }
 
-  // Limited availability bonus: +15 points if volunteer is on whitelist for this date
-  // This prioritizes volunteers who said "I can ONLY serve these dates"
+  // Limited availability bonus: prioritize volunteers on whitelist for this date
   // Rationale: If they have limited availability, use them when they're available!
   if (timeoffMaps && timeoffMaps.whitelist && date) {
     if (timeoffMaps.whitelist.has(volunteer.name)) {
       const whitelistMap = timeoffMaps.whitelist.get(volunteer.name);
       const dateString = date.toDateString();
       if (whitelistMap.has(dateString)) {
-        score += 15;
+        score += S.LIMITED_AVAILABILITY_BONUS;
       }
     }
   }
 
-  // Flexibility bonus: +3 points for volunteers with no preferences (easy to schedule)
+  // Flexibility bonus: easy-to-schedule volunteers with no preferences
   if (volunteer.massPrefs.length === 0 && volunteer.rolePrefs.length === 0) {
-    score += 3;
+    score += S.FLEXIBILITY_BONUS;
   }
 
   // Spacing penalty: discourage consecutive week assignments
-  // Prefer volunteers who haven't served recently for better temporal distribution
   if (date && counts.recent && counts.recent.getTime() > 0) {
     const daysSinceLastAssignment = Math.floor((date.getTime() - counts.recent.getTime()) / (1000 * 60 * 60 * 24));
 
     if (daysSinceLastAssignment < 7) {
-      score -= 30; // Strong penalty for same/next week (0-6 days)
+      score -= S.SPACING_PENALTY_SAME_WEEK;  // Strong penalty for 0-6 days
     } else if (daysSinceLastAssignment < 14) {
-      score -= 15; // Mild penalty for 1-2 weeks (7-13 days)
+      score -= S.SPACING_PENALTY_RECENT;     // Mild penalty for 7-13 days
     }
     // No penalty for 14+ days (2+ weeks gap) - preferred spacing
   }
 
-  // Random tiebreaker: ±3 points to introduce variety between runs
-  // Ensures similar volunteers rotate naturally without overriding strong preferences
-  // Range is small enough to not override:
-  //   - Family bonus (+25), Mass preference (+20), Role preference (+15)
-  //   - But large enough to create natural rotation among similarly-qualified volunteers
-  const randomTiebreaker = (Math.random() * 6) - 3; // Range: -3 to +3
+  // Random tiebreaker: creates natural variation between otherwise-equal volunteers
+  // Range is small enough to not override real preferences
+  const randomTiebreaker = (Math.random() * S.RANDOM_TIEBREAKER_RANGE) - (S.RANDOM_TIEBREAKER_RANGE / 2);
   score += randomTiebreaker;
 
   return score;
