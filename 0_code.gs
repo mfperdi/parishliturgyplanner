@@ -101,6 +101,8 @@ function onOpen(e) {
               .addItem('Disable Auto-Update', 'disableAutoUpdateViews')
               .addItem('Auto-Update Status', 'showAutoUpdateViewsStatus'))
           .addSeparator()
+          .addItem('Web App Deployment Info', 'showWebAppDeploymentInfo')
+          .addSeparator()
           .addItem('Diagnose Assignment Issues', 'runAssignmentDiagnostic')
           .addItem('Find Duplicate Assignments', 'DIAGNOSTIC_findDuplicateAssignments')
           .addItem('Fix Month-Year Values', 'FIX_correctMonthYearValues')
@@ -820,6 +822,54 @@ function showDebugPanel() {
   }
 
   HELPER_showAlert('Debug Information', message, 'info');
+}
+
+/**
+ * Shows web app deployment information and troubleshooting tips.
+ * Accessed via: Admin Tools > Web App Deployment Info
+ */
+function showWebAppDeploymentInfo() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var scriptId = ScriptApp.getScriptId();
+
+  var message = 'WEB APP DEPLOYMENT GUIDE\n\n';
+
+  message += '━━━ CURRENT STATUS ━━━\n';
+  message += 'Script ID: ' + scriptId + '\n';
+  message += 'Spreadsheet: ' + ss.getName() + '\n\n';
+
+  message += '━━━ HOW TO DEPLOY ━━━\n';
+  message += '1. In Apps Script editor: Deploy > New deployment\n';
+  message += '2. Click the gear icon > Select "Web app"\n';
+  message += '3. Set "Execute as": Me (your account)\n';
+  message += '4. Set "Who has access": Anyone (or your org)\n';
+  message += '5. Click Deploy\n';
+  message += '6. Authorize when prompted\n';
+  message += '7. Copy the web app URL\n\n';
+
+  message += '━━━ AFTER CODE CHANGES ━━━\n';
+  message += 'You must create a NEW deployment version:\n';
+  message += '  Deploy > Manage deployments > Edit (pencil icon)\n';
+  message += '  Change "Version" to "New version"\n';
+  message += '  Click Deploy\n\n';
+
+  message += '━━━ TROUBLESHOOTING ━━━\n';
+  message += 'Blank page? Add ?debug=1 to your web app URL\n';
+  message += '  Example: https://script.google.com/.../exec?debug=1\n';
+  message += '  This shows a diagnostics page with system checks.\n\n';
+  message += 'Still blank? Open browser DevTools (F12) > Console\n';
+  message += '  Look for JavaScript errors from the React app.\n\n';
+  message += 'Access denied? Check "Who has access" setting.\n\n';
+  message += 'Old version? Deployments are versioned - pick latest.\n\n';
+
+  message += '━━━ REBUILD REACT APP ━━━\n';
+  message += 'If index.html is missing or outdated:\n';
+  message += '  cd web/\n';
+  message += '  npm install\n';
+  message += '  npm run bundle:deploy\n';
+  message += 'This rebuilds and copies files to the project root.\n';
+
+  HELPER_showAlert('Web App Deployment', message, 'info');
 }
 
 // =============================================================================
