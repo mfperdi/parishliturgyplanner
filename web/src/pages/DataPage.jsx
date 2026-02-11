@@ -5,6 +5,7 @@ import StatusMessage from '../components/shared/StatusMessage';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
 import DataTable from '../components/crud/DataTable';
 import RowForm from '../components/crud/RowForm';
+import SettingsForm from '../components/crud/SettingsForm';
 
 const headerStyle = {
   display: 'flex',
@@ -29,6 +30,32 @@ const addButtonStyle = {
   border: 'none',
   borderRadius: '6px',
   cursor: 'pointer',
+};
+
+const sheetTabsStyle = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '0',
+  borderBottom: '1px solid #ddd',
+  marginBottom: '20px',
+};
+
+const sheetTabStyle = {
+  padding: '8px 16px',
+  border: 'none',
+  background: 'none',
+  cursor: 'pointer',
+  fontSize: '13px',
+  fontWeight: '500',
+  color: '#666',
+  borderBottom: '2px solid transparent',
+  marginBottom: '-1px',
+};
+
+const sheetTabActiveStyle = {
+  ...sheetTabStyle,
+  color: '#1a73e8',
+  borderBottom: '2px solid #1a73e8',
 };
 
 export default function DataPage() {
@@ -57,7 +84,7 @@ export default function DataPage() {
       // Fetch options for columns with optionsFrom
       const optionsToFetch = sheetConfig.columns.filter((col) => col.optionsFrom);
       if (optionsToFetch.length > 0) {
-        const newOptions = { ...options };
+        const newOptions = {};
         for (const col of optionsToFetch) {
           try {
             const optResult = await gasClient('getSheetData', {
@@ -77,11 +104,15 @@ export default function DataPage() {
             // Handle 'also' property for fetching from multiple sheets
             if (col.optionsFrom.also) {
               for (const alsoSheet of col.optionsFrom.also) {
-                const alsoResult = await gasClient('getSheetData', { sheetName: alsoSheet });
-                const alsoValues = alsoResult.rows
-                  .map((row) => row[colIndex])
-                  .filter((val) => val !== null && val !== undefined && val !== '');
-                newOptions[col.key] = [...new Set([...newOptions[col.key], ...alsoValues])];
+                try {
+                  const alsoResult = await gasClient('getSheetData', { sheetName: alsoSheet });
+                  const alsoValues = alsoResult.rows
+                    .map((row) => row[colIndex])
+                    .filter((val) => val !== null && val !== undefined && val !== '');
+                  newOptions[col.key] = [...new Set([...newOptions[col.key], ...alsoValues])];
+                } catch (err) {
+                  console.error(`Failed to fetch also-options from ${alsoSheet}:`, err);
+                }
               }
             }
           } catch (err) {
@@ -89,15 +120,21 @@ export default function DataPage() {
           }
         }
         setOptions(newOptions);
+      } else {
+        setOptions({});
       }
     } catch (err) {
       setStatus('error');
       setStatusMessage(err.message || 'Failed to load data');
     }
-  }, [sheetConfig, options]);
+  }, [sheetConfig]);
 
   // Fetch data on mount and when activeSheet changes
   useEffect(() => {
+    // Reset form state when switching sheets
+    setFormOpen(false);
+    setEditingIndex(null);
+    setDeleteConfirm({ open: false, rowIndex: null });
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSheet]);
@@ -106,6 +143,11 @@ export default function DataPage() {
   const handleDismiss = () => {
     setStatus('idle');
     setStatusMessage('');
+  };
+
+  // Switch active sheet
+  const handleSheetChange = (sheetKey) => {
+    setActiveSheet(sheetKey);
   };
 
   // Open form for adding new row
@@ -136,14 +178,12 @@ export default function DataPage() {
     setStatus('loading');
     try {
       if (editingIndex === null) {
-        // Add new row
         await gasClient('addRow', {
           sheetName: sheetConfig.id,
           rowData: valuesArray,
         });
         setStatusMessage('Row added successfully');
       } else {
-        // Update existing row
         await gasClient('updateRow', {
           sheetName: sheetConfig.id,
           rowIndex: editingIndex,
@@ -154,11 +194,28 @@ export default function DataPage() {
       setStatus('success');
       setFormOpen(false);
       setEditingIndex(null);
-      // Re-fetch data
       fetchData();
     } catch (err) {
       setStatus('error');
       setStatusMessage(err.message || 'Failed to save');
+    }
+  };
+
+  // Save a settings row (Config sheet)
+  const handleSettingsSave = async (rowIndex, valuesArray) => {
+    setStatus('loading');
+    try {
+      await gasClient('updateRow', {
+        sheetName: sheetConfig.id,
+        rowIndex,
+        rowData: valuesArray,
+      });
+      setStatus('success');
+      setStatusMessage('Settings saved');
+      fetchData();
+    } catch (err) {
+      setStatus('error');
+      setStatusMessage(err.message || 'Failed to save settings');
     }
   };
 
@@ -173,7 +230,6 @@ export default function DataPage() {
       setStatus('success');
       setStatusMessage('Row deleted successfully');
       setDeleteConfirm({ open: false, rowIndex: null });
-      // Re-fetch data
       fetchData();
     } catch (err) {
       setStatus('error');
@@ -195,10 +251,23 @@ export default function DataPage() {
     return col;
   });
 
-  return (
-    <div>
-      <StatusMessage status={status} message={statusMessage} onDismiss={handleDismiss} />
+  // Render the settings view for Config sheet
+  const renderSettingsView = () => (
+    <>
+      <div style={headerStyle}>
+        <h2 style={titleStyle}>{sheetConfig.label}</h2>
+      </div>
+      <SettingsForm
+        columns={sheetConfig.columns}
+        rows={rows}
+        onSave={handleSettingsSave}
+      />
+    </>
+  );
 
+  // Render the table view for standard sheets
+  const renderTableView = () => (
+    <>
       {formOpen ? (
         <>
           <div style={headerStyle}>
@@ -230,6 +299,27 @@ export default function DataPage() {
           />
         </>
       )}
+    </>
+  );
+
+  return (
+    <div>
+      {/* Sheet selector tabs */}
+      <div style={sheetTabsStyle}>
+        {SHEET_ORDER.map((sheetKey) => (
+          <button
+            key={sheetKey}
+            style={activeSheet === sheetKey ? sheetTabActiveStyle : sheetTabStyle}
+            onClick={() => handleSheetChange(sheetKey)}
+          >
+            {SHEETS[sheetKey].label}
+          </button>
+        ))}
+      </div>
+
+      <StatusMessage status={status} message={statusMessage} onDismiss={handleDismiss} />
+
+      {sheetConfig.view === 'settings' ? renderSettingsView() : renderTableView()}
 
       <ConfirmDialog
         isOpen={deleteConfirm.open}
