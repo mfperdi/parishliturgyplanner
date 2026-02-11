@@ -8,7 +8,16 @@ server.on('deleteRow',        (req) => CRUD_deleteRow(req.body.sheetName, req.bo
 server.on('getAllowedSheets', ()    => CRUD_getAllowedSheets());
 
 // ─── SCHEDULING ───────────────────────────────────────────────────────────────
-// Added in Session 10
+server.on('getMonths',           ()    => getMonthsForSidebar());
+server.on('generateCalendar',   ()    => triggerCalendarGeneration());
+server.on('validateData',       ()    => VALIDATE_all());
+server.on('generateSchedule',   (req) => triggerScheduleGeneration(req.body.monthString));
+server.on('updateTimeoffForm',  (req) => TIMEOFFS_updateFormForMonth(req.body.monthString));
+server.on('getPendingTimeoffs', (req) => WEBAPP_getPendingTimeoffs(req.body.monthString));
+server.on('approveTimeoff',     (req) => WEBAPP_approveTimeoff(req.body.rowIndex, req.body.notes));
+server.on('rejectTimeoff',      (req) => WEBAPP_rejectTimeoff(req.body.rowIndex, req.body.notes));
+server.on('bulkApproveClean',   ()    => TIMEOFFS_bulkApprovePending());
+server.on('autoAssign',         (req) => triggerAssignment(req.body.monthString));
 
 // ─── REPORTS ──────────────────────────────────────────────────────────────────
 // Added in Session 12
