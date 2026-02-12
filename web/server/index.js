@@ -35,4 +35,6 @@ server.on('enableAutoPublish',      ()    => AUTOPUBLISH_setupTrigger(30));
 server.on('disableAutoPublish',     ()    => AUTOPUBLISH_removeTrigger());
 
 // ─── ARCHIVE ──────────────────────────────────────────────────────────────────
-// Added in Session 13
+server.on('archiveYear',   (req) => ARCHIVE_createArchiveFile(req.body.year));
+server.on('listArchives',  ()    => ARCHIVE_listArchives());
+server.on('clearOldData',  (req) => ARCHIVE_clearOldData(req.body.sheetsToRestart));
