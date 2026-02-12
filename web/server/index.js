@@ -20,7 +20,19 @@ server.on('bulkApproveClean',   ()    => TIMEOFFS_bulkApprovePending());
 server.on('autoAssign',         (req) => triggerAssignment(req.body.monthString));
 
 // ─── REPORTS ──────────────────────────────────────────────────────────────────
-// Added in Session 12
+server.on('getActiveMinistries',    ()    => getActiveMinistries());
+server.on('getNext12Months',        ()    => getNext12Months());
+server.on('getMonthlyViewStatus',   ()    => getCurrentMonthlyViewStatus());
+server.on('setMonthlyViewFilter',   (req) => setMonthlyViewMinistryFilter(req.body.ministry));
+server.on('regenerateViews',        ()    => regenerateMonthlyViewsManually());
+server.on('generateCustomPrint',    (req) => generateCustomPrint(req.body.monthString, req.body.ministry, req.body.sheetName));
+server.on('getWeeklyEmailText',     ()    => getScheduleForEmailCopy({}));
+server.on('generateDashboard',      (req) => DASHBOARD_generateSimplified(req.body.monthString));
+server.on('publishAll',             (req) => PUBLISH_publishAllMinistries(req.body.monthString));
+server.on('publishMinistry',        (req) => PUBLISH_syncMonthlyViewToPublic(req.body.monthString, { ministryFilter: [req.body.ministry] }));
+server.on('getAutoPublishStatus',   ()    => AUTOPUBLISH_getStatus());
+server.on('enableAutoPublish',      ()    => AUTOPUBLISH_setupTrigger(30));
+server.on('disableAutoPublish',     ()    => AUTOPUBLISH_removeTrigger());
 
 // ─── ARCHIVE ──────────────────────────────────────────────────────────────────
 // Added in Session 13
