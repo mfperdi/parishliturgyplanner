@@ -1,4 +1,6 @@
-**/**
+web/**
+.git/**
+node_modules/**
+*.md
+*.json
 !appsscript.json
-!*.gs
-!index.html
