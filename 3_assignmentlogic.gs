@@ -232,7 +232,9 @@ function buildTimeoffMap(timeoffData, month, year, monthString = null) {
         // Find all dates in this month's assignments (including spillovers)
         for (let i = 1; i < assignData.length; i++) {
           const rowMonthYear = assignData[i][assignCols.MONTH_YEAR - 1];
-          if (rowMonthYear === monthString) {
+          // FIX: Normalize to handle both Date objects and strings
+          const normalizedMonthYear = HELPER_normalizeMonthYear(rowMonthYear);
+          if (normalizedMonthYear === monthString) {
             const assignDate = new Date(assignData[i][assignCols.DATE - 1]);
             if (!isNaN(assignDate.getTime())) {
               spilloverDates.add(assignDate.toDateString());
@@ -385,6 +387,8 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
     if (!date) continue;
 
     const rowMonthYear = HELPER_safeArrayAccess(row, assignCols.MONTH_YEAR - 1);
+    // FIX: Normalize to handle both Date objects (from Google Sheets auto-formatting) and strings
+    const normalizedMonthYear = HELPER_normalizeMonthYear(rowMonthYear);
     const assignedVolunteerId = HELPER_safeArrayAccess(row, assignCols.ASSIGNED_VOLUNTEER_ID - 1);
     const assignedGroup = HELPER_safeArrayAccess(row, assignCols.ASSIGNED_GROUP - 1);
 
@@ -415,7 +419,7 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
 
       // Track liturgical celebration assignments for current month
       // Map<liturgicalCelebration, Map<volunteerId, massKey>>
-      if (rowMonthYear === monthString) {
+      if (normalizedMonthYear === monthString) {
         const liturgicalCelebration = HELPER_safeArrayAccess(row, assignCols.LITURGICAL_CELEBRATION - 1);
         const time = HELPER_safeArrayAccess(row, assignCols.TIME - 1);
         if (liturgicalCelebration) {
@@ -429,7 +433,7 @@ function buildAssignmentContext(assignmentsSheet, monthString, scheduleYear) {
     }
 
     // Process roles for our target month
-    if (rowMonthYear === monthString) {
+    if (normalizedMonthYear === monthString) {
       const roleData = {
         row: row,
         rowIndex: i + 2, // +2 for 1-based indexing and header
