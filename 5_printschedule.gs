@@ -258,7 +258,20 @@ function getAssignmentDataForMonth(monthString) {
     for (const row of data) {
       const rowMonthYear = HELPER_safeArrayAccess(row, assignCols.MONTH_YEAR - 1);
 
-      if (rowMonthYear === monthString && row[assignCols.DATE - 1]) {
+      // Handle Month-Year comparison - Google Sheets may auto-convert "2026-03" string to Date
+      // Compare as string if possible, otherwise convert Date to YYYY-MM format
+      let monthYearMatches = false;
+      if (typeof rowMonthYear === 'string') {
+        monthYearMatches = (rowMonthYear === monthString);
+      } else if (rowMonthYear instanceof Date && !isNaN(rowMonthYear.getTime())) {
+        // Convert Date to YYYY-MM format for comparison
+        const year = rowMonthYear.getFullYear();
+        const month = String(rowMonthYear.getMonth() + 1).padStart(2, '0');
+        const rowMonthYearString = `${year}-${month}`;
+        monthYearMatches = (rowMonthYearString === monthString);
+      }
+
+      if (monthYearMatches && row[assignCols.DATE - 1]) {
         // Create date object with validation
         const dateValue = row[assignCols.DATE - 1];
         const date = new Date(dateValue);
