@@ -118,34 +118,43 @@ function DEBUG_checkPalmSundayIssue() {
   try {
     const liturgicalMap = buildLiturgicalDataMap(monthString);
 
+    Logger.log(`   Total celebrations in map: ${liturgicalMap.size}`);
+    Logger.log(`   Showing ALL celebrations with March 28-29 dates:\n`);
+
     let palmSundayFound = false;
-    let palmSundayData = null;
+    const palmCelebrations = [];
 
     for (const [celebration, data] of liturgicalMap.entries()) {
       // Check if this celebration has March 28 or 29 dates
-      const hasPalmDates = data.dates.some(d =>
+      const palmDatesInThisCelebration = data.dates.filter(d =>
         (d.getMonth() === 2 && (d.getDate() === 28 || d.getDate() === 29) && d.getFullYear() === 2026)
       );
 
-      if (hasPalmDates) {
+      if (palmDatesInThisCelebration.length > 0) {
         palmSundayFound = true;
-        palmSundayData = { celebration, data };
-        break;
+        palmCelebrations.push({ celebration, data, palmDates: palmDatesInThisCelebration });
+
+        Logger.log(`   Celebration: "${celebration}"`);
+        Logger.log(`   Dates in map: ${palmDatesInThisCelebration.map(d => HELPER_formatDate(d, 'default')).join(', ')}`);
+        Logger.log(`   Rank: ${data.rank}, Color: ${data.color}, Season: ${data.season}`);
+        Logger.log('');
       }
     }
 
     if (!palmSundayFound) {
       results.liturgyMapCheck = "❌ buildLiturgicalDataMap() did NOT include March 28-29 dates";
       Logger.log(results.liturgyMapCheck);
-      Logger.log(`   Total celebrations in map: ${liturgicalMap.size}`);
       Logger.log(`   This is the root cause - the print function filters out these dates!`);
     } else {
-      results.liturgyMapCheck = `✓ buildLiturgicalDataMap() includes March 28-29:`;
+      results.liturgyMapCheck = `✓ Found ${palmCelebrations.length} celebration(s) with March 28-29 dates`;
       Logger.log(results.liturgyMapCheck);
-      Logger.log(`   Celebration: "${palmSundayData.celebration}"`);
-      Logger.log(`   Dates in map: ${palmSundayData.data.dates.map(d => HELPER_formatDate(d, 'default')).join(', ')}`);
-      Logger.log(`   Rank: ${palmSundayData.data.rank}`);
-      Logger.log(`   Color: ${palmSundayData.data.color}`);
+
+      // Check if "Palm Sunday of the Passion of the Lord" is in the map
+      const hasPalmSunday = palmCelebrations.some(c => c.celebration.includes('Palm Sunday'));
+      if (!hasPalmSunday) {
+        Logger.log(`   ⚠️ WARNING: "Palm Sunday of the Passion of the Lord" NOT found in map!`);
+        Logger.log(`   This is likely why it's not showing in the print schedule.`);
+      }
     }
   } catch (e) {
     results.liturgyMapCheck = `❌ ERROR testing buildLiturgicalDataMap: ${e.message}`;
