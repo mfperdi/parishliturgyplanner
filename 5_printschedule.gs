@@ -930,11 +930,11 @@ function applyScheduleFormatting(sheet, config) {
       // 6 columns: Date, Time, Description, Ministry, Role, Volunteer
       sheet.setColumnWidth(4, 150);  // Ministry
       sheet.setColumnWidth(5, 150);  // Role
-      sheet.setColumnWidth(6, 200);  // Assigned Volunteer
+      sheet.setColumnWidth(6, 300);  // Assigned Volunteer
     } else {
       // 5 columns: Date, Time, Description, Role, Volunteer
       sheet.setColumnWidth(4, 180);  // Role (wider since no Ministry column)
-      sheet.setColumnWidth(5, 200);  // Assigned Volunteer
+      sheet.setColumnWidth(5, 300);  // Assigned Volunteer
     }
   } else if (typeof config.columnWidths === 'object') {
     // Custom column widths
