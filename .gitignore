@@ -22,3 +22,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Web app build artifacts (already copied to root by bundle:deploy)
+web/clasp/
+web/build/
+web/node_modules/
+web/package-lock.json
