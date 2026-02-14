@@ -27,6 +27,13 @@ function DIAGNOSTIC_checkMonthYearColumn(monthString) {
   Logger.log(`MONTH_YEAR column index: ${assignCols.MONTH_YEAR} (should be column I)`);
   Logger.log(`Reading from array index: ${assignCols.MONTH_YEAR - 1} (0-indexed)`);
 
+  // Check header row
+  Logger.log("\n--- HEADER ROW (Row 1) ---");
+  const headers = data[0];
+  for (let i = 0; i < Math.min(14, headers.length); i++) {
+    Logger.log(`Column ${String.fromCharCode(65 + i)} (index ${i}): "${headers[i]}"`);
+  }
+
   // Check first 10 rows
   Logger.log("\n--- FIRST 10 DATA ROWS ---");
   for (let i = 1; i <= Math.min(10, data.length - 1); i++) {
@@ -35,7 +42,24 @@ function DIAGNOSTIC_checkMonthYearColumn(monthString) {
     const monthYear = row[assignCols.MONTH_YEAR - 1];
     const status = row[assignCols.STATUS - 1];
 
-    Logger.log(`Row ${i+1}: Date=${date}, MonthYear='${monthYear}', Status=${status}, Match=${monthYear === monthString}`);
+    Logger.log(`Row ${i+1}: Date=${date}, MonthYear='${monthYear}' (type=${typeof monthYear}), Status=${status}, Match=${monthYear === monthString}`);
+  }
+
+  // Find unique month-year values
+  const monthYearValues = new Map();
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const date = row[assignCols.DATE - 1];
+    if (!date) continue;
+
+    const monthYear = row[assignCols.MONTH_YEAR - 1];
+    const key = monthYear || "[BLANK]";
+    monthYearValues.set(key, (monthYearValues.get(key) || 0) + 1);
+  }
+
+  Logger.log("\n--- UNIQUE MONTH_YEAR VALUES ---");
+  for (const [value, count] of monthYearValues) {
+    Logger.log(`  '${value}': ${count} rows`);
   }
 
   // Count matches
@@ -70,8 +94,12 @@ function DIAGNOSTIC_checkMonthYearColumn(monthString) {
   if (matchCount === 0 && blankMonthYear > 0) {
     Logger.log("\n⚠️ ERROR: MONTH_YEAR column is BLANK!");
     Logger.log("Solution: Re-run Step 2 (Generate Schedule) to populate this column.");
+  } else if (matchCount === 0 && differentMonth > 0) {
+    Logger.log("\n⚠️ ERROR: MONTH_YEAR column has WRONG VALUES!");
+    Logger.log("You may have selected the wrong month when generating the schedule.");
+    Logger.log("Solution: Re-run Step 2 and select the correct month from the dropdown.");
   } else if (matchCount === 0) {
-    Logger.log("\n⚠️ ERROR: No assignments found for this month!");
+    Logger.log("\n⚠️ ERROR: No assignments found!");
   } else {
     Logger.log("\n✅ MONTH_YEAR column looks correct!");
   }
@@ -80,7 +108,8 @@ function DIAGNOSTIC_checkMonthYearColumn(monthString) {
     total: totalCount,
     matches: matchCount,
     blank: blankMonthYear,
-    different: differentMonth
+    different: differentMonth,
+    uniqueValues: Array.from(monthYearValues.keys())
   };
 }
 
