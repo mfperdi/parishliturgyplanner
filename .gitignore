@@ -23,8 +23,5 @@ Thumbs.db
 *.swp
 *.swo
 
-# Web app build artifacts (already copied to root by bundle:deploy)
-web/clasp/
-web/build/
-web/node_modules/
-web/package-lock.json
+# Web app React source (bundle:deploy copies output to root as index.html + 0g_crud_api.gs)
+web/
