@@ -1434,3 +1434,61 @@ function HELPER_getUpcomingWeekBounds(referenceDate = new Date()) {
     throw new Error(`Could not calculate upcoming week boundaries: ${e.message}`);
   }
 }
+
+/**
+ * Normalizes a MONTH_YEAR value to "YYYY-MM" string format.
+ * Handles both Date objects (from Google Sheets auto-formatting) and strings.
+ *
+ * @param {Date|string} monthYearValue - The value from MONTH_YEAR column
+ * @returns {string} Normalized "YYYY-MM" string, or empty string if invalid
+ *
+ * Examples:
+ *   - Date object "Sun Mar 01 2026" → "2026-03"
+ *   - String "2026-03" → "2026-03"
+ *   - Invalid value → ""
+ */
+function HELPER_normalizeMonthYear(monthYearValue) {
+  if (!monthYearValue) {
+    return "";
+  }
+
+  // If it's already a string in "YYYY-MM" format, return it
+  if (typeof monthYearValue === 'string') {
+    // Check if it matches YYYY-MM pattern
+    if (/^\d{4}-\d{2}$/.test(monthYearValue)) {
+      return monthYearValue;
+    }
+    // Try to parse it as a date
+    const parsed = new Date(monthYearValue);
+    if (!isNaN(parsed.getTime())) {
+      const year = parsed.getFullYear();
+      const month = (parsed.getMonth() + 1).toString().padStart(2, '0');
+      return `${year}-${month}`;
+    }
+    return "";
+  }
+
+  // If it's a Date object (from Google Sheets auto-formatting)
+  if (monthYearValue instanceof Date && !isNaN(monthYearValue.getTime())) {
+    const year = monthYearValue.getFullYear();
+    const month = (monthYearValue.getMonth() + 1).toString().padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  // If it's an object with getTime() method (Date-like)
+  if (monthYearValue.getTime && typeof monthYearValue.getTime === 'function') {
+    try {
+      const timestamp = monthYearValue.getTime();
+      if (!isNaN(timestamp)) {
+        const date = new Date(timestamp);
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        return `${year}-${month}`;
+      }
+    } catch (e) {
+      Logger.log(`HELPER_normalizeMonthYear: Could not convert object to date: ${e.message}`);
+    }
+  }
+
+  return "";
+}
