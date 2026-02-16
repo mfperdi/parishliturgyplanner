@@ -924,17 +924,17 @@ function applyScheduleFormatting(sheet, config) {
   if (config.columnWidths === 'auto' || !config.columnWidths) {
     sheet.setColumnWidth(1, 100);  // Date
     sheet.setColumnWidth(2, 90);   // Time
-    sheet.setColumnWidth(3, 200);  // Description
+    sheet.setColumnWidth(3, 300);  // Description
 
     if (showMinistryColumn) {
       // 6 columns: Date, Time, Description, Ministry, Role, Volunteer
       sheet.setColumnWidth(4, 150);  // Ministry
       sheet.setColumnWidth(5, 150);  // Role
-      sheet.setColumnWidth(6, 200);  // Assigned Volunteer
+      sheet.setColumnWidth(6, 300);  // Assigned Volunteer
     } else {
       // 5 columns: Date, Time, Description, Role, Volunteer
       sheet.setColumnWidth(4, 180);  // Role (wider since no Ministry column)
-      sheet.setColumnWidth(5, 200);  // Assigned Volunteer
+      sheet.setColumnWidth(5, 300);  // Assigned Volunteer
     }
   } else if (typeof config.columnWidths === 'object') {
     // Custom column widths
