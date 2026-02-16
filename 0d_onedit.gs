@@ -163,8 +163,9 @@ function ONEDIT_validateAssignment(sheet, row, editedCol) {
       return;
     }
 
-    // Get the required ministry skill from templates
-    const requiredSkill = ONEDIT_getRequiredSkill(ministryRole);
+    // Get the required ministry category from role (using centralized mapping)
+    const skillToMinistryMap = HELPER_buildSkillToMinistryMap();
+    const requiredSkill = skillToMinistryMap.get(ministryRole.toLowerCase()) || '';
 
     // Validate the assignment
     const warnings = [];
@@ -246,34 +247,6 @@ function ONEDIT_findVolunteer(volunteerId, volunteerName) {
   } catch (error) {
     Logger.log(`Error finding volunteer: ${error.message}`);
     return null;
-  }
-}
-
-/**
- * Gets the required ministry category for a role from Ministries sheet
- * @param {string} roleName - The specific role name (e.g., "1st reading")
- * @returns {string} The ministry category (e.g., "Lector") or empty string
- */
-function ONEDIT_getRequiredSkill(roleName) {
-  try {
-    const ministriesData = HELPER_readSheetData(CONSTANTS.SHEETS.MINISTRIES);
-    const cols = CONSTANTS.COLS.MINISTRIES;
-
-    // Look up the role in the Ministries sheet to find its ministry category
-    for (const row of ministriesData) {
-      const rowRoleName = HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1, '');
-      const isActive = HELPER_safeArrayAccess(row, cols.IS_ACTIVE - 1, true);
-
-      // Only match active roles
-      if (isActive && rowRoleName.toLowerCase() === roleName.toLowerCase()) {
-        return HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1, '');
-      }
-    }
-
-    return '';
-  } catch (error) {
-    Logger.log(`Error getting required ministry: ${error.message}`);
-    return '';
   }
 }
 
