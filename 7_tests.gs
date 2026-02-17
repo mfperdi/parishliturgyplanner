@@ -1038,12 +1038,11 @@ function TEST_weekendGroupingLogic() {
     Logger.log(`Test: ${testCase.name}`);
     Logger.log(`  Input: "${testCase.input}"`);
 
-    // Parse the input using the helper function
-    const parsed = HELPER_parseDateBasedNotes(testCase.input);
-    const extractedDates = parsed.map(p => {
-      const d = new Date(p.dateString);
-      return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
-    });
+    // Extract dates from form checkbox format using the correct helper
+    // HELPER_parseDateBasedNotes is for already-stored "M/D/YYYY" format;
+    // HELPER_extractDatesFromCheckboxes handles form responses like "Weekend of..."
+    const rawDates = HELPER_extractDatesFromCheckboxes(testCase.input);
+    const extractedDates = rawDates.map(d => d.replace(' (Vigil)', ''));
 
     Logger.log(`  Extracted: ${extractedDates.join(', ')}`);
     Logger.log(`  Expected: ${testCase.expected.join(', ')}`);

@@ -26,7 +26,8 @@
 Files use a numeric prefix system to indicate loading order and functional grouping:
 
 ```
-0_*.gs        - Core infrastructure (entry point, constants, helpers, debug, diagnostics)
+0_*.gs        - Core infrastructure (entry point, constants, debug, diagnostics)
+0b1-0b5_*.gs  - Helper functions (numbered for loading order, organized by purpose)
 1_*.gs        - Liturgical calendar generation
 2_*.gs        - Schedule generation
 3_*.gs        - Assignment logic
@@ -37,6 +38,14 @@ Files use a numeric prefix system to indicate loading order and functional group
 Sidebar.html  - User interface
 ```
 
+**Helper Files Organization** (0b1-0b5):
+Helper functions are split into 5 topic-specific files with numbered prefixes to ensure correct loading order:
+- `0b1_helper_data.gs` - Data reading, caching, configuration (foundational layer)
+- `0b2_helper_ministry.gs` - Ministry/volunteer/timeoff validation (depends on 0b1)
+- `0b3_helper_formatting.gs` - Date/time/liturgical formatting (standalone utilities)
+- `0b4_helper_ui.gs` - User notifications and dialogs (depends on 0b3 for formatting)
+- `0b5_helper_misc.gs` - General utilities (minimal dependencies)
+
 ### File Inventory
 
 | File | Purpose | Key Functions |
@@ -44,7 +53,11 @@ Sidebar.html  - User interface
 | `0_code.gs` | Main entry point, menu system, sidebar integration | `onOpen()`, `showSidebar()`, wrapper functions |
 | `0_liturgicalcolors.gs` | Liturgical color definitions and utilities | `LITURGICAL_COLORS`, `HELPER_getLiturgicalColorHex()` |
 | `0a_constants.gs` | Global constants, sheet names, column mappings | `CONSTANTS` object |
-| `0b_helper.gs` | Reusable utility functions, liturgical helpers | `HELPER_*()`, `PRECEDENCE` |
+| `0b1_helper_data.gs` | Data reading, caching, configuration management | `HELPER_readSheetDataCached()`, `HELPER_readConfig()`, cache functions |
+| `0b2_helper_ministry.gs` | Ministry/volunteer/timeoff validation logic | `HELPER_buildSkillToMinistryMap()`, `HELPER_isVolunteerEligible()`, scoring |
+| `0b3_helper_formatting.gs` | Date/time formatting, liturgical precedence, week calculations | `HELPER_formatDate()`, `PRECEDENCE`, `HELPER_getCurrentWeekBounds()` |
+| `0b4_helper_ui.gs` | User interface notifications and dialogs | `HELPER_showAlert()`, `HELPER_confirmAction()`, `HELPER_showError()` |
+| `0b5_helper_misc.gs` | General utility functions | `HELPER_safeArrayAccess()`, `HELPER_timeFunction()`, validation |
 | `0c_validation.gs` | Comprehensive data validation system | `VALIDATE_all()`, `VALIDATE_*()`, `runDataValidation()` |
 | `0d_onedit.gs` | Real-time assignment validation with onEdit trigger | `onEdit()`, `ONEDIT_*()` functions |
 | `0e_helper_formulas.gs` | Assignment helper formulas for manual assignment | `HELPER_FORMULAS_setup()`, `setupAssignmentHelperFormulas()` |
