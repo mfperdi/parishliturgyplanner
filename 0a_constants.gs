@@ -218,7 +218,7 @@ const CONSTANTS = {
   },
 
   // 7. Scoring Algorithm Constants
-  // Used in HELPER_calculateVolunteerScore() in 0b_helper.gs
+  // Used in HELPER_calculateVolunteerScore() in 0b2_helper_ministry.gs
   SCORING: {
     BASE_SCORE: 100,                      // Starting score for all volunteers
     FREQUENCY_PENALTY: 25,                // Penalty per previous assignment this month
