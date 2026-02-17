@@ -37,9 +37,9 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
   Logger.log("2. Reading mass templates...");
   const templateMap = SCHEDULE_buildTemplateMap();
 
-  // 2a. Build role-to-ministry mapping for validation and population
+  // 2a. Build role-to-ministry mapping for validation and population (centralized helper)
   Logger.log("2a. Building role-to-ministry mapping...");
-  const roleToMinistryMap = SCHEDULE_buildRoleToMinistryMap();
+  const roleToMinistryMap = HELPER_buildSkillToMinistryMap();
 
   // 3. Find all masses that need to be scheduled this month (using 3-layer logic)
   Logger.log("3. Finding all masses for the month...");
@@ -248,38 +248,6 @@ function SCHEDULE_buildTemplateMap() {
 
   Logger.log(`> Built template map with ${templateMap.size} templates.`);
   return templateMap;
-}
-
-/**
- * Builds a role-to-ministry mapping from the Ministries sheet.
- * Maps specific roles (e.g., "1st reading") to general ministry categories (e.g., "Lector").
- * Only includes active roles.
- * @returns {Map} Map of role name (lowercase) to ministry name
- */
-function SCHEDULE_buildRoleToMinistryMap() {
-  const map = new Map();
-
-  try {
-    const ministryData = HELPER_readSheetData(CONSTANTS.SHEETS.MINISTRIES);
-    const cols = CONSTANTS.COLS.MINISTRIES;
-
-    for (const row of ministryData) {
-      const ministryName = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1);
-      const roleName = HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1);
-      const isActive = HELPER_safeArrayAccess(row, cols.IS_ACTIVE - 1, true);
-
-      if (ministryName && roleName && isActive === true) {
-        map.set(roleName.toLowerCase(), ministryName);
-      }
-    }
-
-    Logger.log(`> Built role-to-ministry map with ${map.size} entries.`);
-  } catch (e) {
-    Logger.log(`ERROR building role-to-ministry map: ${e.message}`);
-    throw new Error(`Could not read Ministries sheet: ${e.message}`);
-  }
-
-  return map;
 }
 
 /**

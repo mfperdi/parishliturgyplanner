@@ -284,6 +284,191 @@ function HELPER_readPrintScheduleConfig() {
   }
 }
 
+// =============================================================================
+// CONSOLIDATED MINISTRY, VOLUNTEER, AND TIMEOFF HELPERS
+// =============================================================================
+// These functions provide single source of truth for critical validation logic
+// used across assignment, schedule, and onEdit modules.
+// =============================================================================
+
+/**
+ * Builds skill-to-ministry mapping from Ministries sheet
+ * Consolidates duplicate logic from:
+ * - 3_assignmentlogic.gs: buildSkillToMinistryMap()
+ * - 2_schedulelogic.gs: SCHEDULE_buildRoleToMinistryMap()
+ * - 0d_onedit.gs: ONEDIT_getRequiredSkill()
+ *
+ * @returns {Map<string, string>} Map of roleName (lowercase) → ministryName (lowercase)
+ */
+function HELPER_buildSkillToMinistryMap() {
+  const map = new Map();
+
+  try {
+    const ministryData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MINISTRIES);
+    const cols = CONSTANTS.COLS.MINISTRIES;
+
+    for (const row of ministryData) {
+      const ministryName = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1);
+      const roleName = HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1);
+      const isActive = HELPER_safeArrayAccess(row, cols.IS_ACTIVE - 1, true); // Default to active if missing
+
+      // Only include active roles
+      if (ministryName && roleName && isActive) {
+        // Map: "1st reading" → "lector"
+        // Map: "2nd reading" → "lector"
+        // Map: "chalice" → "eucharistic minister"
+        const skillLower = String(roleName).toLowerCase();
+        const ministryLower = String(ministryName).toLowerCase();
+
+        // Only add if not already mapped (first occurrence wins)
+        if (!map.has(skillLower)) {
+          map.set(skillLower, ministryLower);
+        }
+      }
+    }
+
+    Logger.log(`Built skill-to-ministry map with ${map.size} mappings from Ministries sheet`);
+
+  } catch (e) {
+    Logger.log(`WARNING: Could not build skill-to-ministry map: ${e.message}`);
+  }
+
+  return map;
+}
+
+/**
+ * Checks if volunteer is eligible for a specific assignment
+ * Consolidates volunteer validation logic from multiple modules
+ *
+ * @param {object} volunteer - Volunteer object with status, ministries, rolePrefs
+ * @param {string} requiredMinistry - Ministry category (e.g., "Lector")
+ * @param {string} requiredRole - Specific role/skill (e.g., "1st reading")
+ * @param {string} context - Assignment context: 'assignment' | 'onedit' | 'group'
+ * @returns {object} {eligible: boolean, reason: string}
+ */
+function HELPER_isVolunteerEligible(volunteer, requiredMinistry, requiredRole, context = 'assignment') {
+  // 1. Check status
+  const statusLower = String(volunteer.status || '').toLowerCase();
+
+  if (context === 'group') {
+    // Group assignments allow both Active and Ministry Sponsor
+    if (statusLower !== 'active' && statusLower !== 'ministry sponsor') {
+      return {
+        eligible: false,
+        reason: `Status is "${volunteer.status}" (not Active or Ministry Sponsor)`
+      };
+    }
+  } else {
+    // Individual assignments require Active status only
+    if (statusLower !== 'active') {
+      return {
+        eligible: false,
+        reason: `Status is "${volunteer.status}" (not Active)`
+      };
+    }
+  }
+
+  // 2. Check ministry role / skill matching
+  const requiredMinistryLower = String(requiredMinistry).toLowerCase();
+  const requiredRoleLower = String(requiredRole).toLowerCase();
+
+  // Parse volunteer's ministries (comma-separated)
+  const volunteerMinistries = String(volunteer.ministries || '')
+    .split(',')
+    .map(m => m.trim().toLowerCase())
+    .filter(m => m !== '');
+
+  // Parse volunteer's role preferences (comma-separated, optional)
+  const volunteerRolePrefs = String(volunteer.rolePrefs || '')
+    .split(',')
+    .map(r => r.trim().toLowerCase())
+    .filter(r => r !== '');
+
+  // STRICT ROLE MATCHING:
+  // If volunteer has specific role preferences, they must match exactly
+  // If volunteer has NO role preferences, they can do any role in their ministry
+  if (volunteerRolePrefs.length > 0) {
+    // Volunteer has specific role preferences - MUST match exactly
+    if (!volunteerRolePrefs.includes(requiredRoleLower)) {
+      return {
+        eligible: false,
+        reason: `Has role preferences (${volunteer.rolePrefs}) but not "${requiredRole}"`
+      };
+    }
+  } else {
+    // Volunteer has NO role preferences - check if they have the general ministry
+    if (!volunteerMinistries.includes(requiredMinistryLower)) {
+      return {
+        eligible: false,
+        reason: `Does not have required ministry "${requiredMinistry}"`
+      };
+    }
+  }
+
+  return { eligible: true, reason: '' };
+}
+
+/**
+ * Checks for timeoff conflicts (blacklist/whitelist)
+ * Consolidates timeoff checking logic from:
+ * - 3_assignmentlogic.gs: filterCandidates() timeoff checks
+ * - 0d_onedit.gs: ONEDIT_checkTimeoffConflicts()
+ *
+ * @param {string} volunteerName - Volunteer's full name
+ * @param {Date} assignmentDate - Date of assignment
+ * @param {string} eventId - Mass event ID (e.g., "SUN-1000")
+ * @param {boolean} isAnticipated - Whether mass is anticipated (vigil)
+ * @param {object} timeoffMaps - {blacklist: Map, whitelist: Map} from buildTimeoffMap()
+ * @returns {object} {hasConflict: boolean, reason: string}
+ */
+function HELPER_checkTimeoffConflict(volunteerName, assignmentDate, eventId, isAnticipated, timeoffMaps) {
+  const massDateString = assignmentDate.toDateString();
+  const massType = isAnticipated ? 'vigil' : 'non-vigil';
+
+  // 1. Check Whitelist (if exists, must match date AND vigil type)
+  if (timeoffMaps.whitelist.has(volunteerName)) {
+    const whitelistMap = timeoffMaps.whitelist.get(volunteerName);
+
+    // Check if this date is in the whitelist
+    if (!whitelistMap.has(massDateString)) {
+      return {
+        hasConflict: true,
+        reason: `Only available for specific dates (this date not on whitelist)`
+      };
+    }
+
+    // Vigil-specific matching: Check if mass type matches
+    const whitelistTypes = whitelistMap.get(massDateString);
+
+    if (!whitelistTypes.has(massType)) {
+      return {
+        hasConflict: true,
+        reason: `Only available for ${Array.from(whitelistTypes).join('/')} masses (this is ${massType})`
+      };
+    }
+  }
+
+  // 2. Check Blacklist (date AND vigil type must match)
+  if (timeoffMaps.blacklist.has(volunteerName)) {
+    const blacklistMap = timeoffMaps.blacklist.get(volunteerName);
+
+    // Check if this date is blacklisted
+    if (blacklistMap.has(massDateString)) {
+      // Check if mass type matches
+      const blacklistTypes = blacklistMap.get(massDateString);
+
+      if (blacklistTypes.has(massType)) {
+        return {
+          hasConflict: true,
+          reason: `Unavailable on ${HELPER_formatDate(assignmentDate, 'default')} (${massType})`
+        };
+      }
+    }
+  }
+
+  return { hasConflict: false, reason: '' };
+}
+
 /**
  * Consolidated volunteer scoring (extracted from assignment logic)
  * PERFORMANCE: Removed verbose logging (was generating thousands of log lines)

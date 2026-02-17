@@ -56,8 +56,8 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
   // Pass monthString to enable spillover date detection
   const timeoffMaps = buildTimeoffMap(timeoffData, month, scheduleYear, monthString);
 
-  // CRITICAL: Build skill-to-ministry mapping from MassTemplates
-  const skillToMinistryMap = buildSkillToMinistryMap();
+  // CRITICAL: Build skill-to-ministry mapping from Ministries sheet (centralized helper)
+  const skillToMinistryMap = HELPER_buildSkillToMinistryMap();
 
   if (volunteers.size === 0) {
     Logger.log("WARNING: No active volunteers found");
@@ -76,48 +76,6 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
   const results = processAssignments(assignmentContext, volunteers, timeoffMaps, assignmentsSheet, skillToMinistryMap);
 
   return formatAssignmentResults(results, monthString);
-}
-
-/**
- * Build skill-to-ministry mapping from Ministries sheet
- * Maps specific skills (e.g., "1st reading") to general ministry categories (e.g., "Lector")
- * This allows volunteers with "Lector" to be matched to "1st reading" assignments
- * UPDATED: Now reads from Ministries sheet instead of MassTemplates for centralized role definitions
- */
-function buildSkillToMinistryMap() {
-  const map = new Map();
-
-  try {
-    const ministryData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MINISTRIES);
-    const cols = CONSTANTS.COLS.MINISTRIES;
-
-    for (const row of ministryData) {
-      const ministryName = HELPER_safeArrayAccess(row, cols.MINISTRY_NAME - 1);
-      const roleName = HELPER_safeArrayAccess(row, cols.ROLE_NAME - 1);
-      const isActive = HELPER_safeArrayAccess(row, cols.IS_ACTIVE - 1, true); // Default to active if missing
-
-      // Only include active roles
-      if (ministryName && roleName && isActive) {
-        // Map: "1st reading" → "Lector"
-        // Map: "2nd reading" → "Lector"
-        // Map: "chalice" → "Eucharistic Minister"
-        const skillLower = String(roleName).toLowerCase();
-        const ministryLower = String(ministryName).toLowerCase();
-
-        // Only add if not already mapped (first occurrence wins)
-        if (!map.has(skillLower)) {
-          map.set(skillLower, ministryLower);
-        }
-      }
-    }
-
-    Logger.log(`Built skill-to-ministry map with ${map.size} mappings from Ministries sheet`);
-
-  } catch (e) {
-    Logger.log(`WARNING: Could not build skill-to-ministry map: ${e.message}`);
-  }
-
-  return map;
 }
 
 /**
