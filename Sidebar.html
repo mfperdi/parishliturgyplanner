@@ -1334,13 +1334,17 @@
     });
 
     // Auto-suggest sheet name for custom print based on selections
+    // Uses abbreviated month-year format (e.g., "Feb 2026") to keep names concise
     function updateCustomPrintSheetName() {
       const month = customPrintMonth.value;
       const ministry = customPrintMinistry.value;
 
       if (month && customPrintSheetName.value.trim() === '') {
         // Only auto-fill if user hasn't typed anything
-        const monthText = customPrintMonth.options[customPrintMonth.selectedIndex].text;
+        // Parse YYYY-MM value to produce short "Mon YYYY" format
+        const [yr, mo] = month.split('-').map(Number);
+        const shortMonth = new Date(yr, mo - 1, 1).toLocaleDateString('en-US', { month: 'short' });
+        const monthText = `${shortMonth} ${yr}`;
         const ministryText = ministry && ministry !== 'All Ministries' ? `${ministry} ` : '';
         customPrintSheetName.value = `${ministryText}${monthText}`;
       }

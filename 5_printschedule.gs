@@ -255,7 +255,9 @@ function getAssignmentDataForMonth(monthString) {
     const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
     data.shift(); // Remove header
 
-    for (const row of data) {
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const assignmentsSheetRow = i + 2; // +1 for 0-index, +1 for header row
       const rowMonthYear = HELPER_safeArrayAccess(row, assignCols.MONTH_YEAR - 1);
 
       // Handle Month-Year comparison - Google Sheets may auto-convert "2026-03" string to Date
@@ -305,7 +307,8 @@ function getAssignmentDataForMonth(monthString) {
           assignedVolunteerName: HELPER_safeArrayAccess(row, assignCols.ASSIGNED_VOLUNTEER_NAME - 1) || 'UNASSIGNED',
           status: HELPER_safeArrayAccess(row, assignCols.STATUS - 1, 'Pending'),
           eventId: HELPER_safeArrayAccess(row, assignCols.EVENT_ID - 1),
-          isAnticipated: HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1) === true || HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1) === 'TRUE'
+          isAnticipated: HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1) === true || HELPER_safeArrayAccess(row, assignCols.IS_ANTICIPATED - 1) === 'TRUE',
+          assignmentsSheetRow: assignmentsSheetRow  // Row number in Assignments sheet (for write-back)
         });
       }
     }
@@ -576,6 +579,14 @@ function createScheduleHeader(sheet, scheduleData, displayName, config, numColum
     Logger.log(`Could not set timestamp: ${e.message}`);
   }
 
+  // Write _ROW_ marker in hidden column (numColumns+1) at row 1
+  // This flags the sheet as an editable view sheet with write-back capability
+  try {
+    sheet.getRange(1, numColumns + 1).setValue('_ROW_');
+  } catch (e) {
+    Logger.log(`Could not write _ROW_ marker: ${e.message}`);
+  }
+
   // Row 5 is blank, schedule content starts at row 6
   return 6;
 }
@@ -747,6 +758,7 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
 
   // PERFORMANCE: Collect all row data before writing
   const rowData = [];
+  const hiddenRowIds = []; // Track Assignments sheet row indices for write-back
   const formattingInfo = []; // Track special formatting needs
 
   let rowIndex = 0;
@@ -775,6 +787,7 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
       ];
 
       rowData.push(row);
+      hiddenRowIds.push([assignment.assignmentsSheetRow || '']); // For write-back
 
       // Track formatting needs
       formattingInfo.push({
@@ -795,6 +808,24 @@ function createAssignmentRows(sheet, assignments, startRow, config, printConfig)
     const numCols = showMinistryColumn ? 6 : 5;
     sheet.getRange(startRow, 1, rowData.length, numCols).setValues(rowData);
     Logger.log(`✅ PERFORMANCE: Batch wrote ${rowData.length} assignment rows in 1 API call (saved ${rowData.length * numCols - 1} calls)`);
+
+    // Write hidden row-index column (numCols+1) for write-back support
+    sheet.getRange(startRow, numCols + 1, hiddenRowIds.length, 1).setValues(hiddenRowIds);
+
+    // Add volunteer name dropdown validation to the volunteer column
+    try {
+      const volunteerNames = PRINT_getActiveVolunteerNames();
+      if (volunteerNames.length > 0) {
+        const validation = SpreadsheetApp.newDataValidation()
+          .requireValueInList(volunteerNames, true)
+          .setAllowInvalid(true)
+          .build();
+        sheet.getRange(startRow, numCols, rowData.length, 1).setDataValidation(validation);
+        Logger.log(`✅ Added volunteer dropdown to ${rowData.length} rows (${volunteerNames.length} options)`);
+      }
+    } catch (e) {
+      Logger.log(`Warning: Could not add volunteer dropdown: ${e.message}`);
+    }
 
     // Apply formatting in batches
     // 1. Apply borders to all rows at once
@@ -946,6 +977,14 @@ function applyScheduleFormatting(sheet, config) {
     });
   }
 
+  // Hide the write-back column (numCols+1) — contains Assignments row indices
+  try {
+    sheet.hideColumns(numCols + 1);
+    Logger.log(`Hidden write-back column ${numCols + 1}`);
+  } catch (e) {
+    Logger.log(`Warning: Could not hide write-back column: ${e.message}`);
+  }
+
   // Set font family
   const dataRange = sheet.getRange(1, 1, sheet.getLastRow(), numCols);
   dataRange.setFontFamily('Arial');
@@ -963,7 +1002,8 @@ function trimSheet(sheet, numColumns) {
   try {
     // Step 1: Get actual content dimensions
     const lastRow = sheet.getLastRow();  // Last row with content
-    const lastCol = numColumns;  // We know this from our layout
+    // Keep numColumns+1 to preserve the hidden write-back column (_ROW_)
+    const lastCol = numColumns + 1;
 
     // Step 2: Calculate target dimensions with buffer
     const bufferRows = 2;  // Room for manual notes
@@ -991,6 +1031,30 @@ function trimSheet(sheet, numColumns) {
   } catch (e) {
     Logger.log(`Warning: Could not trim sheet: ${e.message}`);
     // Non-fatal - continue even if trim fails
+  }
+}
+
+/**
+ * Returns sorted list of Active volunteer full names for dropdown validation.
+ * @returns {string[]} Sorted array of active volunteer names.
+ */
+function PRINT_getActiveVolunteerNames() {
+  try {
+    const data = HELPER_readSheetDataCached(CONSTANTS.SHEETS.VOLUNTEERS);
+    const cols = CONSTANTS.COLS.VOLUNTEERS;
+    const names = [];
+    for (const row of data) {
+      const status = HELPER_safeArrayAccess(row, cols.STATUS - 1, '');
+      const name = HELPER_safeArrayAccess(row, cols.FULL_NAME - 1, '');
+      if (status === 'Active' && name) {
+        names.push(name);
+      }
+    }
+    names.sort();
+    return names;
+  } catch (e) {
+    Logger.log(`Warning: Could not load volunteer names: ${e.message}`);
+    return [];
   }
 }
 

@@ -81,6 +81,9 @@ function onOpen(e) {
           .addItem('Setup Assignment Helper Formulas', 'setupAssignmentHelperFormulas')
           .addItem('Format Assignment Checkboxes', 'setupAssignmentCheckboxes')
           .addSeparator()
+          .addItem('Hide Assignments Sheet', 'hideAssignmentsSheet')
+          .addItem('Show Assignments Sheet', 'showAssignmentsSheet')
+          .addSeparator()
           .addItem('Update Timeoff Form', 'promptUpdateTimeoffForm')
           .addSeparator()
           .addItem('View Dashboard Analytics', 'promptViewDashboard')
@@ -119,6 +122,35 @@ function onOpen(e) {
     // Silently fail - weekly view generation is optional
     // User can manually refresh if needed
     Logger.log(`Weekly view auto-generation failed: ${e.message}`);
+  }
+}
+
+/**
+ * Hides the Assignments sheet from regular view.
+ * Coordinators can use view sheets for editing and unhide via Admin Tools when needed.
+ */
+function hideAssignmentsSheet() {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+    if (!sheet) throw new Error('Assignments sheet not found');
+    sheet.hideSheet();
+    HELPER_showSuccess('Assignments Sheet Hidden', 'The Assignments sheet is now hidden. Use Admin Tools → Show Assignments Sheet to unhide it.');
+  } catch (e) {
+    HELPER_showError('Hide Assignments Failed', e, 'assignment');
+  }
+}
+
+/**
+ * Shows (unhides) the Assignments sheet.
+ */
+function showAssignmentsSheet() {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+    if (!sheet) throw new Error('Assignments sheet not found');
+    sheet.showSheet();
+    HELPER_showSuccess('Assignments Sheet Visible', 'The Assignments sheet is now visible.');
+  } catch (e) {
+    HELPER_showError('Show Assignments Failed', e, 'assignment');
   }
 }
 
