@@ -148,6 +148,21 @@ const CONSTANTS = {
       STATUS: 13
       // Helper columns N-P are formula-based and not written by scripts
     },
+
+    // Monthly Assignments Sheet (editable per-month sheet, e.g. "April 2026")
+    // 10 columns: A-F visible, G-I formula helpers, J hidden row mapping
+    MONTHLY_ASSIGNMENTS_VIEW: {
+      DATE: 1,             // Col A — protected (shown only on first role per mass)
+      TIME: 2,             // Col B — protected
+      DESCRIPTION: 3,      // Col C — protected
+      MINISTRY: 4,         // Col D — protected
+      ROLE: 5,             // Col E — protected
+      VOLUNTEER: 6,        // Col F — EDITABLE by user
+      QUALIFIED: 7,        // Col G — live formula (✓/✗)
+      ACTIVE: 8,           // Col H — live formula (✓/⚠️)
+      FREE: 9,             // Col I — live formula (✓/⚠️)
+      ASSIGNMENTS_ROW: 10  // Col J — hidden, stores row # in Assignments sheet
+    },
     
     // 'Volunteers' sheet (14 columns)
     VOLUNTEERS: {

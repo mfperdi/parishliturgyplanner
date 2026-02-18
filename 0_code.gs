@@ -103,6 +103,8 @@ function onOpen(e) {
           .addSeparator()
           .addItem('Web App Deployment Info', 'showWebAppDeploymentInfo')
           .addSeparator()
+          .addItem('Generate Monthly Assignments Sheet', 'promptGenerateMonthlyAssignmentsView')
+          .addSeparator()
           .addItem('Diagnose Assignment Issues', 'runAssignmentDiagnostic')
           .addItem('Find Duplicate Assignments', 'DIAGNOSTIC_findDuplicateAssignments')
           .addItem('Fix Month-Year Values', 'FIX_correctMonthYearValues')
@@ -1084,5 +1086,59 @@ function getNext12Months() {
   } catch (e) {
     Logger.log(`ERROR in getNext12Months: ${e.message}`);
     return [];
+  }
+}
+
+// ---================================---
+//   MONTHLY ASSIGNMENTS VIEW FUNCTIONS
+// ---================================---
+
+/**
+ * (SIDEBAR) Generates the monthly assignments view sheet for the given month.
+ * @param {string} monthString  e.g. "2026-04"
+ * @returns {string} Success message
+ */
+function triggerMonthlyAssignmentsView(monthString) {
+  return MONTHLY_generateAssignmentsView(monthString);
+}
+
+/**
+ * (SIDEBAR) Toggles print mode on the given monthly assignments sheet.
+ * @param {string} sheetName  e.g. "April 2026" (null = use active sheet)
+ * @returns {string} Status message
+ */
+function triggerMonthlyTogglePrintMode(sheetName) {
+  return MONTHLY_togglePrintMode(sheetName || null);
+}
+
+/**
+ * (SIDEBAR) Returns the name of the active sheet if it is a monthly assignments view.
+ * @returns {string|null}
+ */
+function getActiveMonthlySheetName() {
+  return MONTHLY_getActiveSheetName();
+}
+
+/**
+ * (MENU) Shows a prompt to generate the monthly assignments view from the menu.
+ */
+function promptGenerateMonthlyAssignmentsView() {
+  try {
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.prompt(
+      'Generate Monthly Assignments Sheet',
+      'Enter the month to generate (e.g. "2026-04" for April 2026):',
+      ui.ButtonSet.OK_CANCEL
+    );
+
+    if (response.getSelectedButton() !== ui.Button.OK) return;
+
+    const monthString = response.getResponseText().trim();
+    if (!monthString) return;
+
+    const result = MONTHLY_generateAssignmentsView(monthString);
+    HELPER_showSuccess('Monthly Assignments Sheet Created', result);
+  } catch (e) {
+    HELPER_showError('Could Not Generate Sheet', e, 'assignment');
   }
 }

@@ -73,6 +73,12 @@ function onEdit(e) {
     const sheet = e.range.getSheet();
     const sheetName = sheet.getName();
 
+    // --- Handle edits in Monthly Assignments View sheets (e.g. "April 2026") ---
+    if (/^[A-Za-z]+ \d{4}$/.test(sheetName)) {
+      ONEDIT_handleMonthlyViewEdit(e, sheet);
+      return;
+    }
+
     // Only validate edits in Assignments sheet
     if (sheetName !== CONSTANTS.SHEETS.ASSIGNMENTS) return;
 
@@ -105,6 +111,113 @@ function onEdit(e) {
     // Log errors but don't disrupt user workflow
     Logger.log(`onEdit validation error: ${error.message}`);
     Logger.log(`Stack: ${error.stack}`);
+  }
+}
+
+/**
+ * Handles edits made in a Monthly Assignments View sheet (e.g. "April 2026").
+ * Syncs volunteer name changes in Column F back to the Assignments sheet.
+ *
+ * @param {object} e - Edit event object
+ * @param {Sheet} sheet - The monthly view sheet being edited
+ */
+function ONEDIT_handleMonthlyViewEdit(e, sheet) {
+  try {
+    const row = e.range.getRow();
+    const col = e.range.getColumn();
+    const viewCols = CONSTANTS.COLS.MONTHLY_ASSIGNMENTS_VIEW;
+
+    // Only process edits to the Volunteer column (F)
+    if (col !== viewCols.VOLUNTEER) return;
+
+    // Skip header and celebration header rows (row < 6)
+    if (row < 6) return;
+
+    // Read the hidden Assignments row number from column J
+    const assignmentsRowNum = sheet.getRange(row, viewCols.ASSIGNMENTS_ROW).getValue();
+
+    // If no row mapping, this is a header/spacer row — ignore
+    if (!assignmentsRowNum || typeof assignmentsRowNum !== 'number' || assignmentsRowNum < 2) return;
+
+    const newVolunteerName = (e.value || '').toString().trim();
+
+    // --- Update the Assignments sheet ---
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+
+    if (!assignmentsSheet) {
+      Logger.log('ONEDIT_handleMonthlyViewEdit: Assignments sheet not found');
+      return;
+    }
+
+    const assignCols = CONSTANTS.COLS.ASSIGNMENTS;
+
+    if (!newVolunteerName) {
+      // Cleared — reset volunteer fields and status in Assignments sheet
+      ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRowNum, assignCols.ASSIGNED_VOLUNTEER_ID), '');
+      ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRowNum, assignCols.ASSIGNED_VOLUNTEER_NAME), '');
+      ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRowNum, assignCols.STATUS), 'Unassigned');
+      Logger.log(`Monthly view sync: cleared assignment in Assignments row ${assignmentsRowNum}`);
+      return;
+    }
+
+    // Look up volunteer to get their ID
+    const volunteer = ONEDIT_findVolunteer(null, newVolunteerName);
+    const volunteerId = volunteer ? volunteer.volunteerId : '';
+
+    // Write name, ID, and status to Assignments sheet
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRowNum, assignCols.ASSIGNED_VOLUNTEER_NAME), newVolunteerName);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRowNum, assignCols.ASSIGNED_VOLUNTEER_ID), volunteerId);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRowNum, assignCols.STATUS), 'Assigned');
+
+    Logger.log(`Monthly view sync: "${newVolunteerName}" (ID: ${volunteerId || 'not found'}) → Assignments row ${assignmentsRowNum}`);
+
+    // --- Run validation and show warnings if needed ---
+    const assignmentRowData = assignmentsSheet.getRange(assignmentsRowNum, 1, 1, 13).getValues()[0];
+    const date = assignmentRowData[assignCols.DATE - 1];
+    const ministryRole = assignmentRowData[assignCols.ROLE - 1];
+    const eventId = assignmentRowData[assignCols.EVENT_ID - 1];
+
+    if (!volunteer) {
+      // Volunteer name not found — warn but don't block
+      SpreadsheetApp.getUi().alert(
+        'Volunteer Not Found',
+        `"${newVolunteerName}" was not found in the Volunteers sheet.\n\nThe name has been saved, but please verify the spelling matches exactly.`,
+        SpreadsheetApp.getUi().ButtonSet.OK
+      );
+      return;
+    }
+
+    // Collect warnings
+    const warnings = [];
+    const statusWarning = ONEDIT_checkVolunteerStatus(volunteer);
+    if (statusWarning) warnings.push(statusWarning);
+
+    const skillToMinistryMap = HELPER_buildSkillToMinistryMap();
+    const requiredSkill = skillToMinistryMap.get(ministryRole.toLowerCase()) || '';
+    const roleWarning = ONEDIT_checkMinistryMatch(volunteer, ministryRole, requiredSkill);
+    if (roleWarning) warnings.push(roleWarning);
+
+    const timeoffWarning = ONEDIT_checkTimeoffConflicts(volunteer, date, eventId);
+    if (timeoffWarning) warnings.push(timeoffWarning);
+
+    if (warnings.length > 0) {
+      // Show warning and offer to cancel
+      const shouldKeep = ONEDIT_showValidationDialog(volunteer.fullName, warnings);
+      if (!shouldKeep) {
+        // Revert — clear the monthly view cell and undo the Assignments write
+        ONEDIT_safeClearContent(sheet.getRange(row, viewCols.VOLUNTEER));
+        ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRowNum, assignCols.ASSIGNED_VOLUNTEER_NAME), '');
+        ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRowNum, assignCols.ASSIGNED_VOLUNTEER_ID), '');
+        ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRowNum, assignCols.STATUS), 'Unassigned');
+        Logger.log(`Monthly view sync: assignment cancelled by user after warnings`);
+      }
+    }
+
+  } catch (error) {
+    Logger.log(`ONEDIT_handleMonthlyViewEdit error: ${error.message}`);
+    Logger.log(`Stack: ${error.stack}`);
+    // Don't rethrow — let the user's edit stand even if sync fails
   }
 }
 

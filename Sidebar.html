@@ -489,6 +489,32 @@
         </div>
       </div>
 
+      <!-- STEP 8: Monthly Assignments Sheet -->
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #1a73e8;">8</div>
+        <div class="step-content">
+          <div class="step-title">
+            Generate Monthly Sheet
+            <span id="completion-monthly-sheet" class="completion-badge hidden">✓ Complete</span>
+          </div>
+          <div class="step-description">
+            Create an editable "<em>Month YYYY</em>" sheet — edit volunteer names directly,
+            sync back to Assignments automatically
+          </div>
+          <button id="btn-monthly-sheet" class="btn btn-primary" disabled>
+            Generate Monthly Sheet
+          </button>
+          <div id="monthly-sheet-actions" style="display: none; margin-top: 10px;">
+            <button id="btn-toggle-print-mode" class="btn btn-outline" style="font-size: 12px;">
+              🖨️ Toggle Print Mode
+            </button>
+            <div style="margin-top: 6px; font-size: 11px; color: #5f6368;">
+              Print mode hides helper columns for a clean printout
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -759,6 +785,11 @@
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
 
+    // Monthly Assignments Sheet (Step 8)
+    const btnMonthlySheet = document.getElementById('btn-monthly-sheet');
+    const btnTogglePrintMode = document.getElementById('btn-toggle-print-mode');
+    const monthlySheetActions = document.getElementById('monthly-sheet-actions');
+
     // Persistent Monthly Views (Step 9)
     const btnUpdateFilter = document.getElementById('btn-update-filter');
     const btnRegeneratePersistent = document.getElementById('btn-regenerate-persistent');
@@ -889,6 +920,9 @@
       btnTimeoffs.disabled = !hasCalendar || !hasMonthSelected;
       btnStep2.disabled = !hasCalendar || !hasMonthSelected;
 
+      // Step 8: Monthly Assignments Sheet (requires month selection)
+      btnMonthlySheet.disabled = !hasCalendar || !hasMonthSelected;
+
       // Step 9: Persistent Monthly Views (always enabled after calendar exists)
       persistentMinistryFilter.disabled = !hasCalendar;
       btnUpdateFilter.disabled = !hasCalendar;
@@ -949,7 +983,7 @@
     
     // Initialization
     window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnUpdateFilter, btnRegeneratePersistent, btnCustomPrint, btnWeekly, btnDashboard, btnPublishAll, btnPublishMinistry];
+      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnMonthlySheet, btnUpdateFilter, btnRegeneratePersistent, btnCustomPrint, btnWeekly, btnDashboard, btnPublishAll, btnPublishMinistry];
       updatePhaseProgress('setup');
 
       google.script.run
@@ -1195,6 +1229,48 @@
         .triggerAssignment(selectedMonth);
     });
     
+    // STEP 8: Generate Monthly Assignments Sheet
+    btnMonthlySheet.addEventListener('click', () => {
+      const selectedMonth = monthSelect.value;
+      if (!selectedMonth) return;
+
+      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
+      showLoading(`Generating "${selectedText}" assignments sheet...`);
+
+      google.script.run
+        .withSuccessHandler((message) => {
+          showSuccess(message);
+          markStepComplete('monthly-sheet');
+          // Show print mode toggle now that a sheet has been created
+          monthlySheetActions.style.display = 'block';
+        })
+        .withFailureHandler((error) => showError(error, 'assignment'))
+        .triggerMonthlyAssignmentsView(selectedMonth);
+    });
+
+    // STEP 8: Toggle Print Mode
+    btnTogglePrintMode.addEventListener('click', () => {
+      // Get the active sheet name to pass to the toggle function
+      google.script.run
+        .withSuccessHandler((sheetName) => {
+          const label = sheetName || 'active sheet';
+          showLoading(`Toggling print mode on "${label}"...`);
+          google.script.run
+            .withSuccessHandler((message) => showSuccess(message))
+            .withFailureHandler((error) => showError(error, 'print'))
+            .triggerMonthlyTogglePrintMode(sheetName);
+        })
+        .withFailureHandler(() => {
+          // Fallback: toggle on active sheet
+          showLoading('Toggling print mode...');
+          google.script.run
+            .withSuccessHandler((message) => showSuccess(message))
+            .withFailureHandler((error) => showError(error, 'print'))
+            .triggerMonthlyTogglePrintMode(null);
+        })
+        .getActiveMonthlySheetName();
+    });
+
     // STEP 9: Update Ministry Filter button
     btnUpdateFilter.addEventListener('click', () => {
       const selectedFilter = persistentMinistryFilter.value;
