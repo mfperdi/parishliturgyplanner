@@ -24,6 +24,23 @@ function AUTOVIEW_onChangeHandler(e) {
   try {
     Logger.log('Auto-update trigger fired');
 
+    // Skip if this change was triggered by a view-sheet write-back (onEdit → Assignments).
+    // The write-back sets a timestamp property; if it's recent (< 30 s), skip regeneration.
+    try {
+      const writebackTs = PropertiesService.getScriptProperties()
+        .getProperty('VIEWEDIT_WRITEBACK_TS');
+      if (writebackTs) {
+        const elapsedMs = Date.now() - parseInt(writebackTs, 10);
+        PropertiesService.getScriptProperties().deleteProperty('VIEWEDIT_WRITEBACK_TS');
+        if (elapsedMs < 30000) {
+          Logger.log(`Skipping auto-update: triggered by view write-back ${elapsedMs}ms ago`);
+          return;
+        }
+      }
+    } catch (propErr) {
+      Logger.log(`Warning: Could not read write-back flag: ${propErr.message}`);
+    }
+
     // Check if auto-update is enabled in Config
     const isEnabled = AUTOVIEW_getConfigValue('Auto-Update Views Enabled');
     if (!isEnabled) {

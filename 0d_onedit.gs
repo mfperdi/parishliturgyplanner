@@ -484,6 +484,16 @@ function ONEDIT_writeVolunteerToAssignments(assignmentsRow, volunteerName) {
 
   const cols = CONSTANTS.COLS.ASSIGNMENTS;
 
+  // Set a flag so AUTOVIEW_onChangeHandler knows to skip regeneration.
+  // The onChange trigger fires asynchronously after our setValue() calls;
+  // it reads this flag and skips the view refresh for write-backs.
+  try {
+    PropertiesService.getScriptProperties()
+      .setProperty('VIEWEDIT_WRITEBACK_TS', Date.now().toString());
+  } catch (e) {
+    Logger.log(`Warning: Could not set write-back flag: ${e.message}`);
+  }
+
   if (!volunteerName || volunteerName === 'UNASSIGNED') {
     // Clear assignment
     ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_ID), '');
