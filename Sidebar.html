@@ -500,59 +500,9 @@
     </div>
     <div class="phase-content disabled" id="phase-completion-content">
 
-      <!-- STEP 9: Persistent Monthly Views -->
+      <!-- STEP 9: Custom Print -->
       <div class="step-item">
         <div class="step-icon" style="background-color: #1e8e3e;">9</div>
-        <div class="step-content">
-          <div class="step-title">
-            Persistent Monthly Views
-            <span id="completion-persistent" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">
-            View current + next month schedules (auto-update when assignments change)
-          </div>
-
-          <!-- Current Status Display -->
-          <div id="monthly-view-status" style="margin-bottom: 12px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">
-            <div style="margin-bottom: 4px;"><strong>Currently Displaying:</strong></div>
-            <div id="status-current-month" style="color: #5f6368;">• Current: Loading...</div>
-            <div id="status-next-month" style="color: #5f6368;">• Next: Loading...</div>
-            <div id="status-ministry-filter" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8eaed; color: #5f6368;">
-              Filter: <span id="status-filter-value">Loading...</span>
-            </div>
-            <div id="status-auto-update" style="margin-top: 4px; color: #5f6368;">
-              Auto-Update: <span id="status-auto-value">Loading...</span>
-            </div>
-          </div>
-
-          <!-- Ministry Filter Selector -->
-          <div style="margin-bottom: 10px;">
-            <label for="persistent-ministry-filter" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
-              Ministry Filter:
-            </label>
-            <select id="persistent-ministry-filter" class="form-select" style="margin-bottom: 8px;">
-              <option value="All Ministries">All Ministries</option>
-              <!-- Populated dynamically -->
-            </select>
-            <button id="btn-update-filter" class="btn btn-outline" disabled>
-              Update Filter
-            </button>
-          </div>
-
-          <!-- Action Buttons -->
-          <button id="btn-regenerate-persistent" class="btn btn-secondary" disabled style="margin-top: 8px;">
-            🔄 Regenerate Views Now
-          </button>
-
-          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f3f4; font-size: 11px; color: #5f6368;">
-            💡 <strong>Tip:</strong> Views auto-update when you edit assignments (if enabled in Admin Tools)
-          </div>
-        </div>
-      </div>
-
-      <!-- STEP 10: Custom Print -->
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">10</div>
         <div class="step-content">
           <div class="step-title">
             Custom Print
@@ -759,16 +709,7 @@
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
 
-    // Persistent Monthly Views (Step 9)
-    const btnUpdateFilter = document.getElementById('btn-update-filter');
-    const btnRegeneratePersistent = document.getElementById('btn-regenerate-persistent');
-    const persistentMinistryFilter = document.getElementById('persistent-ministry-filter');
-    const statusCurrentMonth = document.getElementById('status-current-month');
-    const statusNextMonth = document.getElementById('status-next-month');
-    const statusFilterValue = document.getElementById('status-filter-value');
-    const statusAutoValue = document.getElementById('status-auto-value');
-
-    // Custom Print (Step 10)
+    // Custom Print (Step 9)
     const customPrintMonth = document.getElementById('custom-print-month');
     const customPrintMinistry = document.getElementById('custom-print-ministry');
     const customPrintSheetName = document.getElementById('custom-print-sheet-name');
@@ -889,12 +830,7 @@
       btnTimeoffs.disabled = !hasCalendar || !hasMonthSelected;
       btnStep2.disabled = !hasCalendar || !hasMonthSelected;
 
-      // Step 9: Persistent Monthly Views (always enabled after calendar exists)
-      persistentMinistryFilter.disabled = !hasCalendar;
-      btnUpdateFilter.disabled = !hasCalendar;
-      btnRegeneratePersistent.disabled = !hasCalendar;
-
-      // Step 10: Custom Print (requires month selection + sheet name)
+      // Step 9: Custom Print (requires month selection + sheet name)
       customPrintMonth.disabled = !hasCalendar;
       customPrintMinistry.disabled = !hasCalendar;
       customPrintSheetName.disabled = !hasCalendar;
@@ -949,7 +885,7 @@
     
     // Initialization
     window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnUpdateFilter, btnRegeneratePersistent, btnCustomPrint, btnWeekly, btnDashboard, btnPublishAll, btnPublishMinistry];
+      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnCustomPrint, btnWeekly, btnDashboard, btnPublishAll, btnPublishMinistry];
       updatePhaseProgress('setup');
 
       google.script.run
@@ -969,12 +905,6 @@
         .withFailureHandler((error) => console.error('Failed to load auto-publish status:', error))
         .AUTOPUBLISH_getStatus();
 
-      // Load monthly view status for persistent views
-      google.script.run
-        .withSuccessHandler(onMonthlyViewStatusLoaded)
-        .withFailureHandler((error) => console.error('Failed to load monthly view status:', error))
-        .getCurrentMonthlyViewStatus();
-
       // Load next 12 months for custom print dropdown
       google.script.run
         .withSuccessHandler(onCustomPrintMonthsLoaded)
@@ -989,59 +919,31 @@
     });
     
     function onMinistriesLoaded(ministries) {
-      // Populate persistent monthly views filter
-      persistentMinistryFilter.innerHTML = '<option value="All Ministries">All Ministries</option>';
-
       // Populate custom print ministry filter
       customPrintMinistry.innerHTML = '<option value="All Ministries">All Ministries</option>';
 
       // Populate publish filter dropdown
       publishMinistryFilter.innerHTML = '<option value="">Select ministry...</option>';
 
-      // Add ministry options to all dropdowns
+      // Add ministry options to dropdowns
       ministries.forEach(ministry => {
-        // Add to persistent filter
+        // Add to custom print filter
         const opt1 = document.createElement('option');
         opt1.value = ministry;
         opt1.textContent = ministry;
-        persistentMinistryFilter.appendChild(opt1);
+        customPrintMinistry.appendChild(opt1);
 
-        // Add to custom print filter
+        // Add to publish filter dropdown
         const opt2 = document.createElement('option');
         opt2.value = ministry;
         opt2.textContent = ministry;
-        customPrintMinistry.appendChild(opt2);
-
-        // Add to publish filter dropdown
-        const opt3 = document.createElement('option');
-        opt3.value = ministry;
-        opt3.textContent = ministry;
-        publishMinistryFilter.appendChild(opt3);
+        publishMinistryFilter.appendChild(opt2);
       });
 
       console.log(`Loaded ${ministries.length} ministries for filter dropdowns`);
 
       // Update button states now that ministries are loaded
       updateButtonStates();
-    }
-
-    function onMonthlyViewStatusLoaded(status) {
-      if (status.success) {
-        statusCurrentMonth.textContent = `• Current: ${status.currentMonth}`;
-        statusNextMonth.textContent = `• Next: ${status.nextMonth}`;
-        statusFilterValue.textContent = status.ministryFilter;
-        statusAutoValue.textContent = status.autoUpdateEnabled ? '✅ Enabled' : '❌ Disabled';
-
-        // Set the filter dropdown to match current config
-        persistentMinistryFilter.value = status.ministryFilter;
-
-        console.log('Monthly view status loaded:', status);
-
-        // Update button states now that status is loaded
-        updateButtonStates();
-      } else {
-        console.error('Failed to load monthly view status:', status.error);
-      }
     }
 
     function onCustomPrintMonthsLoaded(months) {
@@ -1195,43 +1097,7 @@
         .triggerAssignment(selectedMonth);
     });
     
-    // STEP 9: Update Ministry Filter button
-    btnUpdateFilter.addEventListener('click', () => {
-      const selectedFilter = persistentMinistryFilter.value;
-      showLoading(`Updating ministry filter to "${selectedFilter}"...`);
-
-      google.script.run
-        .withSuccessHandler((result) => {
-          if (result.success) {
-            showSuccess(result.message);
-            statusFilterValue.textContent = selectedFilter;
-            markStepComplete('persistent');
-          } else {
-            showError({ message: result.error }, 'print');
-          }
-        })
-        .withFailureHandler((error) => showError(error, 'print'))
-        .setMonthlyViewMinistryFilter(selectedFilter);
-    });
-
-    // STEP 9: Regenerate Persistent Views button
-    btnRegeneratePersistent.addEventListener('click', () => {
-      showLoading('Regenerating both monthly views...');
-
-      google.script.run
-        .withSuccessHandler((result) => {
-          if (result.success) {
-            showSuccess(result.message);
-            markStepComplete('persistent');
-          } else {
-            showError({ message: result.error }, 'print');
-          }
-        })
-        .withFailureHandler((error) => showError(error, 'print'))
-        .regenerateMonthlyViewsManually();
-    });
-
-    // STEP 10: Custom Print button
+    // STEP 9: Custom Print button
     btnCustomPrint.addEventListener('click', () => {
       const selectedMonth = customPrintMonth.value;
       const selectedMinistry = customPrintMinistry.value;
