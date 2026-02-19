@@ -581,12 +581,6 @@
             </div>
           </div>
 
-          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f3f4;">
-            <button id="btn-weekly" class="btn btn-outline" disabled style="font-size: 12px;">
-              📅 Refresh WeeklyView Sheet
-            </button>
-          </div>
-
           <div style="margin-top: 8px; font-size: 11px; color: #5f6368;">
             💡 <strong>Smart Logic:</strong> Mon-Wed shows current week, Thu-Sun shows next week
           </div>
@@ -730,7 +724,6 @@
     const btnCustomPrint = document.getElementById('btn-custom-print');
 
     // Weekly View (Step 9)
-    const btnWeekly = document.getElementById('btn-weekly');
     const btnCopyEmail = document.getElementById('btn-copy-email');
     const btnCopyAgain = document.getElementById('btn-copy-again');
     const emailPreviewContainer = document.getElementById('email-preview-container');
@@ -856,7 +849,6 @@
       btnCustomPrint.disabled = !hasCalendar || !hasCustomPrintMonth || !hasCustomPrintSheetName;
 
       // Step 9: Weekly Email View (always enabled after calendar exists)
-      btnWeekly.disabled = !hasCalendar;
       btnCopyEmail.disabled = !hasCalendar;
 
       // Step 10: Publish buttons (require month selection)
@@ -902,7 +894,7 @@
     
     // Initialization
     window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnCustomPrint, btnWeekly, btnDashboard, btnPublishAll, btnPublishMinistry];
+      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnCustomPrint, btnCopyEmail, btnDashboard, btnPublishAll, btnPublishMinistry];
       updatePhaseProgress('setup');
 
       google.script.run
@@ -1203,18 +1195,6 @@
         }
       });
     }
-
-    // STEP 11: Refresh WeeklyView Sheet button
-    btnWeekly.addEventListener('click', () => {
-      showLoading('Regenerating weekly view sheet...');
-
-      google.script.run
-        .withSuccessHandler((message) => {
-          showSuccess('Weekly view sheet regenerated!');
-        })
-        .withFailureHandler((error) => showError(error, 'print'))
-        .generateWeeklyView(null, { sheetName: 'WeeklyView' });
-    });
 
     // Auto-suggest sheet name for custom print based on selections
     // Uses abbreviated month-year format (e.g., "Feb 2026") to keep names concise
