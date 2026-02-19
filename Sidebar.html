@@ -500,9 +500,9 @@
     </div>
     <div class="phase-content disabled" id="phase-completion-content">
 
-      <!-- STEP 9: Custom Print -->
+      <!-- STEP 8: Custom Print -->
       <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">9</div>
+        <div class="step-icon" style="background-color: #1e8e3e;">8</div>
         <div class="step-content">
           <div class="step-title">
             Custom Print
@@ -552,9 +552,9 @@
         </div>
       </div>
 
-      <!-- STEP 11: Weekly Email View -->
+      <!-- STEP 9: Weekly Email View -->
       <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">11</div>
+        <div class="step-icon" style="background-color: #1e8e3e;">9</div>
         <div class="step-content">
           <div class="step-title">
             Weekly Email View
@@ -593,25 +593,9 @@
         </div>
       </div>
 
-      <!-- STEP 12: Dashboard Analytics -->
+      <!-- STEP 10: Publish Schedule -->
       <div class="step-item">
-        <div class="step-icon" style="background-color: #7c4dff;">12</div>
-        <div class="step-content">
-          <div class="step-title">
-            Dashboard Analytics
-            <span id="completion-dashboard" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Analyze volunteer participation and coverage patterns</div>
-
-          <button id="btn-dashboard" class="btn btn-outline" disabled>
-            📊 View Dashboard
-          </button>
-        </div>
-      </div>
-
-      <!-- STEP 13: Publish Schedule -->
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">13</div>
+        <div class="step-icon" style="background-color: #1e8e3e;">10</div>
         <div class="step-content">
           <div class="step-title">
             Publish Schedule
@@ -645,6 +629,36 @@
               <span>Auto-publish main schedule (every 30 min)</span>
             </label>
             <div id="auto-publish-status" style="margin-top: 4px; font-size: 11px; color: #5f6368;"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Analytics Section -->
+  <div class="phase-container">
+    <div class="phase-header" style="background: linear-gradient(135deg, #7c4dff, #5e35b1);">
+      <span>📊</span>
+      <span>Analytics</span>
+    </div>
+    <div class="phase-content disabled" id="phase-analytics-content">
+
+      <div class="step-item">
+        <div class="step-icon" style="background-color: #7c4dff;">📊</div>
+        <div class="step-content">
+          <div class="step-title">
+            Dashboard Analytics
+            <span id="completion-dashboard" class="completion-badge hidden">✓ Complete</span>
+          </div>
+          <div class="step-description">Analyze volunteer participation, coverage, and unassigned roles for a selected month</div>
+
+          <button id="btn-dashboard" class="btn btn-outline" disabled>
+            📊 View Dashboard
+          </button>
+
+          <div style="margin-top: 8px; font-size: 11px; color: #5f6368;">
+            Select a month above before generating the dashboard.
           </div>
         </div>
       </div>
@@ -709,13 +723,13 @@
     const btnTimeoffs = document.getElementById('btn-timeoffs');
     const btnStep2 = document.getElementById('btn-step2');
 
-    // Custom Print (Step 9)
+    // Custom Print (Step 8)
     const customPrintMonth = document.getElementById('custom-print-month');
     const customPrintMinistry = document.getElementById('custom-print-ministry');
     const customPrintSheetName = document.getElementById('custom-print-sheet-name');
     const btnCustomPrint = document.getElementById('btn-custom-print');
 
-    // Weekly View (Step 11)
+    // Weekly View (Step 9)
     const btnWeekly = document.getElementById('btn-weekly');
     const btnCopyEmail = document.getElementById('btn-copy-email');
     const btnCopyAgain = document.getElementById('btn-copy-again');
@@ -724,27 +738,28 @@
     const emailPreviewText = document.getElementById('email-preview-text');
     const copySuccess = document.getElementById('copy-success');
 
-    // Dashboard (Step 12)
-    const btnDashboard = document.getElementById('btn-dashboard');
-
-    // Publish (Step 13)
+    // Publish (Step 10)
     const btnPublishAll = document.getElementById('btn-publish-all');
     const btnPublishMinistry = document.getElementById('btn-publish-ministry');
     const publishMinistryFilter = document.getElementById('publish-ministry-filter');
     const autoPublishToggle = document.getElementById('auto-publish-toggle');
     const autoPublishStatus = document.getElementById('auto-publish-status');
 
+    // Dashboard Analytics
+    const btnDashboard = document.getElementById('btn-dashboard');
+
     const statusMessage = document.getElementById('status-message');
-    
+
     // Phase elements
     const phaseSetup = document.getElementById('phase-setup');
     const phaseScheduling = document.getElementById('phase-scheduling');
     const phaseCompletion = document.getElementById('phase-completion');
-    
+
     // Phase content elements
     const phaseSetupContent = document.getElementById('phase-setup-content');
     const phaseSchedulingContent = document.getElementById('phase-scheduling-content');
     const phaseCompletionContent = document.getElementById('phase-completion-content');
+    const phaseAnalyticsContent = document.getElementById('phase-analytics-content');
     
     // Badge elements
     const timeoffBadge = document.getElementById('timeoff-badge');
@@ -806,10 +821,12 @@
       if (hasCalendar) {
         phaseSchedulingContent.classList.remove('disabled');
         phaseCompletionContent.classList.remove('disabled');
+        phaseAnalyticsContent.classList.remove('disabled');
         updatePhaseProgress('scheduling');
       } else {
         phaseSchedulingContent.classList.add('disabled');
         phaseCompletionContent.classList.add('disabled');
+        phaseAnalyticsContent.classList.add('disabled');
         updatePhaseProgress('setup');
       }
     }
@@ -830,7 +847,7 @@
       btnTimeoffs.disabled = !hasCalendar || !hasMonthSelected;
       btnStep2.disabled = !hasCalendar || !hasMonthSelected;
 
-      // Step 9: Custom Print (requires month selection + sheet name)
+      // Step 8: Custom Print (requires month selection + sheet name)
       customPrintMonth.disabled = !hasCalendar;
       customPrintMinistry.disabled = !hasCalendar;
       customPrintSheetName.disabled = !hasCalendar;
@@ -838,18 +855,18 @@
       const hasCustomPrintSheetName = customPrintSheetName.value.trim() !== '';
       btnCustomPrint.disabled = !hasCalendar || !hasCustomPrintMonth || !hasCustomPrintSheetName;
 
-      // Step 11: Weekly Email View (always enabled after calendar exists)
+      // Step 9: Weekly Email View (always enabled after calendar exists)
       btnWeekly.disabled = !hasCalendar;
       btnCopyEmail.disabled = !hasCalendar;
 
-      // Step 12: Dashboard Analytics (requires month selection)
-      btnDashboard.disabled = !hasCalendar || !hasMonthSelected;
-
-      // Step 13: Publish buttons (require month selection)
+      // Step 10: Publish buttons (require month selection)
       publishMinistryFilter.disabled = !hasCalendar || !hasMonthSelected;
       btnPublishAll.disabled = !hasCalendar || !hasMonthSelected;
       const hasMinistrySelected = publishMinistryFilter.value !== '';
       btnPublishMinistry.disabled = !hasCalendar || !hasMonthSelected || !hasMinistrySelected;
+
+      // Dashboard Analytics (requires month selection)
+      btnDashboard.disabled = !hasCalendar || !hasMonthSelected;
 
       updatePhaseStates();
       updateBadges();
@@ -1230,7 +1247,7 @@
       updateButtonStates();
     });
 
-    // Dashboard Analytics button
+    // Dashboard Analytics
     btnDashboard.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
