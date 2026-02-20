@@ -156,6 +156,14 @@ function SCHEDULE_generateScheduleForMonth(monthString) {
       .setAllowInvalid(false)
       .build();
     checkboxRange.setDataValidation(checkboxValidation);
+
+    // 8. Ensure Assignments column L uses "Show warning" mode so group names
+    //    (e.g. "School", "Spanish") can be entered without a hard rejection error.
+    try {
+      DROPDOWNS_setupAssignmentsVolunteerValidation();
+    } catch (e) {
+      Logger.log(`Warning: Could not update Assignments volunteer validation: ${e.message}`);
+    }
   }
 
   Logger.log("Schedule generation complete.");

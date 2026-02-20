@@ -20,7 +20,8 @@ const CONSTANTS = {
     LITURGICAL_NOTES: "LiturgicalNotes",
     CALENDAR: "LiturgicalCalendar",
     ASSIGNMENTS: "Assignments",
-    DASHBOARD: "Dashboard"
+    DASHBOARD: "Dashboard",
+    DROPDOWNS: "Dropdowns"
   },
   
   // 2. Column Number Maps
@@ -178,6 +179,27 @@ const CONSTANTS = {
       STATUS: 7,
       REVIEWED_DATE: 8,
       REVIEW_NOTES: 9       // Admin review notes and warnings
+    },
+
+    // 'Dropdowns' sheet (16 columns) - provides data validation lists for the spreadsheet
+    // Columns 1-8 and 13-14, 16 are static; columns 9-12 and 15 are managed by DROPDOWNS_refresh()
+    DROPDOWNS: {
+      LITURGICAL_SEASONS: 1,
+      LITURGICAL_RANKS: 2,
+      LITURGICAL_COLORS: 3,
+      READING_CYCLE: 4,
+      OVERRIDE_TYPE: 5,
+      DAY_OF_MONTH: 6,
+      DAY_OF_WEEK: 7,
+      VOLUNTEER_STATUS: 8,
+      ALL_MINISTRY_NAMES: 9,
+      ALL_ROLE_NAMES: 10,
+      ALL_MASS_EVENT_IDS: 11,
+      ALL_TEMPLATE_NAMES: 12,
+      AVAILABILITY_TYPE: 13,
+      TIMEOFF_APPROVAL_STATUS: 14,
+      ASSIGNED_VOLUNTEER_NAME: 15,
+      ASSIGNMENT_STATUS: 16
     }
   },
   

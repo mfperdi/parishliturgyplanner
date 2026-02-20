@@ -77,6 +77,7 @@ function onOpen(e) {
           .addItem('Authorize Permissions', 'authorizeAllPermissions')
           .addSeparator()
           .addItem('Validate Data', 'showDataValidation')
+          .addItem('Refresh Dropdowns Sheet', 'DROPDOWNS_refresh')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
           .addItem('Setup Assignment Helper Formulas', 'setupAssignmentHelperFormulas')
           .addItem('Format Assignment Checkboxes', 'setupAssignmentCheckboxes')
