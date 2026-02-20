@@ -485,7 +485,8 @@ function ONEDIT_writeVolunteerToAssignments(assignmentsRow, volunteerName) {
   const cols = CONSTANTS.COLS.ASSIGNMENTS;
 
   if (!volunteerName || volunteerName === 'UNASSIGNED') {
-    // Clear assignment
+    // Clear assignment (also clear group column in case it held a group name)
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_GROUP), '');
     ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_ID), '');
     ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_NAME), '');
     ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.STATUS), 'Unassigned');
@@ -509,10 +510,19 @@ function ONEDIT_writeVolunteerToAssignments(assignmentsRow, volunteerName) {
     Logger.log(`Warning: Could not look up volunteer ID: ${e.message}`);
   }
 
-  // Write volunteer ID, name, and status
-  ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_ID), volunteerId);
-  ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_NAME), volunteerName);
-  ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.STATUS), 'Assigned');
-
-  Logger.log(`Write-back: row ${assignmentsRow} → "${volunteerName}" (ID: ${volunteerId || 'not found'})`);
+  if (volunteerId) {
+    // Individual volunteer found — clear group column, write ID + name
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_GROUP), '');
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_ID), volunteerId);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_NAME), volunteerName);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.STATUS), 'Assigned');
+    Logger.log(`Write-back: row ${assignmentsRow} → "${volunteerName}" (ID: ${volunteerId})`);
+  } else {
+    // Name not found in Volunteers — treat as a group assignment
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_GROUP), volunteerName);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_ID), '');
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_NAME), volunteerName);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.STATUS), 'Assigned');
+    Logger.log(`Write-back: row ${assignmentsRow} → group "${volunteerName}"`);
+  }
 }

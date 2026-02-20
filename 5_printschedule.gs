@@ -1035,23 +1035,32 @@ function trimSheet(sheet, numColumns) {
 }
 
 /**
- * Returns sorted list of Active volunteer full names for dropdown validation.
- * @returns {string[]} Sorted array of active volunteer names.
+ * Returns sorted list of Active volunteer full names plus unique Family Team
+ * group names for dropdown validation in view sheets.
+ * Groups (e.g. "School", "Spanish") are listed first, then individual volunteers.
+ * @returns {string[]} Array of group names followed by sorted active volunteer names.
  */
 function PRINT_getActiveVolunteerNames() {
   try {
     const data = HELPER_readSheetDataCached(CONSTANTS.SHEETS.VOLUNTEERS);
     const cols = CONSTANTS.COLS.VOLUNTEERS;
     const names = [];
+    const groupNames = new Set();
     for (const row of data) {
       const status = HELPER_safeArrayAccess(row, cols.STATUS - 1, '');
       const name = HELPER_safeArrayAccess(row, cols.FULL_NAME - 1, '');
+      const familyTeam = HELPER_safeArrayAccess(row, cols.FAMILY_TEAM - 1, '');
       if (status === 'Active' && name) {
         names.push(name);
       }
+      if (familyTeam) {
+        groupNames.add(familyTeam.toString().trim());
+      }
     }
     names.sort();
-    return names;
+    // Groups first so they appear at the top of the dropdown
+    const sortedGroups = Array.from(groupNames).sort();
+    return [...sortedGroups, ...names];
   } catch (e) {
     Logger.log(`Warning: Could not load volunteer names: ${e.message}`);
     return [];
