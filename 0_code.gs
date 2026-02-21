@@ -73,13 +73,13 @@ function authorizeAllPermissions() {
  * These are hidden by default via Admin Tools → Sheet Organization → Hide Reference Sheets.
  */
 const ADMIN_REFERENCE_SHEETS = [
-  CONSTANTS.SHEETS.SAINTS_CALENDAR,  // SaintsCalendar
-  CONSTANTS.SHEETS.OVERRIDES,        // CalendarOverrides
-  CONSTANTS.SHEETS.CALENDAR,         // LiturgicalCalendar
-  CONSTANTS.SHEETS.LITURGICAL_NOTES, // LiturgicalNotes
-  CONSTANTS.SHEETS.DROPDOWNS,        // Dropdowns
-  CONSTANTS.SHEETS.MINISTRIES,       // Ministries
-  CONSTANTS.SHEETS.TEMPLATES         // MassTemplates
+  'SaintsCalendar',
+  'CalendarOverrides',
+  'LiturgicalCalendar',
+  'LiturgicalNotes',
+  'Dropdowns',
+  'Ministries',
+  'MassTemplates'
 ];
 
 /**
