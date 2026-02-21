@@ -394,6 +394,12 @@
       color: #1a73e8;
     }
 
+    .monthly-picker {
+      font-family: inherit;
+      width: 100%;
+      cursor: pointer;
+    }
+
     /* Hidden elements */
     .hidden {
       display: none !important;
@@ -426,9 +432,11 @@
       <button class="btn-nav" onclick="navigateTo('Assignments')" title="Go to Assignments sheet">
         📌 Assignments
       </button>
-      <button class="btn-nav" onclick="navigateTo('MonthlyView')" title="Go to Monthly View sheet">
-        📄 Monthly View
-      </button>
+      <select id="monthly-view-picker" class="btn-nav monthly-picker"
+              onchange="navigateToSelectedMonth(this)"
+              title="Select a monthly print sheet to view">
+        <option value="">📄 Monthly View ▾</option>
+      </select>
     </div>
   </div>
 
@@ -777,10 +785,39 @@
       google.script.run
         .withSuccessHandler(() => {})
         .withFailureHandler((err) => {
-          // Sheet may not exist yet (e.g., MonthlyView before first print)
           console.log('Navigate to "' + sheetName + '" failed:', err.message || err);
         })
         .ADMIN_navigateToSheet(sheetName);
+    }
+
+    // Monthly View picker: populate <select> with available print sheet names
+    function loadMonthlyViewPicker() {
+      google.script.run
+        .withSuccessHandler((names) => {
+          const picker = document.getElementById('monthly-view-picker');
+          // Clear everything after the default option
+          while (picker.options.length > 1) picker.remove(1);
+          // Most recently created sheet first (reverse order)
+          names.slice().reverse().forEach((name) => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            picker.appendChild(opt);
+          });
+        })
+        .withFailureHandler(() => {})
+        .ADMIN_getPrintSheetNames();
+    }
+
+    // Monthly View picker: navigate to selected sheet and reset the picker
+    function navigateToSelectedMonth(select) {
+      const name = select.value;
+      if (!name) return;
+      select.value = ''; // reset to default prompt
+      google.script.run
+        .withSuccessHandler(() => {})
+        .withFailureHandler(() => {})
+        .ADMIN_navigateToSheet(name);
     }
 
     // Enhanced JavaScript with grouped workflow state management
@@ -977,6 +1014,9 @@
         .withSuccessHandler(onMonthsLoaded)
         .withFailureHandler((error) => showError(error, 'calendar'))
         .getMonthsForSidebar();
+
+      // Load available print sheets into Monthly View picker
+      loadMonthlyViewPicker();
 
       // Load ministries for filter dropdowns (print and publish)
       google.script.run

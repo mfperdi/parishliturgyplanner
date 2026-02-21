@@ -218,7 +218,7 @@ function ADMIN_showReferenceSheets() {
  * Applies tab colors to group related sheets visually.
  * - Blue (#4a90d9): Active workflow sheets (Volunteers, Timeoffs, Assignments)
  * - Orange (#f4a742): Config/setup sheets (Config, WeeklyMasses, MonthlyMasses, YearlyMasses)
- * - Green (#34a853): Output/view sheets (MonthlyView, WeeklyView, Dashboard)
+ * - Green (#34a853): Output/view sheets (WeeklyView, Dashboard, + any print sheets e.g. "February 2026")
  * - Gray (#9e9e9e): Reference sheets (hidden by default)
  * Accessed via: Admin Tools → Sheet Organization → Color-Code Sheet Tabs
  */
@@ -235,14 +235,21 @@ function ADMIN_colorCodeSheetTabs() {
         sheets: [CONSTANTS.SHEETS.CONFIG, CONSTANTS.SHEETS.WEEKLY_MASSES, CONSTANTS.SHEETS.MONTHLY_MASSES, CONSTANTS.SHEETS.YEARLY_MASSES]
       },
       {
-        color: '#34a853', // Green - output/view
-        sheets: ['MonthlyView', 'WeeklyView', CONSTANTS.SHEETS.DASHBOARD]
+        color: '#34a853', // Green - known output/view sheets
+        sheets: ['WeeklyView', CONSTANTS.SHEETS.DASHBOARD]
       },
       {
         color: '#9e9e9e', // Gray - reference (hidden)
         sheets: ADMIN_REFERENCE_SHEETS
       }
     ];
+
+    // Track which sheet names get an explicit color so we can color the rest dynamically
+    const explicitlyColored = new Set([
+      ...colorGroups.flatMap(g => g.sheets),
+      ...Object.values(CONSTANTS.SHEETS),
+      'SubstituteHelp'
+    ]);
 
     let coloredCount = 0;
     for (const group of colorGroups) {
@@ -251,8 +258,17 @@ function ADMIN_colorCodeSheetTabs() {
         if (sheet) { sheet.setTabColor(group.color); coloredCount++; }
       }
     }
+
+    // Dynamically color any user-generated print sheets (e.g., "February 2026") green
+    for (const sheet of ss.getSheets()) {
+      if (!explicitlyColored.has(sheet.getName())) {
+        sheet.setTabColor('#34a853');
+        coloredCount++;
+      }
+    }
+
     Logger.log(`Color-coded ${coloredCount} sheet tabs`);
-    HELPER_showSuccess('Tabs Color-Coded', `${coloredCount} sheet tabs color-coded:\n• Blue: Volunteers, Timeoffs, Assignments\n• Orange: Config, Mass schedule sheets\n• Green: Output views (MonthlyView, etc.)\n• Gray: Reference sheets`);
+    HELPER_showSuccess('Tabs Color-Coded', `${coloredCount} sheet tabs color-coded:\n• Blue: Volunteers, Timeoffs, Assignments\n• Orange: Config, Mass schedule sheets\n• Green: Output views (monthly prints, WeeklyView, Dashboard)\n• Gray: Reference sheets`);
   } catch (e) {
     HELPER_showError('Color-Code Failed', e, 'schedule');
   }
@@ -311,14 +327,23 @@ function ADMIN_organizeSheets() {
     const colorGroups = [
       { color: '#4a90d9', sheets: [CONSTANTS.SHEETS.VOLUNTEERS, CONSTANTS.SHEETS.TIMEOFFS, CONSTANTS.SHEETS.ASSIGNMENTS] },
       { color: '#f4a742', sheets: [CONSTANTS.SHEETS.CONFIG, CONSTANTS.SHEETS.WEEKLY_MASSES, CONSTANTS.SHEETS.MONTHLY_MASSES, CONSTANTS.SHEETS.YEARLY_MASSES] },
-      { color: '#34a853', sheets: ['MonthlyView', 'WeeklyView', CONSTANTS.SHEETS.DASHBOARD] },
+      { color: '#34a853', sheets: ['WeeklyView', CONSTANTS.SHEETS.DASHBOARD] },
       { color: '#9e9e9e', sheets: ADMIN_REFERENCE_SHEETS }
     ];
+    const explicitlyColored = new Set([
+      ...colorGroups.flatMap(g => g.sheets),
+      ...Object.values(CONSTANTS.SHEETS),
+      'SubstituteHelp'
+    ]);
     for (const group of colorGroups) {
       for (const name of group.sheets) {
         const sheet = ss.getSheetByName(name);
         if (sheet) sheet.setTabColor(group.color);
       }
+    }
+    // Color any user-generated print sheets (e.g., "February 2026") green
+    for (const sheet of ss.getSheets()) {
+      if (!explicitlyColored.has(sheet.getName())) sheet.setTabColor('#34a853');
     }
 
     // Step 2: Reorder tabs
@@ -372,6 +397,24 @@ function ADMIN_navigateToSheet(sheetName) {
   try { sheet.showSheet(); } catch (e) {} // Unhide if hidden
   ss.setActiveSheet(sheet);
   return true;
+}
+
+/**
+ * Returns the names of all user-generated print sheets (e.g., "February 2026",
+ * "Lector Schedule"). These are any visible sheets that aren't system/reference sheets.
+ * Used by the sidebar Quick Access Monthly View picker to populate the dropdown.
+ * @returns {string[]} Sheet names, most recently created last (rightmost tab order).
+ */
+function ADMIN_getPrintSheetNames() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const systemSheetNames = new Set([
+    ...Object.values(CONSTANTS.SHEETS),
+    'WeeklyView',
+    'SubstituteHelp'
+  ]);
+  return ss.getSheets()
+    .filter(s => !systemSheetNames.has(s.getName()) && !s.isHidden())
+    .map(s => s.getName());
 }
 
 /**
