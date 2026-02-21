@@ -77,9 +77,13 @@ function onOpen(e) {
           .addItem('Authorize Permissions', 'authorizeAllPermissions')
           .addSeparator()
           .addItem('Validate Data', 'showDataValidation')
+          .addItem('Refresh Dropdowns Sheet', 'DROPDOWNS_refresh')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
           .addItem('Setup Assignment Helper Formulas', 'setupAssignmentHelperFormulas')
           .addItem('Format Assignment Checkboxes', 'setupAssignmentCheckboxes')
+          .addSeparator()
+          .addItem('Hide Assignments Sheet', 'hideAssignmentsSheet')
+          .addItem('Show Assignments Sheet', 'showAssignmentsSheet')
           .addSeparator()
           .addItem('Update Timeoff Form', 'promptUpdateTimeoffForm')
           .addSeparator()
@@ -96,10 +100,6 @@ function onOpen(e) {
               .addItem('Enable Auto-Publish', 'enableAutoPublish')
               .addItem('Disable Auto-Publish', 'disableAutoPublish')
               .addItem('Auto-Publish Status', 'showAutoPublishStatus'))
-          .addSubMenu(SpreadsheetApp.getUi().createMenu('Auto-Update Views')
-              .addItem('Enable Auto-Update', 'enableAutoUpdateViews')
-              .addItem('Disable Auto-Update', 'disableAutoUpdateViews')
-              .addItem('Auto-Update Status', 'showAutoUpdateViewsStatus'))
           .addSeparator()
           .addItem('Web App Deployment Info', 'showWebAppDeploymentInfo')
           .addSeparator()
@@ -109,16 +109,34 @@ function onOpen(e) {
           .addItem('Debug Functions', 'showDebugPanel')
           .addItem('Export Data', 'exportCurrentSchedule'))
       .addToUi();
+}
 
-  // Auto-generate weekly view when spreadsheet opens
-  // Wrapped in try-catch to prevent errors from blocking menu creation
+/**
+ * Hides the Assignments sheet from regular view.
+ * Coordinators can use view sheets for editing and unhide via Admin Tools when needed.
+ */
+function hideAssignmentsSheet() {
   try {
-    generateWeeklyView();
-    Logger.log('Weekly view auto-generated on open');
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+    if (!sheet) throw new Error('Assignments sheet not found');
+    sheet.hideSheet();
+    HELPER_showSuccess('Assignments Sheet Hidden', 'The Assignments sheet is now hidden. Use Admin Tools → Show Assignments Sheet to unhide it.');
   } catch (e) {
-    // Silently fail - weekly view generation is optional
-    // User can manually refresh if needed
-    Logger.log(`Weekly view auto-generation failed: ${e.message}`);
+    HELPER_showError('Hide Assignments Failed', e, 'assignment');
+  }
+}
+
+/**
+ * Shows (unhides) the Assignments sheet.
+ */
+function showAssignmentsSheet() {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+    if (!sheet) throw new Error('Assignments sheet not found');
+    sheet.showSheet();
+    HELPER_showSuccess('Assignments Sheet Visible', 'The Assignments sheet is now visible.');
+  } catch (e) {
+    HELPER_showError('Show Assignments Failed', e, 'assignment');
   }
 }
 
@@ -870,127 +888,6 @@ function showWebAppDeploymentInfo() {
   message += 'This rebuilds and copies files to the project root.\n';
 
   HELPER_showAlert('Web App Deployment', message, 'info');
-}
-
-// =============================================================================
-// DUAL MONTHLY VIEWS - SERVER FUNCTIONS FOR SIDEBAR
-// =============================================================================
-
-/**
- * Get current status of dual monthly views system.
- * Returns information about which months are currently displayed,
- * ministry filter setting, and auto-update status.
- *
- * @returns {object} Status object with month info, filter, and view existence
- */
-function getCurrentMonthlyViewStatus() {
-  try {
-    // Use existing AUTOVIEW_getStatus() which has all the info we need
-    const status = AUTOVIEW_getStatus();
-
-    return {
-      success: true,
-      currentMonth: status.currentMonth,
-      nextMonth: status.nextMonth,
-      ministryFilter: status.ministryFilter,
-      autoUpdateEnabled: status.enabled,
-      hasMonthlyViewCurrent: status.hasMonthlyViewCurrent,
-      hasMonthlyViewNext: status.hasMonthlyViewNext,
-      hasWeeklyView: status.hasWeeklyView
-    };
-
-  } catch (e) {
-    Logger.log(`ERROR in getCurrentMonthlyViewStatus: ${e.message}`);
-    return {
-      success: false,
-      error: e.message
-    };
-  }
-}
-
-/**
- * Set the ministry filter for persistent monthly views.
- * Updates Config setting and regenerates both views immediately.
- *
- * @param {string} ministry - Ministry name (e.g., "Lector") or "All Ministries"
- * @returns {object} Result object with success status and message
- */
-function setMonthlyViewMinistryFilter(ministry) {
-  try {
-    // Validate ministry exists (unless "All Ministries")
-    if (ministry && ministry !== 'All Ministries') {
-      const ministries = getActiveMinistries();
-      if (!ministries.includes(ministry)) {
-        throw new Error(`Ministry "${ministry}" not found in Ministries sheet`);
-      }
-    }
-
-    // Update Config
-    AUTOVIEW_setConfigValue('MonthlyView Ministry Filter', ministry || 'All Ministries');
-
-    // Regenerate both views with new filter
-    const monthStrings = AUTOVIEW_calculateCurrentAndNextMonths();
-    const ministryFilter = ministry && ministry !== 'All Ministries' ? ministry : null;
-
-    const options = {};
-    if (ministryFilter) {
-      options.ministryFilter = [ministryFilter];
-    }
-
-    // Regenerate Current month
-    generatePrintableSchedule(monthStrings.current, { ...options, sheetName: 'MonthlyView-Current' });
-
-    // Regenerate Next month
-    generatePrintableSchedule(monthStrings.next, { ...options, sheetName: 'MonthlyView-Next' });
-
-    return {
-      success: true,
-      message: `Ministry filter updated to "${ministry || 'All Ministries'}". Both monthly views regenerated.`
-    };
-
-  } catch (e) {
-    Logger.log(`ERROR in setMonthlyViewMinistryFilter: ${e.message}`);
-    return {
-      success: false,
-      error: e.message
-    };
-  }
-}
-
-/**
- * Manually regenerate both monthly views.
- * Useful when auto-update is disabled or for forcing a refresh.
- *
- * @returns {object} Result object with success status and message
- */
-function regenerateMonthlyViewsManually() {
-  try {
-    const monthStrings = AUTOVIEW_calculateCurrentAndNextMonths();
-    const ministryFilter = AUTOVIEW_getMinistryFilter();
-
-    const options = {};
-    if (ministryFilter) {
-      options.ministryFilter = [ministryFilter];
-    }
-
-    // Regenerate Current month
-    const currentResult = generatePrintableSchedule(monthStrings.current, { ...options, sheetName: 'MonthlyView-Current' });
-
-    // Regenerate Next month
-    const nextResult = generatePrintableSchedule(monthStrings.next, { ...options, sheetName: 'MonthlyView-Next' });
-
-    return {
-      success: true,
-      message: `Both monthly views regenerated successfully:\n• MonthlyView-Current: ${monthStrings.currentDisplay}\n• MonthlyView-Next: ${monthStrings.nextDisplay}`
-    };
-
-  } catch (e) {
-    Logger.log(`ERROR in regenerateMonthlyViewsManually: ${e.message}`);
-    return {
-      success: false,
-      error: e.message
-    };
-  }
 }
 
 /**

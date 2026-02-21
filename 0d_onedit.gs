@@ -73,11 +73,17 @@ function onEdit(e) {
     const sheet = e.range.getSheet();
     const sheetName = sheet.getName();
 
-    // Only validate edits in Assignments sheet
-    if (sheetName !== CONSTANTS.SHEETS.ASSIGNMENTS) return;
-
     const row = e.range.getRow();
     const col = e.range.getColumn();
+
+    // Handle write-back from view sheets (not the Assignments sheet itself)
+    if (sheetName !== CONSTANTS.SHEETS.ASSIGNMENTS) {
+      ONEDIT_handleViewSheetEdit(e, sheet, row, col);
+      return;
+    }
+
+    // Only validate edits in Assignments sheet
+    if (sheetName !== CONSTANTS.SHEETS.ASSIGNMENTS) return;
 
     // Only validate when Volunteer ID or Name columns are edited
     const volIdCol = CONSTANTS.COLS.ASSIGNMENTS.ASSIGNED_VOLUNTEER_ID;
@@ -415,4 +421,108 @@ function ONEDIT_showValidationDialog(volunteerName, warnings) {
     message,
     { type: 'warning' }
   );
+}
+
+// ============================================================================
+// VIEW SHEET WRITE-BACK
+// ============================================================================
+
+/**
+ * Handles edits in generated view sheets (MonthlyView, custom prints).
+ * When the user changes a volunteer name in the volunteer column of a view sheet,
+ * this writes the change back to the corresponding row in the Assignments sheet.
+ *
+ * Detection: view sheets created by generatePrintableSchedule() have a hidden
+ * column (last column) with '_ROW_' in row 1 and Assignments row indices in data rows.
+ *
+ * @param {object} e - Edit event
+ * @param {Sheet} sheet - The edited sheet
+ * @param {number} row - Row number of the edit
+ * @param {number} col - Column number of the edit
+ */
+function ONEDIT_handleViewSheetEdit(e, sheet, row, col) {
+  try {
+    // Skip header rows (rows 1-6 are the schedule header + content header)
+    if (row <= 6) return;
+
+    const lastCol = sheet.getLastColumn();
+    if (lastCol < 2) return;
+
+    // Check if this is a view sheet: row 1 of the last column must contain '_ROW_'
+    const marker = sheet.getRange(1, lastCol).getValue();
+    if (marker !== '_ROW_') return;
+
+    // The volunteer column is one before the hidden column
+    const volunteerCol = lastCol - 1;
+    if (col !== volunteerCol) return;
+
+    // Get the Assignments sheet row index from the hidden column
+    const assignmentsRow = sheet.getRange(row, lastCol).getValue();
+    if (!assignmentsRow || isNaN(Number(assignmentsRow))) return;
+
+    const newVolunteerName = (e.value || '').toString().trim();
+
+    // Write the change back to the Assignments sheet
+    ONEDIT_writeVolunteerToAssignments(Number(assignmentsRow), newVolunteerName);
+
+  } catch (error) {
+    Logger.log(`View sheet write-back error: ${error.message}`);
+    Logger.log(`Stack: ${error.stack}`);
+    // Non-fatal: don't disrupt the user
+  }
+}
+
+/**
+ * Writes a volunteer name (and matching ID + status) back to the Assignments sheet.
+ * @param {number} assignmentsRow - 1-based row number in the Assignments sheet.
+ * @param {string} volunteerName - The selected volunteer name (empty string to clear).
+ */
+function ONEDIT_writeVolunteerToAssignments(assignmentsRow, volunteerName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const assignmentsSheet = ss.getSheetByName(CONSTANTS.SHEETS.ASSIGNMENTS);
+  if (!assignmentsSheet) return;
+
+  const cols = CONSTANTS.COLS.ASSIGNMENTS;
+
+  if (!volunteerName || volunteerName === 'UNASSIGNED') {
+    // Clear assignment (also clear group column in case it held a group name)
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_GROUP), '');
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_ID), '');
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_NAME), '');
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.STATUS), 'Unassigned');
+    Logger.log(`Cleared assignment in Assignments row ${assignmentsRow}`);
+    return;
+  }
+
+  // Look up the volunteer to get their ID
+  let volunteerId = '';
+  try {
+    const volunteerData = HELPER_readSheetData(CONSTANTS.SHEETS.VOLUNTEERS);
+    const volCols = CONSTANTS.COLS.VOLUNTEERS;
+    for (const volRow of volunteerData) {
+      const name = HELPER_safeArrayAccess(volRow, volCols.FULL_NAME - 1, '');
+      if (name.toLowerCase() === volunteerName.toLowerCase()) {
+        volunteerId = HELPER_safeArrayAccess(volRow, volCols.VOLUNTEER_ID - 1, '');
+        break;
+      }
+    }
+  } catch (e) {
+    Logger.log(`Warning: Could not look up volunteer ID: ${e.message}`);
+  }
+
+  if (volunteerId) {
+    // Individual volunteer found — clear group column, write ID + name
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_GROUP), '');
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_ID), volunteerId);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_NAME), volunteerName);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.STATUS), 'Assigned');
+    Logger.log(`Write-back: row ${assignmentsRow} → "${volunteerName}" (ID: ${volunteerId})`);
+  } else {
+    // Name not found in Volunteers — treat as a group assignment
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_GROUP), volunteerName);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_ID), '');
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.ASSIGNED_VOLUNTEER_NAME), volunteerName);
+    ONEDIT_safeSetValue(assignmentsSheet.getRange(assignmentsRow, cols.STATUS), 'Assigned');
+    Logger.log(`Write-back: row ${assignmentsRow} → group "${volunteerName}"`);
+  }
 }
