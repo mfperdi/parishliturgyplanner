@@ -348,6 +348,52 @@
       100% { transform: rotate(360deg); }
     }
     
+    /* Quick Access Navigation */
+    .quick-access {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 16px;
+    }
+
+    .quick-access-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: #5f6368;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .quick-access-btns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .btn-nav {
+      padding: 7px 8px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      background: white;
+      color: #3c4043;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-nav:hover {
+      background: #f8f9fa;
+      border-color: #1a73e8;
+      color: #1a73e8;
+    }
+
     /* Hidden elements */
     .hidden {
       display: none !important;
@@ -365,6 +411,25 @@
   <div class="header">
     <h3>Parish Scheduler</h3>
     <div class="subtitle">Liturgical Ministry Management</div>
+  </div>
+
+  <!-- Quick Access Navigation -->
+  <div class="quick-access">
+    <div class="quick-access-label">Quick Access</div>
+    <div class="quick-access-btns">
+      <button class="btn-nav" onclick="navigateTo('Volunteers')" title="Go to Volunteers sheet">
+        👥 Volunteers
+      </button>
+      <button class="btn-nav" onclick="navigateTo('Timeoffs')" title="Go to Timeoffs sheet">
+        📋 Timeoffs
+      </button>
+      <button class="btn-nav" onclick="navigateTo('Assignments')" title="Go to Assignments sheet">
+        📌 Assignments
+      </button>
+      <button class="btn-nav" onclick="navigateTo('MonthlyView')" title="Go to Monthly View sheet">
+        📄 Monthly View
+      </button>
+    </div>
   </div>
 
   <div class="phase-progress">
@@ -707,6 +772,17 @@
   <div id="status-message" class="status-message" role="status" aria-live="polite"></div>
 
   <script>
+    // Quick Access: navigate to a sheet tab by name
+    function navigateTo(sheetName) {
+      google.script.run
+        .withSuccessHandler(() => {})
+        .withFailureHandler((err) => {
+          // Sheet may not exist yet (e.g., MonthlyView before first print)
+          console.log('Navigate to "' + sheetName + '" failed:', err.message || err);
+        })
+        .ADMIN_navigateToSheet(sheetName);
+    }
+
     // Enhanced JavaScript with grouped workflow state management
     
     const monthSelect = document.getElementById('month-select');
