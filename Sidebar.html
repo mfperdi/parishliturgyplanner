@@ -113,32 +113,6 @@
       padding: 12px 14px;
     }
 
-    /* Quick Access Navigation */
-    .quick-access-btns {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px;
-    }
-
-    .btn-nav {
-      padding: 10px 8px;
-      font-size: 12px;
-      font-weight: 500;
-      border: 1px solid #dadce0;
-      border-radius: 6px;
-      background: white;
-      color: #3c4043;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      text-align: center;
-    }
-
-    .btn-nav:hover {
-      background: #f8f9fa;
-      border-color: #1a73e8;
-      color: #1a73e8;
-    }
-
     /* Buttons */
     .btn {
       width: 100%;
@@ -383,24 +357,6 @@
 
   <!-- ===================== DAILY TAB ===================== -->
   <div class="tab-content active" id="tab-daily">
-
-    <!-- Quick Access -->
-    <div class="card">
-      <div class="card-header">Quick Access</div>
-      <div class="card-body">
-        <div class="quick-access-btns">
-          <button class="btn-nav" onclick="navigateTo('Volunteers')" title="Go to Volunteers sheet">
-            Volunteers
-          </button>
-          <button class="btn-nav" onclick="navigateTo('Timeoffs')" title="Go to Timeoffs sheet">
-            Timeoffs
-          </button>
-          <button class="btn-nav" onclick="navigateTo('MonthlyView')" title="Go to MonthlyView sheet">
-            MonthlyView
-          </button>
-        </div>
-      </div>
-    </div>
 
     <!-- Weekly Email Copy -->
     <div class="card">
@@ -691,17 +647,6 @@
     let pendingTimeoffs = 0;
 
     // ========================
-    // Quick Access Navigation
-    // ========================
-    function navigateTo(sheetName) {
-      google.script.run
-        .withSuccessHandler(() => {})
-        .withFailureHandler((err) => {
-          console.log('Navigate to "' + sheetName + '" failed:', err.message || err);
-        })
-        .ADMIN_navigateToSheet(sheetName);
-    }
-
     // ========================
     // Button State Management
     // ========================

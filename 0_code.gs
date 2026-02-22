@@ -356,22 +356,6 @@ function ADMIN_organizeSheets() {
 }
 
 /**
- * Navigates to a specific sheet tab. Used by sidebar Quick Access buttons.
- * If the sheet is hidden, it will be made visible first.
- * @param {string} sheetName - The name of the sheet to navigate to.
- * @returns {boolean} True if successful.
- */
-function ADMIN_navigateToSheet(sheetName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) throw new Error(`Sheet "${sheetName}" not found. It may need to be generated first (e.g., run Custom Print to create MonthlyView).`);
-  try { sheet.showSheet(); } catch (e) {} // Unhide if hidden
-  ss.setActiveSheet(sheet);
-  return true;
-}
-
-
-/**
  * Smart baseline sheet organization - called silently on sidebar open.
  * Keeps daily-use sheets visible and leftmost, hides configuration and reference sheets.
  * Designed to be fast, silent (no dialogs), and idempotent (safe to run repeatedly).
