@@ -783,6 +783,12 @@
         btnArchive, btnViewArchives, btnClearData
       ];
 
+      // Smart organize: hide config/reference sheets, show daily sheets leftmost
+      google.script.run
+        .withSuccessHandler(() => console.log('Sheet organization complete'))
+        .withFailureHandler((err) => console.log('Sheet organization skipped:', err.message || err))
+        .ADMIN_smartOrganize();
+
       // Load month data for schedule tab
       google.script.run
         .withSuccessHandler(onMonthsLoaded)
