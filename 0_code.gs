@@ -399,23 +399,6 @@ function ADMIN_navigateToSheet(sheetName) {
   return true;
 }
 
-/**
- * Returns the names of all user-generated print sheets (e.g., "February 2026",
- * "Lector Schedule"). These are any visible sheets that aren't system/reference sheets.
- * Used by the sidebar Quick Access Monthly View picker to populate the dropdown.
- * @returns {string[]} Sheet names, most recently created last (rightmost tab order).
- */
-function ADMIN_getPrintSheetNames() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const systemSheetNames = new Set([
-    ...Object.values(CONSTANTS.SHEETS),
-    'WeeklyView',
-    'SubstituteHelp'
-  ]);
-  return ss.getSheets()
-    .filter(s => !systemSheetNames.has(s.getName()) && !s.isHidden())
-    .map(s => s.getName());
-}
 
 /**
  * Shows the enhanced HTML sidebar.
