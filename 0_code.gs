@@ -79,11 +79,10 @@ const ADMIN_DAILY_SHEETS = [
 ];
 
 /**
- * Tier 2: Output/scheduling sheets - visible if they exist.
+ * Tier 2: Output/view sheets - visible if they exist.
  * Generated sheets that support the workflow.
  */
 const ADMIN_OUTPUT_SHEETS = [
-  'Assignments',                         // Generated assignment data
   'WeeklyView'                           // Weekly email view
 ];
 
@@ -103,6 +102,7 @@ const ADMIN_SETUP_SHEETS = [
  * These are hidden by default via Admin Tools → Sheet Organization → Hide Reference Sheets.
  */
 const ADMIN_REFERENCE_SHEETS = [
+  'Assignments',                         // System data - edit via MonthlyView instead
   'SaintsCalendar',
   'CalendarOverrides',
   'LiturgicalCalendar',
@@ -249,7 +249,7 @@ function ADMIN_showReferenceSheets() {
 /**
  * Applies tab colors to group related sheets visually.
  * - Blue (#4a90d9): Daily sheets (MonthlyView, Volunteers, Timeoffs)
- * - Green (#34a853): Output/view sheets (Assignments, WeeklyView, custom prints)
+ * - Green (#34a853): Output/view sheets (WeeklyView, custom prints)
  * - Orange (#f4a742): Config/setup sheets (Config, WeeklyMasses, MonthlyMasses, YearlyMasses)
  * - Gray (#9e9e9e): Reference sheets (hidden by default)
  * Accessed via: Admin Tools → Sheet Organization → Color-Code Sheet Tabs
@@ -287,7 +287,7 @@ function ADMIN_colorCodeSheetTabs() {
     }
 
     Logger.log(`Color-coded ${coloredCount} sheet tabs`);
-    HELPER_showSuccess('Tabs Color-Coded', `${coloredCount} sheet tabs color-coded:\n• Blue: Daily (MonthlyView, Volunteers, Timeoffs)\n• Green: Output views (Assignments, WeeklyView, prints)\n• Orange: Config & mass schedules\n• Gray: Reference sheets`);
+    HELPER_showSuccess('Tabs Color-Coded', `${coloredCount} sheet tabs color-coded:\n• Blue: Daily (MonthlyView, Volunteers, Timeoffs)\n• Green: Output views (WeeklyView, prints)\n• Orange: Config & mass schedules\n• Gray: Reference & system sheets`);
   } catch (e) {
     HELPER_showError('Color-Code Failed', e, 'schedule');
   }
@@ -295,7 +295,7 @@ function ADMIN_colorCodeSheetTabs() {
 
 /**
  * Reorders sheet tabs so daily-use sheets appear first (leftmost).
- * Order: MonthlyView → Volunteers → Timeoffs → Assignments → WeeklyView → rest
+ * Order: MonthlyView → Volunteers → Timeoffs → WeeklyView → rest
  * Reference and config sheets are moved to the end.
  * Accessed via: Admin Tools → Sheet Organization → Reorder Sheet Tabs
  */
@@ -378,7 +378,7 @@ function ADMIN_navigateToSheet(sheetName) {
  *
  * Sheet tiers:
  *   Tier 1 (Daily): MonthlyView, Volunteers, Timeoffs — always visible, blue tabs, leftmost
- *   Tier 2 (Output): Assignments, WeeklyView — visible if they exist, green tabs
+ *   Tier 2 (Output): WeeklyView — visible if it exists, green tab
  *   Tier 3 (Setup): Config, WeeklyMasses, etc. — hidden, orange tabs
  *   Tier 4 (Reference): SaintsCalendar, Ministries, etc. — hidden, gray tabs
  *   Custom print sheets — visible, green tabs
