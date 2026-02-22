@@ -352,7 +352,7 @@ function VALIDATE_templates() {
 }
 
 /**
- * Validates all Mass configuration sheets (Weekly, Monthly, Yearly)
+ * Validates the consolidated MassSchedule sheet (Weekly, Monthly, and Yearly rows)
  * @returns {object} Validation results
  */
 function VALIDATE_masses() {
@@ -369,20 +369,9 @@ function VALIDATE_masses() {
       if (templateName) validTemplates.add(templateName);
     }
 
-    // Validate WeeklyMasses
-    const weeklyResults = validateWeeklyMasses(validTemplates);
-    results.errors.push(...weeklyResults.errors);
-    results.warnings.push(...weeklyResults.warnings);
-
-    // Validate MonthlyMasses
-    const monthlyResults = validateMonthlyMasses(validTemplates);
-    results.errors.push(...monthlyResults.errors);
-    results.warnings.push(...monthlyResults.warnings);
-
-    // Validate YearlyMasses
-    const yearlyResults = validateYearlyMasses(validTemplates);
-    results.errors.push(...yearlyResults.errors);
-    results.warnings.push(...yearlyResults.warnings);
+    const massScheduleResults = validateMassSchedule(validTemplates);
+    results.errors.push(...massScheduleResults.errors);
+    results.warnings.push(...massScheduleResults.warnings);
 
   } catch (e) {
     results.errors.push(`Mass configuration error: ${e.message}`);
@@ -392,192 +381,127 @@ function VALIDATE_masses() {
 }
 
 /**
- * Helper: Validates WeeklyMasses sheet
+ * Helper: Validates the MassSchedule sheet (all recurrence types)
  */
-function validateWeeklyMasses(validTemplates) {
+function validateMassSchedule(validTemplates) {
   const results = { errors: [], warnings: [] };
 
   try {
-    const weeklyData = HELPER_readSheetData(CONSTANTS.SHEETS.WEEKLY_MASSES);
-    const cols = CONSTANTS.COLS.WEEKLY_MASSES;
+    const massData = HELPER_readSheetData(CONSTANTS.SHEETS.MASS_SCHEDULE);
+    const cols = CONSTANTS.COLS.MASS_SCHEDULE;
 
-    const eventIds = new Set();
+    const validRecurrenceTypes = ['Weekly', 'Monthly', 'Yearly'];
     const validDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const validWeeks = ['1st', '2nd', '3rd', '4th', '5th', 'Last'];
+    const allEventIds = new Set();
 
-    for (let i = 0; i < weeklyData.length; i++) {
-      const row = weeklyData[i];
+    let weeklyCount = 0;
+    let monthlyCount = 0;
+    let yearlyCount = 0;
+
+    for (let i = 0; i < massData.length; i++) {
+      const row = massData[i];
       const rowNum = i + 2;
 
+      const recurrenceType = HELPER_safeArrayAccess(row, cols.RECURRENCE_TYPE - 1, '').toString().trim();
       const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
-      const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
       const time = HELPER_safeArrayAccess(row, cols.TIME - 1);
       const templateName = HELPER_safeArrayAccess(row, cols.TEMPLATE_NAME - 1);
+      const overrideType = HELPER_safeArrayAccess(row, cols.OVERRIDE_TYPE - 1, '').toLowerCase();
 
-      // Event ID: Required and unique
+      // Recurrence Type: Required and valid
+      if (!recurrenceType || !validRecurrenceTypes.includes(recurrenceType)) {
+        results.errors.push(`MassSchedule row ${rowNum}: Invalid Recurrence Type '${recurrenceType}'. Must be: ${validRecurrenceTypes.join(', ')}`);
+        continue; // Skip further checks for this row
+      }
+
+      if (recurrenceType === 'Weekly') weeklyCount++;
+      else if (recurrenceType === 'Monthly') monthlyCount++;
+      else if (recurrenceType === 'Yearly') yearlyCount++;
+
+      // Event ID: Required and unique across all rows
       if (!eventId) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Event ID is required`);
+        results.errors.push(`MassSchedule row ${rowNum}: Event ID is required`);
       } else {
-        if (eventIds.has(eventId)) {
-          results.errors.push(`WeeklyMasses row ${rowNum}: Duplicate Event ID '${eventId}'`);
+        if (allEventIds.has(eventId)) {
+          results.errors.push(`MassSchedule row ${rowNum}: Duplicate Event ID '${eventId}'`);
         }
-        eventIds.add(eventId);
+        allEventIds.add(eventId);
       }
 
-      // Day of Week: Valid value
-      if (!dayOfWeek || !validDays.includes(dayOfWeek)) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Invalid Day of Week '${dayOfWeek}'. Must be: ${validDays.join(', ')}`);
-      }
-
-      // Time: Required
+      // Time: Required for all types
       if (!time) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Time is required`);
+        results.errors.push(`MassSchedule row ${rowNum}: Time is required`);
       }
 
-      // Template Name: Must exist
+      // Template Name: Required for all types and must exist
       if (!templateName) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Template Name is required`);
+        results.errors.push(`MassSchedule row ${rowNum}: Template Name is required`);
       } else if (!validTemplates.has(templateName)) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Template '${templateName}' does not exist in MassTemplates`);
+        results.errors.push(`MassSchedule row ${rowNum}: Template '${templateName}' does not exist in MassTemplates`);
       }
-    }
 
-    if (weeklyData.length === 0) {
-      results.warnings.push("WeeklyMasses: No weekly masses defined");
-    }
+      // --- Type-specific validations ---
 
-  } catch (e) {
-    results.errors.push(`WeeklyMasses error: ${e.message}`);
-  }
-
-  return results;
-}
-
-/**
- * Helper: Validates MonthlyMasses sheet
- */
-function validateMonthlyMasses(validTemplates) {
-  const results = { errors: [], warnings: [] };
-
-  try {
-    const monthlyData = HELPER_readSheetData(CONSTANTS.SHEETS.MONTHLY_MASSES);
-    const cols = CONSTANTS.COLS.MONTHLY_MASSES;
-
-    const eventIds = new Set();
-    const validWeeks = ['1st', '2nd', '3rd', '4th', '5th', 'Last'];
-    const validDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const validOverrides = ['', 'overrideday', 'append'];
-
-    for (let i = 0; i < monthlyData.length; i++) {
-      const row = monthlyData[i];
-      const rowNum = i + 2;
-
-      const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
-      const weekOfMonth = HELPER_safeArrayAccess(row, cols.WEEK_OF_MONTH - 1, '').toString();
-      const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
-      const templateName = HELPER_safeArrayAccess(row, cols.TEMPLATE_NAME - 1);
-      const overrideType = HELPER_safeArrayAccess(row, cols.OVERRIDE_TYPE - 1, '').toLowerCase();
-
-      // Event ID: Required and unique
-      if (!eventId) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Event ID is required`);
-      } else {
-        if (eventIds.has(eventId)) {
-          results.errors.push(`MonthlyMasses row ${rowNum}: Duplicate Event ID '${eventId}'`);
+      if (recurrenceType === 'Weekly') {
+        const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
+        if (!dayOfWeek || !validDays.includes(dayOfWeek)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Weekly): Invalid Day of Week '${dayOfWeek}'. Must be: ${validDays.join(', ')}`);
         }
-        eventIds.add(eventId);
-      }
-
-      // Week of Month: Valid value
-      if (!weekOfMonth || !validWeeks.includes(weekOfMonth)) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Invalid Week of Month '${weekOfMonth}'. Must be: ${validWeeks.join(', ')}`);
-      }
-
-      // Day of Week: Valid value
-      if (!dayOfWeek || !validDays.includes(dayOfWeek)) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Invalid Day of Week '${dayOfWeek}'`);
-      }
-
-      // Template Name: Must exist
-      if (!templateName) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Template Name is required`);
-      } else if (!validTemplates.has(templateName)) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Template '${templateName}' does not exist`);
-      }
-
-      // Override Type: Valid value
-      if (!validOverrides.includes(overrideType)) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Invalid Override Type '${overrideType}'. Must be: ${validOverrides.join(', ')}`);
-      }
-    }
-
-  } catch (e) {
-    results.errors.push(`MonthlyMasses error: ${e.message}`);
-  }
-
-  return results;
-}
-
-/**
- * Helper: Validates YearlyMasses sheet
- */
-function validateYearlyMasses(validTemplates) {
-  const results = { errors: [], warnings: [] };
-
-  try {
-    const yearlyData = HELPER_readSheetData(CONSTANTS.SHEETS.YEARLY_MASSES);
-    const cols = CONSTANTS.COLS.YEARLY_MASSES;
-
-    const eventIds = new Set();
-    const validOverrides = ['', 'override', 'append'];
-
-    for (let i = 0; i < yearlyData.length; i++) {
-      const row = yearlyData[i];
-      const rowNum = i + 2;
-
-      const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
-      const date = HELPER_safeArrayAccess(row, cols.DATE - 1);
-      const liturgicalCelebration = HELPER_safeArrayAccess(row, cols.LITURGICAL_CELEBRATION - 1);
-      const templateName = HELPER_safeArrayAccess(row, cols.TEMPLATE_NAME - 1);
-      const overrideType = HELPER_safeArrayAccess(row, cols.OVERRIDE_TYPE - 1, '').toLowerCase();
-
-      // Event ID: Required and unique
-      if (!eventId) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Event ID is required`);
-      } else {
-        if (eventIds.has(eventId)) {
-          results.errors.push(`YearlyMasses row ${rowNum}: Duplicate Event ID '${eventId}'`);
-        }
-        eventIds.add(eventId);
-      }
-
-      // Either Date OR Liturgical Celebration required
-      if (!date && !liturgicalCelebration) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Either Date or Liturgical Celebration is required`);
-      }
-
-      // If date provided, validate it
-      if (date && date !== "") {
-        const testDate = new Date(date);
-        if (isNaN(testDate.getTime())) {
-          results.errors.push(`YearlyMasses row ${rowNum}: Invalid Date format`);
+        // Override Type must be blank for Weekly rows
+        if (overrideType !== '') {
+          results.warnings.push(`MassSchedule row ${rowNum} (Weekly): Override Type should be blank for Weekly rows (found: '${overrideType}')`);
         }
       }
 
-      // Template Name: Must exist
-      if (!templateName) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Template Name is required`);
-      } else if (!validTemplates.has(templateName)) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Template '${templateName}' does not exist`);
+      if (recurrenceType === 'Monthly') {
+        const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
+        const weekOfMonth = HELPER_safeArrayAccess(row, cols.WEEK_OF_MONTH - 1, '').toString();
+        const validMonthlyOverrides = ['', 'overrideday', 'append'];
+
+        if (!dayOfWeek || !validDays.includes(dayOfWeek)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Monthly): Invalid Day of Week '${dayOfWeek}'`);
+        }
+        if (!weekOfMonth || !validWeeks.includes(weekOfMonth)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Monthly): Invalid Week of Month '${weekOfMonth}'. Must be: ${validWeeks.join(', ')}`);
+        }
+        if (!validMonthlyOverrides.includes(overrideType)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Monthly): Invalid Override Type '${overrideType}'. Must be: ${validMonthlyOverrides.join(', ')}`);
+        }
       }
 
-      // Override Type: Valid value
-      if (!validOverrides.includes(overrideType)) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Invalid Override Type '${overrideType}'. Must be: ${validOverrides.join(', ')}`);
+      if (recurrenceType === 'Yearly') {
+        const date = HELPER_safeArrayAccess(row, cols.DATE - 1);
+        const liturgicalCelebration = HELPER_safeArrayAccess(row, cols.LITURGICAL_CELEBRATION - 1);
+        const validYearlyOverrides = ['', 'override', 'append'];
+
+        // Either Date OR Liturgical Celebration required
+        if (!date && !liturgicalCelebration) {
+          results.errors.push(`MassSchedule row ${rowNum} (Yearly): Either Date or Liturgical Celebration is required`);
+        }
+
+        // If date provided, validate it
+        if (date && date !== "") {
+          const testDate = new Date(date);
+          if (isNaN(testDate.getTime())) {
+            results.errors.push(`MassSchedule row ${rowNum} (Yearly): Invalid Date format`);
+          }
+        }
+
+        if (!validYearlyOverrides.includes(overrideType)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Yearly): Invalid Override Type '${overrideType}'. Must be: ${validYearlyOverrides.join(', ')}`);
+        }
       }
     }
 
+    if (weeklyCount === 0) {
+      results.warnings.push("MassSchedule: No Weekly rows defined");
+    }
+
+    Logger.log(`MassSchedule validation: ${weeklyCount} Weekly, ${monthlyCount} Monthly, ${yearlyCount} Yearly rows`);
+
   } catch (e) {
-    results.errors.push(`YearlyMasses error: ${e.message}`);
+    results.errors.push(`MassSchedule error: ${e.message}`);
   }
 
   return results;
@@ -824,33 +748,16 @@ function VALIDATE_liturgicalNotes() {
 }
 
 /**
- * Helper: Get all valid Event IDs from mass sheets
+ * Helper: Get all valid Event IDs from the MassSchedule sheet
  */
 function getAllValidEventIds() {
   const eventIds = new Set();
 
   try {
-    // Weekly Masses
-    const weeklyData = HELPER_readSheetData(CONSTANTS.SHEETS.WEEKLY_MASSES);
-    const weeklyCols = CONSTANTS.COLS.WEEKLY_MASSES;
-    for (const row of weeklyData) {
-      const eventId = HELPER_safeArrayAccess(row, weeklyCols.EVENT_ID - 1);
-      if (eventId) eventIds.add(eventId);
-    }
-
-    // Monthly Masses
-    const monthlyData = HELPER_readSheetData(CONSTANTS.SHEETS.MONTHLY_MASSES);
-    const monthlyCols = CONSTANTS.COLS.MONTHLY_MASSES;
-    for (const row of monthlyData) {
-      const eventId = HELPER_safeArrayAccess(row, monthlyCols.EVENT_ID - 1);
-      if (eventId) eventIds.add(eventId);
-    }
-
-    // Yearly Masses
-    const yearlyData = HELPER_readSheetData(CONSTANTS.SHEETS.YEARLY_MASSES);
-    const yearlyCols = CONSTANTS.COLS.YEARLY_MASSES;
-    for (const row of yearlyData) {
-      const eventId = HELPER_safeArrayAccess(row, yearlyCols.EVENT_ID - 1);
+    const massData = HELPER_readSheetData(CONSTANTS.SHEETS.MASS_SCHEDULE);
+    const cols = CONSTANTS.COLS.MASS_SCHEDULE;
+    for (const row of massData) {
+      const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
       if (eventId) eventIds.add(eventId);
     }
   } catch (e) {

@@ -112,7 +112,7 @@ function TEST_analyzePreferenceFiltering() {
   const data = volunteerSheet.getDataRange().getValues();
   const volCols = CONSTANTS.COLS.VOLUNTEERS;
 
-  // Get all unique Event IDs from WeeklyMasses
+  // Get all unique Event IDs from MassSchedule
   const massEventIds = TEST_getAllEventIds();
 
   Logger.log(`Found ${massEventIds.length} different mass Event IDs in the system\n`);
@@ -166,34 +166,19 @@ function TEST_analyzePreferenceFiltering() {
 }
 
 /**
- * Helper to get all Event IDs from mass configuration sheets
+ * Helper to get all active Event IDs from the consolidated MassSchedule sheet
  */
 function TEST_getAllEventIds() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const eventIds = new Set();
+  const cols = CONSTANTS.COLS.MASS_SCHEDULE;
 
-  // Get from WeeklyMasses
-  const weeklySheet = ss.getSheetByName(CONSTANTS.SHEETS.WEEKLY_MASSES);
-  if (weeklySheet) {
-    const weeklyData = weeklySheet.getDataRange().getValues();
-    const weeklyCols = CONSTANTS.COLS.WEEKLY_MASSES;
-    for (let i = 1; i < weeklyData.length; i++) {
-      const eventId = weeklyData[i][weeklyCols.EVENT_ID - 1];
-      const isActive = weeklyData[i][weeklyCols.IS_ACTIVE - 1];
-      if (eventId && isActive) {
-        eventIds.add(eventId);
-      }
-    }
-  }
-
-  // Get from MonthlyMasses
-  const monthlySheet = ss.getSheetByName(CONSTANTS.SHEETS.MONTHLY_MASSES);
-  if (monthlySheet) {
-    const monthlyData = monthlySheet.getDataRange().getValues();
-    const monthlyCols = CONSTANTS.COLS.MONTHLY_MASSES;
-    for (let i = 1; i < monthlyData.length; i++) {
-      const eventId = monthlyData[i][monthlyCols.EVENT_ID - 1];
-      const isActive = monthlyData[i][monthlyCols.IS_ACTIVE - 1];
+  const massSheet = ss.getSheetByName(CONSTANTS.SHEETS.MASS_SCHEDULE);
+  if (massSheet) {
+    const massData = massSheet.getDataRange().getValues();
+    for (let i = 1; i < massData.length; i++) {
+      const eventId = massData[i][cols.EVENT_ID - 1];
+      const isActive = massData[i][cols.IS_ACTIVE - 1];
       if (eventId && isActive) {
         eventIds.add(eventId);
       }

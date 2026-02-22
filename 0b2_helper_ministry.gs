@@ -416,34 +416,16 @@ function HELPER_validateEventIds(eventIdArray) {
   }
 
   try {
-    // Build set of all valid Event IDs from all three mass configuration sheets
+    // Build set of all valid Event IDs from the consolidated MassSchedule sheet
     const validEventIds = new Set();
-
-    // Weekly Masses
-    const weeklyData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.WEEKLY_MASSES);
-    const weeklyCols = CONSTANTS.COLS.WEEKLY_MASSES;
-    for (const row of weeklyData) {
-      const eventId = HELPER_safeArrayAccess(row, weeklyCols.EVENT_ID - 1);
+    const massData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MASS_SCHEDULE);
+    const massCols = CONSTANTS.COLS.MASS_SCHEDULE;
+    for (const row of massData) {
+      const eventId = HELPER_safeArrayAccess(row, massCols.EVENT_ID - 1);
       if (eventId) validEventIds.add(eventId.toUpperCase());
     }
 
-    // Monthly Masses
-    const monthlyData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MONTHLY_MASSES);
-    const monthlyCols = CONSTANTS.COLS.MONTHLY_MASSES;
-    for (const row of monthlyData) {
-      const eventId = HELPER_safeArrayAccess(row, monthlyCols.EVENT_ID - 1);
-      if (eventId) validEventIds.add(eventId.toUpperCase());
-    }
-
-    // Yearly Masses
-    const yearlyData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.YEARLY_MASSES);
-    const yearlyCols = CONSTANTS.COLS.YEARLY_MASSES;
-    for (const row of yearlyData) {
-      const eventId = HELPER_safeArrayAccess(row, yearlyCols.EVENT_ID - 1);
-      if (eventId) validEventIds.add(eventId.toUpperCase());
-    }
-
-    Logger.log(`Found ${validEventIds.size} valid Event IDs in mass configuration`);
+    Logger.log(`Found ${validEventIds.size} valid Event IDs in MassSchedule`);
 
     // Validate each Event ID
     for (const eventId of eventIdArray) {

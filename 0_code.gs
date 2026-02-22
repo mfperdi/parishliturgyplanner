@@ -217,7 +217,7 @@ function ADMIN_showReferenceSheets() {
 /**
  * Applies tab colors to group related sheets visually.
  * - Blue (#4a90d9): Active workflow sheets (Volunteers, Timeoffs, Assignments)
- * - Orange (#f4a742): Config/setup sheets (Config, WeeklyMasses, MonthlyMasses, YearlyMasses)
+ * - Orange (#f4a742): Config/setup sheets (Config, MassSchedule)
  * - Green (#34a853): Output/view sheets (WeeklyView, Dashboard, + any print sheets e.g. "February 2026")
  * - Gray (#9e9e9e): Reference sheets (hidden by default)
  * Accessed via: Admin Tools → Sheet Organization → Color-Code Sheet Tabs
@@ -232,7 +232,7 @@ function ADMIN_colorCodeSheetTabs() {
       },
       {
         color: '#f4a742', // Orange - config/setup
-        sheets: [CONSTANTS.SHEETS.CONFIG, CONSTANTS.SHEETS.WEEKLY_MASSES, CONSTANTS.SHEETS.MONTHLY_MASSES, CONSTANTS.SHEETS.YEARLY_MASSES]
+        sheets: [CONSTANTS.SHEETS.CONFIG, CONSTANTS.SHEETS.MASS_SCHEDULE]
       },
       {
         color: '#34a853', // Green - known output/view sheets
@@ -268,7 +268,7 @@ function ADMIN_colorCodeSheetTabs() {
     }
 
     Logger.log(`Color-coded ${coloredCount} sheet tabs`);
-    HELPER_showSuccess('Tabs Color-Coded', `${coloredCount} sheet tabs color-coded:\n• Blue: Volunteers, Timeoffs, Assignments\n• Orange: Config, Mass schedule sheets\n• Green: Output views (monthly prints, WeeklyView, Dashboard)\n• Gray: Reference sheets`);
+    HELPER_showSuccess('Tabs Color-Coded', `${coloredCount} sheet tabs color-coded:\n• Blue: Volunteers, Timeoffs, Assignments\n• Orange: Config, MassSchedule\n• Green: Output views (monthly prints, WeeklyView, Dashboard)\n• Gray: Reference sheets`);
   } catch (e) {
     HELPER_showError('Color-Code Failed', e, 'schedule');
   }
@@ -276,7 +276,7 @@ function ADMIN_colorCodeSheetTabs() {
 
 /**
  * Reorders sheet tabs so most-used sheets appear first (leftmost).
- * Order: Config → Volunteers → Timeoffs → Assignments → WeeklyMasses → MonthlyMasses → YearlyMasses
+ * Order: Config → Volunteers → Timeoffs → Assignments → MassSchedule
  * Reference sheets are moved to the end.
  * Accessed via: Admin Tools → Sheet Organization → Reorder Sheet Tabs
  */
@@ -288,9 +288,7 @@ function ADMIN_reorderSheets() {
       CONSTANTS.SHEETS.VOLUNTEERS,
       CONSTANTS.SHEETS.TIMEOFFS,
       CONSTANTS.SHEETS.ASSIGNMENTS,
-      CONSTANTS.SHEETS.WEEKLY_MASSES,
-      CONSTANTS.SHEETS.MONTHLY_MASSES,
-      CONSTANTS.SHEETS.YEARLY_MASSES
+      CONSTANTS.SHEETS.MASS_SCHEDULE
     ];
 
     // Move core sheets to the front in order
@@ -373,7 +371,7 @@ function ADMIN_organizeSheets() {
     HELPER_showSuccess(
       'Sheets Organized',
       'Your spreadsheet is now streamlined:\n\n' +
-      '• Tabs color-coded (blue=workflow, orange=config, green=output)\n' +
+      '• Tabs color-coded (blue=workflow, orange=config+MassSchedule, green=output)\n' +
       '• Core sheets moved to the left\n' +
       `• ${hidden.length} reference sheets hidden\n\n` +
       'Use Admin Tools → Sheet Organization → Show Reference Sheets\nto access hidden sheets when needed.'

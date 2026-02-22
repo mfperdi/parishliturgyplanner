@@ -12,9 +12,7 @@ const CONSTANTS = {
     TIMEOFFS: "Timeoffs",
     MINISTRIES: "Ministries",
     TEMPLATES: "MassTemplates",
-    WEEKLY_MASSES: "WeeklyMasses",
-    MONTHLY_MASSES: "MonthlyMasses",
-    YEARLY_MASSES: "YearlyMasses",
+    MASS_SCHEDULE: "MassSchedule",
     SAINTS_CALENDAR: "SaintsCalendar",
     OVERRIDES: "CalendarOverrides",
     LITURGICAL_NOTES: "LiturgicalNotes",
@@ -70,51 +68,29 @@ const CONSTANTS = {
       NOTES: 2
     },
 
-    // 'WeeklyMasses' sheet (11 columns)
-    WEEKLY_MASSES: {
-      EVENT_ID: 1,
-      DAY_OF_WEEK: 2,
-      TIME: 3,
-      START_DATE: 4,
-      END_DATE: 5,
-      IS_ACTIVE: 6,
-      IS_ANTICIPATED: 7,
-      DESCRIPTION: 8,
-      TEMPLATE_NAME: 9,
-      ASSIGNED_GROUP: 10,
-      NOTES: 11
-    },
-
-    // 'MonthlyMasses' sheet (13 columns)
-    MONTHLY_MASSES: {
-      EVENT_ID: 1,
-      WEEK_OF_MONTH: 2,
-      DAY_OF_WEEK: 3,
-      TIME: 4,
-      START_DATE: 5,
-      END_DATE: 6,
-      IS_ACTIVE: 7,
-      IS_ANTICIPATED: 8,
-      OVERRIDE_TYPE: 9,
-      DESCRIPTION: 10,
-      TEMPLATE_NAME: 11,
-      ASSIGNED_GROUP: 12,
-      NOTES: 13
-    },
-    
-    // 'YearlyMasses' sheet (11 columns) - UPDATED
-    YEARLY_MASSES: {
-      EVENT_ID: 1,
-      DATE: 2,
-      LITURGICAL_CELEBRATION: 3, // <-- UPDATED
-      TIME: 4,
-      IS_ACTIVE: 5,
-      IS_ANTICIPATED: 6,
-      OVERRIDE_TYPE: 7,
-      DESCRIPTION: 8,
-      TEMPLATE_NAME: 9,
-      ASSIGNED_GROUP: 10,
-      NOTES: 11
+    // 'MassSchedule' sheet (16 columns) - consolidated from WeeklyMasses, MonthlyMasses, YearlyMasses
+    // RECURRENCE_TYPE discriminates between row types: 'Weekly' | 'Monthly' | 'Yearly'
+    // Type-specific columns:
+    //   Weekly:  DAY_OF_WEEK, START_DATE, END_DATE (OVERRIDE_TYPE, WEEK_OF_MONTH, DATE, LITURGICAL_CELEBRATION blank)
+    //   Monthly: DAY_OF_WEEK, WEEK_OF_MONTH, START_DATE, END_DATE, OVERRIDE_TYPE ('overrideday'|'append')
+    //   Yearly:  DATE and/or LITURGICAL_CELEBRATION, OVERRIDE_TYPE ('override'|'append') (DAY_OF_WEEK, WEEK_OF_MONTH, START_DATE, END_DATE blank)
+    MASS_SCHEDULE: {
+      RECURRENCE_TYPE: 1,          // 'Weekly' | 'Monthly' | 'Yearly'
+      EVENT_ID: 2,
+      IS_ACTIVE: 3,
+      IS_ANTICIPATED: 4,
+      DESCRIPTION: 5,
+      TEMPLATE_NAME: 6,
+      TIME: 7,
+      ASSIGNED_GROUP: 8,
+      OVERRIDE_TYPE: 9,            // blank for Weekly; 'overrideday'|'append' for Monthly; 'override'|'append' for Yearly
+      START_DATE: 10,              // blank for Yearly
+      END_DATE: 11,                // blank for Yearly
+      DAY_OF_WEEK: 12,             // blank for Yearly
+      WEEK_OF_MONTH: 13,           // Monthly only ('1st'–'Last')
+      DATE: 14,                    // Yearly only (specific calendar date)
+      LITURGICAL_CELEBRATION: 15,  // Yearly only (moveable feast name lookup)
+      NOTES: 16
     },
 
     // 'Ministries' sheet (4 columns)
