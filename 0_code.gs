@@ -69,17 +69,48 @@ function authorizeAllPermissions() {
 // ---================================---
 
 /**
- * Reference sheets that are rarely touched after initial setup.
+ * Tier 1: Daily working sheets - always visible and positioned leftmost.
+ * These are the sheets the coordinator uses most frequently.
+ */
+const ADMIN_DAILY_SHEETS = [
+  'MonthlyView',                        // Primary 2-way editing view
+  'Volunteers',                          // Volunteer contact info & roles
+  'Timeoffs'                             // Timeoff tracking
+];
+
+/**
+ * Tier 2: Output/view sheets - visible if they exist.
+ * Generated sheets that support the workflow.
+ */
+const ADMIN_OUTPUT_SHEETS = [
+  'WeeklyView'                           // Weekly email view
+];
+
+/**
+ * Tier 3: Configuration sheets - hidden by default, rarely changed after setup.
+ * Accessible via sidebar Setup tab or Admin Tools menu.
+ */
+const ADMIN_SETUP_SHEETS = [
+  'Config',
+  'WeeklyMasses',
+  'MonthlyMasses',
+  'YearlyMasses'
+];
+
+/**
+ * Tier 4: Reference sheets - always hidden, system-managed data.
  * These are hidden by default via Admin Tools → Sheet Organization → Hide Reference Sheets.
  */
 const ADMIN_REFERENCE_SHEETS = [
+  'Assignments',                         // System data - edit via MonthlyView instead
   'SaintsCalendar',
   'CalendarOverrides',
   'LiturgicalCalendar',
   'LiturgicalNotes',
   'Dropdowns',
   'Ministries',
-  'MassTemplates'
+  'MassTemplates',
+  'Dashboard'
 ];
 
 /**
@@ -103,6 +134,7 @@ function onOpen(e) {
           .addSubMenu(SpreadsheetApp.getUi().createMenu('Sheet Organization')
               .addItem('Organize Sheets (Recommended)', 'ADMIN_organizeSheets')
               .addSeparator()
+              .addItem('Show All Hidden Sheets', 'ADMIN_showAllHiddenSheets')
               .addItem('Hide Reference Sheets', 'ADMIN_hideReferenceSheets')
               .addItem('Show Reference Sheets', 'ADMIN_showReferenceSheets')
               .addSeparator()
@@ -216,9 +248,9 @@ function ADMIN_showReferenceSheets() {
 
 /**
  * Applies tab colors to group related sheets visually.
- * - Blue (#4a90d9): Active workflow sheets (Volunteers, Timeoffs, Assignments)
+ * - Blue (#4a90d9): Daily sheets (MonthlyView, Volunteers, Timeoffs)
+ * - Green (#34a853): Output/view sheets (WeeklyView, custom prints)
  * - Orange (#f4a742): Config/setup sheets (Config, WeeklyMasses, MonthlyMasses, YearlyMasses)
- * - Green (#34a853): Output/view sheets (WeeklyView, Dashboard, + any print sheets e.g. "February 2026")
  * - Gray (#9e9e9e): Reference sheets (hidden by default)
  * Accessed via: Admin Tools → Sheet Organization → Color-Code Sheet Tabs
  */
@@ -226,28 +258,15 @@ function ADMIN_colorCodeSheetTabs() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const colorGroups = [
-      {
-        color: '#4a90d9', // Blue - active workflow
-        sheets: [CONSTANTS.SHEETS.VOLUNTEERS, CONSTANTS.SHEETS.TIMEOFFS, CONSTANTS.SHEETS.ASSIGNMENTS]
-      },
-      {
-        color: '#f4a742', // Orange - config/setup
-        sheets: [CONSTANTS.SHEETS.CONFIG, CONSTANTS.SHEETS.WEEKLY_MASSES, CONSTANTS.SHEETS.MONTHLY_MASSES, CONSTANTS.SHEETS.YEARLY_MASSES]
-      },
-      {
-        color: '#34a853', // Green - known output/view sheets
-        sheets: ['WeeklyView', CONSTANTS.SHEETS.DASHBOARD]
-      },
-      {
-        color: '#9e9e9e', // Gray - reference (hidden)
-        sheets: ADMIN_REFERENCE_SHEETS
-      }
+      { color: '#4a90d9', sheets: ADMIN_DAILY_SHEETS },      // Blue - daily
+      { color: '#34a853', sheets: ADMIN_OUTPUT_SHEETS },      // Green - output
+      { color: '#f4a742', sheets: ADMIN_SETUP_SHEETS },       // Orange - config
+      { color: '#9e9e9e', sheets: ADMIN_REFERENCE_SHEETS }    // Gray - reference
     ];
 
-    // Track which sheet names get an explicit color so we can color the rest dynamically
-    const explicitlyColored = new Set([
-      ...colorGroups.flatMap(g => g.sheets),
-      ...Object.values(CONSTANTS.SHEETS),
+    const managedSheets = new Set([
+      ...ADMIN_DAILY_SHEETS, ...ADMIN_OUTPUT_SHEETS,
+      ...ADMIN_SETUP_SHEETS, ...ADMIN_REFERENCE_SHEETS,
       'SubstituteHelp'
     ]);
 
@@ -259,125 +278,77 @@ function ADMIN_colorCodeSheetTabs() {
       }
     }
 
-    // Dynamically color any user-generated print sheets (e.g., "February 2026") green
+    // Color any user-generated print sheets (e.g., "February 2026") green
     for (const sheet of ss.getSheets()) {
-      if (!explicitlyColored.has(sheet.getName())) {
+      if (!managedSheets.has(sheet.getName())) {
         sheet.setTabColor('#34a853');
         coloredCount++;
       }
     }
 
     Logger.log(`Color-coded ${coloredCount} sheet tabs`);
-    HELPER_showSuccess('Tabs Color-Coded', `${coloredCount} sheet tabs color-coded:\n• Blue: Volunteers, Timeoffs, Assignments\n• Orange: Config, Mass schedule sheets\n• Green: Output views (monthly prints, WeeklyView, Dashboard)\n• Gray: Reference sheets`);
+    HELPER_showSuccess('Tabs Color-Coded', `${coloredCount} sheet tabs color-coded:\n• Blue: Daily (MonthlyView, Volunteers, Timeoffs)\n• Green: Output views (WeeklyView, prints)\n• Orange: Config & mass schedules\n• Gray: Reference & system sheets`);
   } catch (e) {
     HELPER_showError('Color-Code Failed', e, 'schedule');
   }
 }
 
 /**
- * Reorders sheet tabs so most-used sheets appear first (leftmost).
- * Order: Config → Volunteers → Timeoffs → Assignments → WeeklyMasses → MonthlyMasses → YearlyMasses
- * Reference sheets are moved to the end.
+ * Reorders sheet tabs so daily-use sheets appear first (leftmost).
+ * Order: MonthlyView → Volunteers → Timeoffs → WeeklyView → rest
+ * Reference and config sheets are moved to the end.
  * Accessed via: Admin Tools → Sheet Organization → Reorder Sheet Tabs
  */
 function ADMIN_reorderSheets() {
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const coreOrder = [
-      CONSTANTS.SHEETS.CONFIG,
-      CONSTANTS.SHEETS.VOLUNTEERS,
-      CONSTANTS.SHEETS.TIMEOFFS,
-      CONSTANTS.SHEETS.ASSIGNMENTS,
-      CONSTANTS.SHEETS.WEEKLY_MASSES,
-      CONSTANTS.SHEETS.MONTHLY_MASSES,
-      CONSTANTS.SHEETS.YEARLY_MASSES
-    ];
 
-    // Move core sheets to the front in order
+    // Daily sheets first, then output sheets
+    const coreOrder = [...ADMIN_DAILY_SHEETS, ...ADMIN_OUTPUT_SHEETS];
+
     let pos = 1;
     for (const name of coreOrder) {
       const sheet = ss.getSheetByName(name);
       if (sheet) { ss.setActiveSheet(sheet); ss.moveActiveSheet(pos++); }
     }
 
-    // Move reference sheets to the end
+    // Move setup and reference sheets to the end
     const total = ss.getSheets().length;
-    for (let i = ADMIN_REFERENCE_SHEETS.length - 1; i >= 0; i--) {
-      const sheet = ss.getSheetByName(ADMIN_REFERENCE_SHEETS[i]);
+    const endSheets = [...ADMIN_SETUP_SHEETS, ...ADMIN_REFERENCE_SHEETS];
+    for (let i = endSheets.length - 1; i >= 0; i--) {
+      const sheet = ss.getSheetByName(endSheets[i]);
       if (sheet) { ss.setActiveSheet(sheet); ss.moveActiveSheet(total); }
     }
 
     Logger.log('Sheet tabs reordered');
-    HELPER_showSuccess('Tabs Reordered', 'Sheet tabs reordered. Core sheets are now on the left.');
+    HELPER_showSuccess('Tabs Reordered', 'Sheet tabs reordered. Daily sheets (MonthlyView, Volunteers, Timeoffs) are now on the left.');
   } catch (e) {
     HELPER_showError('Reorder Failed', e, 'schedule');
   }
 }
 
 /**
- * One-shot setup: color-codes tabs, reorders them, and hides reference sheets.
- * Run once to get a clean, organized spreadsheet layout.
+ * One-shot setup: color-codes tabs, reorders them, and hides non-essential sheets.
+ * Uses the same tier system as ADMIN_smartOrganize but with user feedback.
  * Accessed via: Admin Tools → Sheet Organization → Organize Sheets (Recommended)
  */
 function ADMIN_organizeSheets() {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const result = ADMIN_smartOrganize();
 
-    // Step 1: Color-code tabs
-    const colorGroups = [
-      { color: '#4a90d9', sheets: [CONSTANTS.SHEETS.VOLUNTEERS, CONSTANTS.SHEETS.TIMEOFFS, CONSTANTS.SHEETS.ASSIGNMENTS] },
-      { color: '#f4a742', sheets: [CONSTANTS.SHEETS.CONFIG, CONSTANTS.SHEETS.WEEKLY_MASSES, CONSTANTS.SHEETS.MONTHLY_MASSES, CONSTANTS.SHEETS.YEARLY_MASSES] },
-      { color: '#34a853', sheets: ['WeeklyView', CONSTANTS.SHEETS.DASHBOARD] },
-      { color: '#9e9e9e', sheets: ADMIN_REFERENCE_SHEETS }
-    ];
-    const explicitlyColored = new Set([
-      ...colorGroups.flatMap(g => g.sheets),
-      ...Object.values(CONSTANTS.SHEETS),
-      'SubstituteHelp'
-    ]);
-    for (const group of colorGroups) {
-      for (const name of group.sheets) {
-        const sheet = ss.getSheetByName(name);
-        if (sheet) sheet.setTabColor(group.color);
-      }
+    if (result) {
+      HELPER_showSuccess(
+        'Sheets Organized',
+        'Your spreadsheet is now streamlined:\n\n' +
+        '• Daily sheets (MonthlyView, Volunteers, Timeoffs) moved to the left\n' +
+        '• Tabs color-coded (blue=daily, green=output, orange=config, gray=reference)\n' +
+        '• Config and reference sheets hidden\n\n' +
+        'Use Admin Tools → Show All Hidden Sheets to access hidden sheets when needed.\n' +
+        'Sheets auto-organize each time you open the sidebar.'
+      );
+    } else {
+      HELPER_showError('Organize Sheets Failed', new Error('Could not organize sheets'), 'schedule');
     }
-    // Color any user-generated print sheets (e.g., "February 2026") green
-    for (const sheet of ss.getSheets()) {
-      if (!explicitlyColored.has(sheet.getName())) sheet.setTabColor('#34a853');
-    }
-
-    // Step 2: Reorder tabs
-    const coreOrder = [
-      CONSTANTS.SHEETS.CONFIG, CONSTANTS.SHEETS.VOLUNTEERS, CONSTANTS.SHEETS.TIMEOFFS,
-      CONSTANTS.SHEETS.ASSIGNMENTS, CONSTANTS.SHEETS.WEEKLY_MASSES,
-      CONSTANTS.SHEETS.MONTHLY_MASSES, CONSTANTS.SHEETS.YEARLY_MASSES
-    ];
-    let pos = 1;
-    for (const name of coreOrder) {
-      const sheet = ss.getSheetByName(name);
-      if (sheet) { ss.setActiveSheet(sheet); ss.moveActiveSheet(pos++); }
-    }
-    const total = ss.getSheets().length;
-    for (let i = ADMIN_REFERENCE_SHEETS.length - 1; i >= 0; i--) {
-      const sheet = ss.getSheetByName(ADMIN_REFERENCE_SHEETS[i]);
-      if (sheet) { ss.setActiveSheet(sheet); ss.moveActiveSheet(total); }
-    }
-
-    // Step 3: Hide reference sheets
-    const hidden = [];
-    for (const name of ADMIN_REFERENCE_SHEETS) {
-      const sheet = ss.getSheetByName(name);
-      if (sheet) { sheet.hideSheet(); hidden.push(name); }
-    }
-
-    HELPER_showSuccess(
-      'Sheets Organized',
-      'Your spreadsheet is now streamlined:\n\n' +
-      '• Tabs color-coded (blue=workflow, orange=config, green=output)\n' +
-      '• Core sheets moved to the left\n' +
-      `• ${hidden.length} reference sheets hidden\n\n` +
-      'Use Admin Tools → Sheet Organization → Show Reference Sheets\nto access hidden sheets when needed.'
-    );
   } catch (e) {
     HELPER_showError('Organize Sheets Failed', e, 'schedule');
     Logger.log(`ERROR in ADMIN_organizeSheets: ${e.message}\n${e.stack}`);
@@ -385,20 +356,120 @@ function ADMIN_organizeSheets() {
 }
 
 /**
- * Navigates to a specific sheet tab. Used by sidebar Quick Access buttons.
- * If the sheet is hidden, it will be made visible first.
- * @param {string} sheetName - The name of the sheet to navigate to.
- * @returns {boolean} True if successful.
+ * Smart baseline sheet organization - called silently on sidebar open.
+ * Keeps daily-use sheets visible and leftmost, hides configuration and reference sheets.
+ * Designed to be fast, silent (no dialogs), and idempotent (safe to run repeatedly).
+ *
+ * Sheet tiers:
+ *   Tier 1 (Daily): MonthlyView, Volunteers, Timeoffs — always visible, blue tabs, leftmost
+ *   Tier 2 (Output): WeeklyView — visible if it exists, green tab
+ *   Tier 3 (Setup): Config, WeeklyMasses, etc. — hidden, orange tabs
+ *   Tier 4 (Reference): SaintsCalendar, Ministries, etc. — hidden, gray tabs
+ *   Custom print sheets — visible, green tabs
+ *
+ * @returns {boolean} True if organization succeeded
  */
-function ADMIN_navigateToSheet(sheetName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) throw new Error(`Sheet "${sheetName}" not found. It may need to be generated first (e.g., run Custom Print to create MonthlyView).`);
-  try { sheet.showSheet(); } catch (e) {} // Unhide if hidden
-  ss.setActiveSheet(sheet);
-  return true;
+function ADMIN_smartOrganize() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // Build set of all known managed sheet names for identifying custom print sheets
+    const managedSheets = new Set([
+      ...ADMIN_DAILY_SHEETS,
+      ...ADMIN_OUTPUT_SHEETS,
+      ...ADMIN_SETUP_SHEETS,
+      ...ADMIN_REFERENCE_SHEETS,
+      'SubstituteHelp'
+    ]);
+
+    // Step 1: Show and reorder Tier 1 (daily) sheets — leftmost position
+    let pos = 1;
+    for (const name of ADMIN_DAILY_SHEETS) {
+      const sheet = ss.getSheetByName(name);
+      if (sheet) {
+        try { sheet.showSheet(); } catch (e) { /* ignore if only visible sheet */ }
+        sheet.setTabColor('#4a90d9'); // Blue
+        ss.setActiveSheet(sheet);
+        ss.moveActiveSheet(pos++);
+      }
+    }
+
+    // Step 2: Color Tier 2 (output) sheets green — keep visible if they exist
+    for (const name of ADMIN_OUTPUT_SHEETS) {
+      const sheet = ss.getSheetByName(name);
+      if (sheet) {
+        sheet.setTabColor('#34a853'); // Green
+      }
+    }
+
+    // Step 3: Color custom print sheets green (any sheet not in managed set)
+    for (const sheet of ss.getSheets()) {
+      if (!managedSheets.has(sheet.getName())) {
+        sheet.setTabColor('#34a853'); // Green
+      }
+    }
+
+    // Step 4: Color and hide Tier 3 (setup) sheets
+    for (const name of ADMIN_SETUP_SHEETS) {
+      const sheet = ss.getSheetByName(name);
+      if (sheet) {
+        sheet.setTabColor('#f4a742'); // Orange
+        try { sheet.hideSheet(); } catch (e) { /* can't hide last visible sheet */ }
+      }
+    }
+
+    // Step 5: Color and hide Tier 4 (reference) sheets
+    for (const name of ADMIN_REFERENCE_SHEETS) {
+      const sheet = ss.getSheetByName(name);
+      if (sheet) {
+        sheet.setTabColor('#9e9e9e'); // Gray
+        try { sheet.hideSheet(); } catch (e) { /* can't hide last visible sheet */ }
+      }
+    }
+
+    // Step 6: Activate the first available daily sheet
+    for (const name of ADMIN_DAILY_SHEETS) {
+      const sheet = ss.getSheetByName(name);
+      if (sheet) {
+        ss.setActiveSheet(sheet);
+        break;
+      }
+    }
+
+    Logger.log('ADMIN_smartOrganize: Sheet organization complete');
+    return true;
+  } catch (e) {
+    Logger.log('ADMIN_smartOrganize error: ' + e.message);
+    return false;
+  }
 }
 
+/**
+ * Shows all hidden sheets (setup + reference). Undoes smart organize hiding.
+ * Useful when you need to access Config, mass schedule sheets, or reference data.
+ * Accessed via: Admin Tools → Sheet Organization → Show All Hidden Sheets
+ */
+function ADMIN_showAllHiddenSheets() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const shown = [];
+    const allHideable = [...ADMIN_SETUP_SHEETS, ...ADMIN_REFERENCE_SHEETS];
+
+    for (const name of allHideable) {
+      const sheet = ss.getSheetByName(name);
+      if (sheet) {
+        try { sheet.showSheet(); shown.push(name); } catch (e) {}
+      }
+    }
+
+    HELPER_showSuccess(
+      'All Sheets Visible',
+      `${shown.length} sheet(s) are now visible: ${shown.join(', ')}\n\nSheets will be re-hidden next time you open the sidebar.`
+    );
+  } catch (e) {
+    HELPER_showError('Show Sheets Failed', e, 'schedule');
+  }
+}
 
 /**
  * Shows the enhanced HTML sidebar.
