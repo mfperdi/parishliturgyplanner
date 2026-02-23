@@ -75,21 +75,21 @@ const CONSTANTS = {
     //   Monthly: DAY_OF_WEEK, WEEK_OF_MONTH, START_DATE, END_DATE, OVERRIDE_TYPE ('overrideday'|'append')
     //   Yearly:  DATE and/or LITURGICAL_CELEBRATION, OVERRIDE_TYPE ('override'|'append') (DAY_OF_WEEK, WEEK_OF_MONTH, START_DATE, END_DATE blank)
     MASS_SCHEDULE: {
-      RECURRENCE_TYPE: 1,          // 'Weekly' | 'Monthly' | 'Yearly'
-      EVENT_ID: 2,
-      IS_ACTIVE: 3,
-      IS_ANTICIPATED: 4,
-      DESCRIPTION: 5,
-      TEMPLATE_NAME: 6,
+      EVENT_ID: 1,
+      RECURRENCE_TYPE: 2,          // 'Weekly' | 'Monthly' | 'Yearly'
+      DAY_OF_WEEK: 3,              // blank for Yearly
+      WEEK_OF_MONTH: 4,            // Monthly only ('1st'–'Last')
+      DATE: 5,                     // Yearly only (specific calendar date)
+      LITURGICAL_CELEBRATION: 6,   // Yearly only (moveable feast name lookup)
       TIME: 7,
-      ASSIGNED_GROUP: 8,
-      OVERRIDE_TYPE: 9,            // blank for Weekly; 'overrideday'|'append' for Monthly; 'override'|'append' for Yearly
-      START_DATE: 10,              // blank for Yearly
-      END_DATE: 11,                // blank for Yearly
-      DAY_OF_WEEK: 12,             // blank for Yearly
-      WEEK_OF_MONTH: 13,           // Monthly only ('1st'–'Last')
-      DATE: 14,                    // Yearly only (specific calendar date)
-      LITURGICAL_CELEBRATION: 15,  // Yearly only (moveable feast name lookup)
+      START_DATE: 8,               // blank for Yearly
+      END_DATE: 9,                 // blank for Yearly
+      IS_ACTIVE: 10,
+      IS_ANTICIPATED: 11,
+      OVERRIDE_TYPE: 12,           // blank for Weekly; 'overrideday'|'append' for Monthly; 'override'|'append' for Yearly
+      DESCRIPTION: 13,
+      TEMPLATE_NAME: 14,
+      ASSIGNED_GROUP: 15,
       NOTES: 16
     },
 
