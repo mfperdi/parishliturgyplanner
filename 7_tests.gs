@@ -1839,20 +1839,25 @@ function _TEST_massScheduleSummary(passed, failed) {
   Logger.log(`RESULT: ${passed} passed, ${failed} failed`);
   Logger.log('='.repeat(60));
 
-  if (failed === 0) {
-    HELPER_showSuccess(
-      'MassSchedule Test — All Passed',
-      `All ${passed} checks passed.\n\n` +
-      'The MassSchedule sheet is correctly structured and\n' +
-      'SCHEDULE_findMassesForMonth reads it without errors.\n\n' +
-      'Check the execution log for the per-month breakdown.'
-    );
-  } else {
-    HELPER_showAlert(
-      'MassSchedule Test — Issues Found',
-      `${passed} passed, ${failed} failed.\n\n` +
-      'Check the execution log (View → Executions) for details.',
-      'warning'
-    );
+  try {
+    if (failed === 0) {
+      HELPER_showSuccess(
+        'MassSchedule Test — All Passed',
+        `All ${passed} checks passed.\n\n` +
+        'The MassSchedule sheet is correctly structured and\n' +
+        'SCHEDULE_findMassesForMonth reads it without errors.\n\n' +
+        'Check the execution log for the per-month breakdown.'
+      );
+    } else {
+      HELPER_showAlert(
+        'MassSchedule Test — Issues Found',
+        `${passed} passed, ${failed} failed.\n\n` +
+        'Check the execution log (View → Executions) for details.',
+        'warning'
+      );
+    }
+  } catch (e) {
+    // UI not available when run directly from Script Editor — log only.
+    Logger.log(`(Dialog skipped: ${e.message})`);
   }
 }
