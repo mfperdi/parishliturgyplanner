@@ -5,198 +5,112 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-  
+
   <style>
     body {
       font-family: 'Roboto', 'Arial', sans-serif;
-      padding: 16px;
+      padding: 0;
       margin: 0;
       background-color: #f8f9fa;
       color: #3c4043;
       line-height: 1.5;
     }
-    
+
     /* Header */
     .header {
       text-align: center;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #e0e0e0;
+      padding: 12px 16px 0 16px;
     }
-    
+
     .header h3 {
       font-weight: 500;
-      font-size: 20px;
+      font-size: 18px;
       margin: 0;
       color: #1f1f1f;
     }
-    
+
     .header .subtitle {
-      font-size: 12px;
+      font-size: 11px;
       color: #5f6368;
-      margin-top: 4px;
+      margin-top: 2px;
     }
-    
-    /* Phase Progress Indicator */
-    .phase-progress {
+
+    /* Tab Navigation */
+    .tab-bar {
       display: flex;
-      justify-content: space-between;
-      margin-bottom: 24px;
-      padding: 16px;
+      border-bottom: 2px solid #e0e0e0;
       background: white;
-      border-radius: 8px;
-      border: 1px solid #e0e0e0;
+      padding: 0 4px;
+      margin-top: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
-    
-    .phase-step {
+
+    .tab-btn {
       flex: 1;
-      text-align: center;
+      padding: 10px 4px 8px 4px;
       font-size: 12px;
+      font-weight: 500;
       color: #5f6368;
-      position: relative;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      text-align: center;
+      white-space: nowrap;
     }
-    
-    .phase-step.completed {
-      color: #137333;
-      font-weight: 500;
+
+    .tab-btn:hover {
+      color: #1a73e8;
+      background: #f0f4ff;
     }
-    
-    .phase-step.active {
-      color: #1967d2;
-      font-weight: 500;
+
+    .tab-btn.active {
+      color: #1a73e8;
+      border-bottom-color: #1a73e8;
     }
-    
-    .phase-step::after {
-      content: '';
-      position: absolute;
-      top: -6px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: #e0e0e0;
+
+    .tab-btn .tab-icon {
+      display: block;
+      font-size: 16px;
+      margin-bottom: 2px;
     }
-    
-    .phase-step.completed::after {
-      background: #137333;
+
+    /* Tab Content */
+    .tab-content {
+      display: none;
+      padding: 16px;
     }
-    
-    .phase-step.active::after {
-      background: #1967d2;
+
+    .tab-content.active {
+      display: block;
     }
-    
-    /* Phase Sections */
-    .phase-container {
-      margin-bottom: 24px;
-    }
-    
-    .phase-header {
-      background: linear-gradient(135deg, #1a73e8, #1557b0);
-      color: white;
-      padding: 12px 16px;
-      border-radius: 8px 8px 0 0;
-      font-weight: 500;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .phase-header.setup {
-      background: linear-gradient(135deg, #f9ab00, #e8a317);
-      color: #1f1f1f;
-    }
-    
-    .phase-header.completion {
-      background: linear-gradient(135deg, #1e8e3e, #188038);
-    }
-    
-    .phase-content {
+
+    /* Section Cards */
+    .card {
       background: white;
       border: 1px solid #e0e0e0;
-      border-top: none;
-      border-radius: 0 0 8px 8px;
-      padding: 0;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
     }
-    
-    .phase-content.disabled {
-      opacity: 0.6;
-      pointer-events: none;
-    }
-    
-    /* Step Items */
-    .step-item {
-      padding: 16px;
+
+    .card-header {
+      padding: 10px 14px;
+      font-weight: 500;
+      font-size: 13px;
+      color: #3c4043;
       border-bottom: 1px solid #f1f3f4;
       display: flex;
       align-items: center;
-      gap: 12px;
-    }
-    
-    .step-item:last-child {
-      border-bottom: none;
-    }
-    
-    .step-item.disabled {
-      opacity: 0.5;
-      pointer-events: none;
-    }
-    
-    .step-icon {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: bold;
-      color: white;
-      flex-shrink: 0;
-    }
-    
-    .step-content {
-      flex: 1;
-      min-width: 0;
-    }
-    
-    .step-title {
-      font-weight: 500;
-      font-size: 14px;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
       gap: 8px;
     }
-    
-    .step-description {
-      font-size: 12px;
-      color: #5f6368;
-      line-height: 1.4;
-    }
-    
-    .step-badge {
-      background: #ea4335;
-      color: white;
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      font-weight: 500;
-    }
-    
-    .step-badge.info {
-      background: #1a73e8;
-    }
 
-    .completion-badge {
-      background: #137333;
-      color: white;
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: 10px;
-      font-weight: 500;
-      margin-left: 8px;
+    .card-body {
+      padding: 12px 14px;
     }
 
     /* Buttons */
@@ -213,64 +127,74 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
-      margin-top: 8px;
     }
-    
+
     .btn:disabled {
       background-color: #f1f3f4;
       color: #9aa0a6;
       cursor: not-allowed;
     }
-    
+
     .btn-primary {
       background-color: #1a73e8;
       color: white;
     }
-    
+
     .btn-primary:hover:not(:disabled) {
       background-color: #1557b0;
       transform: translateY(-1px);
       box-shadow: 0 2px 8px rgba(26, 115, 232, 0.25);
     }
-    
+
     .btn-secondary {
       background-color: #1e8e3e;
       color: white;
     }
-    
+
     .btn-secondary:hover:not(:disabled) {
       background-color: #188038;
       transform: translateY(-1px);
       box-shadow: 0 2px 8px rgba(30, 142, 62, 0.25);
     }
-    
+
     .btn-warning {
       background-color: #f9ab00;
       color: #1f1f1f;
     }
-    
+
     .btn-warning:hover:not(:disabled) {
       background-color: #e8a317;
       transform: translateY(-1px);
       box-shadow: 0 2px 8px rgba(249, 171, 0, 0.25);
     }
-    
+
     .btn-outline {
       background-color: white;
       color: #1a73e8;
       border: 1px solid #dadce0;
     }
-    
+
     .btn-outline:hover:not(:disabled) {
       background-color: #f8f9fa;
       border-color: #1a73e8;
     }
-    
+
+    .btn-danger {
+      background-color: white;
+      color: #c5221f;
+      border: 1px solid #dadce0;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background-color: #fce8e6;
+      border-color: #c5221f;
+    }
+
     /* Form Elements */
     .form-group {
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
-    
+
     .form-label {
       font-size: 12px;
       font-weight: 500;
@@ -278,8 +202,8 @@
       margin-bottom: 4px;
       display: block;
     }
-    
-    .form-select {
+
+    .form-select, .form-input {
       width: 100%;
       padding: 8px 10px;
       font-size: 13px;
@@ -289,50 +213,92 @@
       color: #3c4043;
       box-sizing: border-box;
     }
-    
-    .form-select:focus {
+
+    .form-select:focus, .form-input:focus {
       outline: none;
       border-color: #1a73e8;
       box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
     }
-    
-    .form-select:disabled {
+
+    .form-select:disabled, .form-input:disabled {
       background-color: #f1f3f4;
       color: #9aa0a6;
     }
-    
+
+    /* Badges */
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+
+    .badge-pending {
+      background: #ea4335;
+      color: white;
+    }
+
+    .badge-complete {
+      background: #137333;
+      color: white;
+    }
+
+    /* Action row - for side-by-side elements */
+    .action-row {
+      margin-bottom: 10px;
+    }
+
+    .action-row:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Divider */
+    .divider {
+      border: none;
+      border-top: 1px solid #f1f3f4;
+      margin: 12px 0;
+    }
+
+    /* Hint text */
+    .hint {
+      font-size: 11px;
+      color: #5f6368;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+
     /* Status Messages */
     .status-message {
-      margin-top: 20px;
-      padding: 12px 16px;
+      margin: 12px 16px;
+      padding: 10px 14px;
       border-radius: 6px;
       font-size: 13px;
       display: none;
       align-items: center;
       gap: 8px;
     }
-    
+
     .status-loading {
       display: flex;
       background-color: #e8f0fe;
       color: #1967d2;
       border: 1px solid #d2e3fc;
     }
-    
+
     .status-success {
       display: flex;
       background-color: #e6f4ea;
       color: #137333;
       border: 1px solid #c6e6d4;
     }
-    
+
     .status-error {
       display: flex;
       background-color: #fce8e6;
       color: #c5221f;
       border: 1px solid #f9c6c2;
     }
-    
+
     /* Loading Spinner */
     .spinner {
       width: 16px;
@@ -341,67 +307,21 @@
       border-top: 2px solid currentColor;
       border-radius: 50%;
       animation: spin 1s linear infinite;
+      flex-shrink: 0;
     }
-    
+
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    
-    /* Quick Access Navigation */
-    .quick-access {
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 10px 12px;
-      margin-bottom: 16px;
-    }
 
-    .quick-access-label {
-      font-size: 11px;
-      font-weight: 500;
-      color: #5f6368;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 8px;
-    }
-
-    .quick-access-btns {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px;
-    }
-
-    .btn-nav {
-      padding: 7px 8px;
-      font-size: 12px;
-      font-weight: 500;
-      border: 1px solid #dadce0;
-      border-radius: 6px;
-      background: white;
-      color: #3c4043;
-      cursor: pointer;
-      transition: all 0.15s ease;
-      text-align: left;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .btn-nav:hover {
-      background: #f8f9fa;
-      border-color: #1a73e8;
-      color: #1a73e8;
-    }
-
-
-    /* Hidden elements */
+    /* Hidden */
     .hidden {
       display: none !important;
     }
-    
+
     /* Accessibility */
-    .btn:focus {
+    .btn:focus, .tab-btn:focus {
       outline: 2px solid #1a73e8;
       outline-offset: 2px;
     }
@@ -409,394 +329,295 @@
 </head>
 
 <body>
+  <!-- Header -->
   <div class="header">
     <h3>Parish Scheduler</h3>
     <div class="subtitle">Liturgical Ministry Management</div>
   </div>
 
-  <!-- Quick Access Navigation -->
-  <div class="quick-access">
-    <div class="quick-access-label">Quick Access</div>
-    <div class="quick-access-btns">
-      <button class="btn-nav" onclick="navigateTo('Volunteers')" title="Go to Volunteers sheet">
-        👥 Volunteers
-      </button>
-      <button class="btn-nav" onclick="navigateTo('Timeoffs')" title="Go to Timeoffs sheet">
-        📋 Timeoffs
-      </button>
-      <button class="btn-nav" onclick="navigateTo('Assignments')" title="Go to Assignments sheet">
-        📌 Assignments
-      </button>
-    </div>
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="daily" title="Everyday tasks">
+      <span class="tab-icon">&#x1F3E0;</span>
+      Daily
+    </button>
+    <button class="tab-btn" data-tab="schedule" title="Monthly scheduling workflow">
+      <span class="tab-icon">&#x1F4C5;</span>
+      Schedule
+    </button>
+    <button class="tab-btn" data-tab="setup" title="One-time setup tasks">
+      <span class="tab-icon">&#x2699;&#xFE0F;</span>
+      Setup
+    </button>
+    <button class="tab-btn" data-tab="archive" title="Archive management">
+      <span class="tab-icon">&#x1F4E6;</span>
+      Archive
+    </button>
   </div>
 
-  <div class="phase-progress">
-    <div class="phase-step" id="phase-setup">Setup</div>
-    <div class="phase-step" id="phase-scheduling">Scheduling</div>
-    <div class="phase-step" id="phase-completion">Completion</div>
-  </div>
+  <!-- ===================== DAILY TAB ===================== -->
+  <div class="tab-content active" id="tab-daily">
 
-  <div class="phase-container">
-    <div class="phase-header setup">
-      <span>⚙️</span>
-      <span>Initial Setup</span>
-    </div>
-    <div class="phase-content" id="phase-setup-content">
+    <!-- Weekly Email Copy -->
+    <div class="card">
+      <div class="card-header">Weekly Email</div>
+      <div class="card-body">
+        <button id="btn-copy-email" class="btn btn-primary">
+          Copy Schedule for Email
+        </button>
 
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #f9ab00;">1</div>
-        <div class="step-content">
-          <div class="step-title">
-            Generate Liturgical Calendar
-            <span id="completion-calendar" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Run once per year to create the complete liturgical calendar</div>
-          <button id="btn-admin" class="btn btn-warning" aria-label="Generate liturgical calendar for the entire year">
-            Generate Calendar
-          </button>
-        </div>
-      </div>
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #f9ab00;">2</div>
-        <div class="step-content">
-          <div class="step-title">
-            Validate Data
-            <span id="completion-validation" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Check configuration, volunteers, and mass templates for errors</div>
-          <button id="btn-validate" class="btn btn-warning" aria-label="Validate all data before scheduling">
-            Validate Data
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <div class="phase-container">
-    <div class="phase-header">
-      <span>📅</span>
-      <span>Monthly Scheduling</span>
-    </div>
-    <div class="phase-content disabled" id="phase-scheduling-content">
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1a73e8;">3</div>
-        <div class="step-content">
-          <div class="step-title">Select Month</div>
-          <div class="step-description">Choose which month to schedule</div>
-          <div class="form-group">
-            <label for="month-select" class="form-label">Month to Schedule</label>
-            <select id="month-select" class="form-select" disabled>
-              <option value="">Loading months...</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1a73e8;">4</div>
-        <div class="step-content">
-          <div class="step-title">
-            Generate Schedule
-            <span id="completion-schedule" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Create unassigned ministry roles for all masses</div>
-          <button id="btn-step1" class="btn btn-primary" disabled>
-            Generate Schedule
-          </button>
-        </div>
-      </div>
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1a73e8;">5</div>
-        <div class="step-content">
-          <div class="step-title">
-            Update Timeoff Form
-            <span id="completion-form-update" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Update form with current month's dates and volunteer list</div>
-          <button id="btn-update-form" class="btn btn-primary" disabled>
-            Update Timeoff Form
-          </button>
-        </div>
-      </div>
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1a73e8;">6</div>
-        <div class="step-content">
-          <div class="step-title">
-            Review Timeoffs
-            <span id="timeoff-badge" class="step-badge hidden">0 pending</span>
-            <span id="completion-timeoffs" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Approve or reject volunteer timeoff requests</div>
-          <button id="btn-timeoffs" class="btn btn-primary" disabled>
-            Review Timeoffs
-          </button>
-        </div>
-      </div>
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1a73e8;">7</div>
-        <div class="step-content">
-          <div class="step-title">
-            Auto-Assign Volunteers
-            <span id="completion-assignment" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Automatically assign qualified volunteers to ministry roles</div>
-          <button id="btn-step2" class="btn btn-primary" disabled>
-            Auto-Assign Volunteers
-          </button>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Finalize & Export Section -->
-  <div class="phase-container">
-    <div class="phase-header completion">
-      <span>📄</span>
-      <span>Finalize & Export</span>
-    </div>
-    <div class="phase-content disabled" id="phase-completion-content">
-
-      <!-- STEP 8: Custom Print -->
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">8</div>
-        <div class="step-content">
-          <div class="step-title">
-            Custom Print
-            <span id="completion-custom-print" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Generate one-off print schedule for any month/ministry</div>
-
-          <!-- Month Selector -->
-          <div style="margin-bottom: 10px;">
-            <label for="custom-print-month" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
-              Month to Print:
-            </label>
-            <select id="custom-print-month" class="month-select" style="width: 100%; padding: 8px;">
-              <option value="">Select month...</option>
-              <!-- Populated dynamically -->
-            </select>
-          </div>
-
-          <!-- Ministry Filter -->
-          <div style="margin-bottom: 10px;">
-            <label for="custom-print-ministry" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
-              Filter by Ministry (optional):
-            </label>
-            <select id="custom-print-ministry" class="month-select" style="width: 100%; padding: 8px;">
-              <option value="All Ministries">All Ministries</option>
-              <!-- Populated dynamically -->
-            </select>
-          </div>
-
-          <!-- Output Sheet Name -->
-          <div style="margin-bottom: 10px;">
-            <label for="custom-print-sheet-name" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
-              Output Sheet Name:
-            </label>
-            <input type="text" id="custom-print-sheet-name"
-                   style="width: 100%; padding: 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 13px;"
-                   placeholder="e.g., Lector February 2026">
-          </div>
-
-          <button id="btn-custom-print" class="btn btn-outline" disabled>
-            📄 Generate Custom Print
-          </button>
-
-          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #f1f3f4; font-size: 11px; color: #5f6368;">
-            💡 Use this for ad-hoc reports, printing specific ministries, or archiving past months
-          </div>
-        </div>
-      </div>
-
-      <!-- STEP 9: Weekly Email View -->
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">9</div>
-        <div class="step-content">
-          <div class="step-title">
-            Weekly Email View
-            <span id="completion-weekly" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Generate upcoming week schedule for Monday emails</div>
-
-          <!-- Quick Copy for Email -->
-          <button id="btn-copy-email" class="btn btn-primary" disabled style="margin-bottom: 8px;">
-            📋 Copy Schedule for Email
-          </button>
-
-          <!-- Email Text Preview (hidden until generated) -->
-          <div id="email-preview-container" style="display: none; margin-top: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <span id="email-preview-week" style="font-size: 12px; font-weight: bold; color: #1a73e8;"></span>
-              <button id="btn-copy-again" class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;">
-                📋 Copy Again
-              </button>
-            </div>
-            <textarea id="email-preview-text" readonly style="width: 100%; height: 200px; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #dadce0; border-radius: 4px; resize: vertical; background: #f8f9fa;"></textarea>
-            <div id="copy-success" style="display: none; margin-top: 6px; padding: 6px 10px; background: #e6f4ea; color: #137333; border-radius: 4px; font-size: 11px; text-align: center;">
-              ✓ Copied to clipboard! Paste into your email.
-            </div>
-          </div>
-
-          <div style="margin-top: 8px; font-size: 11px; color: #5f6368;">
-            💡 <strong>Smart Logic:</strong> Mon-Wed shows current week, Thu-Sun shows next week
-          </div>
-        </div>
-      </div>
-
-      <!-- STEP 10: Publish Schedule -->
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #1e8e3e;">10</div>
-        <div class="step-content">
-          <div class="step-title">
-            Publish Schedule
-            <span id="completion-publish" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Sync schedules to public volunteer spreadsheets</div>
-
-          <!-- Publish All Ministries Button -->
-          <button id="btn-publish-all" class="btn btn-secondary" disabled style="margin-bottom: 12px;">
-            📄 Publish All Ministries
-          </button>
-
-          <!-- Individual Ministry Publishing -->
-          <div style="margin-bottom: 10px;">
-            <label for="publish-ministry-filter" style="display: block; margin-bottom: 5px; font-size: 12px; color: #666;">
-              Or publish individual ministry:
-            </label>
-            <select id="publish-ministry-filter" class="month-select" style="width: 100%; padding: 8px; margin-bottom: 8px;">
-              <option value="">Select ministry...</option>
-              <!-- Populated dynamically -->
-            </select>
-            <button id="btn-publish-ministry" class="btn btn-outline" disabled>
-              Publish Selected Ministry
+        <!-- Email Text Preview (hidden until generated) -->
+        <div id="email-preview-container" style="display: none; margin-top: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span id="email-preview-week" style="font-size: 12px; font-weight: bold; color: #1a73e8;"></span>
+            <button id="btn-copy-again" class="btn-nav" style="padding: 4px 8px; font-size: 11px;">
+              Copy Again
             </button>
           </div>
-
-          <!-- Auto-Publish Toggle -->
-          <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #f1f3f4;">
-            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #666; cursor: pointer;">
-              <input type="checkbox" id="auto-publish-toggle" style="cursor: pointer;">
-              <span>Auto-publish main schedule (every 30 min)</span>
-            </label>
-            <div id="auto-publish-status" style="margin-top: 4px; font-size: 11px; color: #5f6368;"></div>
+          <textarea id="email-preview-text" readonly style="width: 100%; height: 180px; font-family: monospace; font-size: 11px; padding: 8px; border: 1px solid #dadce0; border-radius: 4px; resize: vertical; background: #f8f9fa; box-sizing: border-box;"></textarea>
+          <div id="copy-success" style="display: none; margin-top: 6px; padding: 6px 10px; background: #e6f4ea; color: #137333; border-radius: 4px; font-size: 11px; text-align: center;">
+            Copied to clipboard! Paste into your email.
           </div>
         </div>
-      </div>
 
+        <div class="hint">Mon-Wed shows current week, Thu-Sun shows next week.</div>
+      </div>
     </div>
+
   </div>
 
-  <!-- Analytics Section -->
-  <div class="phase-container">
-    <div class="phase-header" style="background: linear-gradient(135deg, #7c4dff, #5e35b1);">
-      <span>📊</span>
-      <span>Analytics</span>
-    </div>
-    <div class="phase-content disabled" id="phase-analytics-content">
+  <!-- ===================== SCHEDULE TAB ===================== -->
+  <div class="tab-content" id="tab-schedule">
 
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #7c4dff;">📊</div>
-        <div class="step-content">
-          <div class="step-title">
-            Dashboard Analytics
-            <span id="completion-dashboard" class="completion-badge hidden">✓ Complete</span>
-          </div>
-          <div class="step-description">Analyze volunteer participation, coverage, and unassigned roles for a selected month</div>
-
-          <button id="btn-dashboard" class="btn btn-outline" disabled>
-            📊 View Dashboard
-          </button>
-
-          <div style="margin-top: 8px; font-size: 11px; color: #5f6368;">
-            Select a month above before generating the dashboard.
-          </div>
+    <!-- Month Selector -->
+    <div class="card">
+      <div class="card-header">Month</div>
+      <div class="card-body">
+        <div class="form-group" style="margin-bottom: 0;">
+          <select id="month-select" class="form-select" disabled>
+            <option value="">Loading months...</option>
+          </select>
         </div>
       </div>
-
     </div>
+
+    <!-- Generate Schedule -->
+    <div class="card">
+      <div class="card-header">
+        Generate Schedule
+        <span id="completion-schedule" class="badge badge-complete hidden">Done</span>
+      </div>
+      <div class="card-body">
+        <div class="hint" style="margin-top: 0; margin-bottom: 8px;">Create unassigned ministry roles for all masses in the selected month.</div>
+        <button id="btn-generate-schedule" class="btn btn-primary" disabled>
+          Generate Schedule
+        </button>
+      </div>
+    </div>
+
+    <!-- Timeoffs -->
+    <div class="card">
+      <div class="card-header">
+        Timeoffs
+        <span id="timeoff-badge" class="badge badge-pending hidden">0 pending</span>
+        <span id="completion-timeoffs" class="badge badge-complete hidden">Done</span>
+      </div>
+      <div class="card-body">
+        <div class="action-row">
+          <button id="btn-update-form" class="btn btn-outline" disabled>
+            Update Timeoff Form
+          </button>
+        </div>
+        <div class="action-row">
+          <button id="btn-review-timeoffs" class="btn btn-outline" disabled>
+            Review Timeoffs
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto-Assign -->
+    <div class="card">
+      <div class="card-header">
+        Auto-Assign Volunteers
+        <span id="completion-assignment" class="badge badge-complete hidden">Done</span>
+      </div>
+      <div class="card-body">
+        <div class="hint" style="margin-top: 0; margin-bottom: 8px;">Assign qualified volunteers to ministry roles based on availability and preferences.</div>
+        <button id="btn-auto-assign" class="btn btn-primary" disabled>
+          Auto-Assign Volunteers
+        </button>
+      </div>
+    </div>
+
+    <!-- Custom Print -->
+    <div class="card">
+      <div class="card-header">
+        Print Schedule
+        <span id="completion-custom-print" class="badge badge-complete hidden">Done</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="custom-print-month" class="form-label">Month to Print</label>
+          <select id="custom-print-month" class="form-select" disabled>
+            <option value="">Select month...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="custom-print-ministry" class="form-label">Filter by Ministry</label>
+          <select id="custom-print-ministry" class="form-select" disabled>
+            <option value="All Ministries">All Ministries</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="custom-print-sheet-name" class="form-label">Output Sheet Name</label>
+          <input type="text" id="custom-print-sheet-name" class="form-input" disabled
+                 placeholder="e.g., Lector Feb 2026">
+        </div>
+        <button id="btn-custom-print" class="btn btn-outline" disabled>
+          Generate Print Schedule
+        </button>
+      </div>
+    </div>
+
+    <!-- Publish Ministry -->
+    <div class="card">
+      <div class="card-header">
+        Publish Schedule
+        <span id="completion-publish" class="badge badge-complete hidden">Done</span>
+      </div>
+      <div class="card-body">
+        <div class="form-group">
+          <label for="publish-ministry-filter" class="form-label">Ministry to Publish</label>
+          <select id="publish-ministry-filter" class="form-select" disabled>
+            <option value="">Select ministry...</option>
+          </select>
+        </div>
+        <button id="btn-publish-ministry" class="btn btn-secondary" disabled>
+          Publish Selected Ministry
+        </button>
+      </div>
+    </div>
+
   </div>
 
-  <!-- Archive Section -->
-  <div class="phase-container">
-    <div class="phase-header" style="background: linear-gradient(135deg, #5f6368, #3c4043);">
-      <span>📦</span>
-      <span>Archive Management</span>
+  <!-- ===================== SETUP TAB ===================== -->
+  <div class="tab-content" id="tab-setup">
+
+    <div class="card">
+      <div class="card-header">
+        Generate Liturgical Calendar
+        <span id="completion-calendar" class="badge badge-complete hidden">Done</span>
+      </div>
+      <div class="card-body">
+        <div class="hint" style="margin-top: 0; margin-bottom: 8px;">Run once per year to create the liturgical calendar for all 12 months.</div>
+        <button id="btn-generate-calendar" class="btn btn-warning">
+          Generate Calendar
+        </button>
+      </div>
     </div>
-    <div class="phase-content">
 
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #5f6368;">🗄️</div>
-        <div class="step-content">
-          <div class="step-title">Year-End Archive</div>
-          <div class="step-description">Create archive file for completed year</div>
-          <button id="btn-archive" class="btn btn-outline">
-            Archive Current Year
-          </button>
-        </div>
+    <div class="card">
+      <div class="card-header">
+        Validate Data
+        <span id="completion-validation" class="badge badge-complete hidden">Done</span>
       </div>
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #5f6368;">📂</div>
-        <div class="step-content">
-          <div class="step-title">View Archives</div>
-          <div class="step-description">Access previous years' archived data</div>
-          <button id="btn-view-archives" class="btn btn-outline">
-            View Archives
-          </button>
-        </div>
+      <div class="card-body">
+        <div class="hint" style="margin-top: 0; margin-bottom: 8px;">Check configuration, volunteers, and mass templates for errors before scheduling.</div>
+        <button id="btn-validate" class="btn btn-warning">
+          Validate Data
+        </button>
       </div>
-
-      <div class="step-item">
-        <div class="step-icon" style="background-color: #c5221f;">🗑️</div>
-        <div class="step-content">
-          <div class="step-title">Clear Old Data</div>
-          <div class="step-description">Remove old data to start new year fresh</div>
-          <button id="btn-clear-data" class="btn btn-outline">
-            Clear Old Data
-          </button>
-        </div>
-      </div>
-
     </div>
+
   </div>
 
+  <!-- ===================== ARCHIVE TAB ===================== -->
+  <div class="tab-content" id="tab-archive">
+
+    <div class="card">
+      <div class="card-header">Year-End Archive</div>
+      <div class="card-body">
+        <div class="hint" style="margin-top: 0; margin-bottom: 8px;">Create an archive file for the completed year's data.</div>
+        <button id="btn-archive" class="btn btn-outline">
+          Archive Current Year
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">View Archives</div>
+      <div class="card-body">
+        <div class="hint" style="margin-top: 0; margin-bottom: 8px;">Access previous years' archived data.</div>
+        <button id="btn-view-archives" class="btn btn-outline">
+          View Archives
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Clear Old Data</div>
+      <div class="card-body">
+        <div class="hint" style="margin-top: 0; margin-bottom: 8px;">Remove old data to start a new year fresh. This is destructive.</div>
+        <button id="btn-clear-data" class="btn btn-danger">
+          Clear Old Data
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Status Message (shared across all tabs) -->
   <div id="status-message" class="status-message" role="status" aria-live="polite"></div>
 
   <script>
-    // Quick Access: navigate to a sheet tab by name
-    function navigateTo(sheetName) {
-      google.script.run
-        .withSuccessHandler(() => {})
-        .withFailureHandler((err) => {
-          console.log('Navigate to "' + sheetName + '" failed:', err.message || err);
-        })
-        .ADMIN_navigateToSheet(sheetName);
-    }
+    // ========================
+    // Tab Switching
+    // ========================
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-    // Enhanced JavaScript with grouped workflow state management
-    
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetTab = btn.getAttribute('data-tab');
+
+        // Update active tab button
+        tabButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Show target tab content
+        tabContents.forEach(tc => tc.classList.remove('active'));
+        document.getElementById('tab-' + targetTab).classList.add('active');
+
+        // Clear status message when switching tabs
+        statusMessage.className = 'status-message hidden';
+      });
+    });
+
+    // ========================
+    // Element References
+    // ========================
+
+    // Month selector (Schedule tab)
     const monthSelect = document.getElementById('month-select');
-    const btnAdmin = document.getElementById('btn-admin');
-    const btnValidate = document.getElementById('btn-validate');
-    const btnStep1 = document.getElementById('btn-step1');
-    const btnUpdateForm = document.getElementById('btn-update-form');
-    const btnTimeoffs = document.getElementById('btn-timeoffs');
-    const btnStep2 = document.getElementById('btn-step2');
 
-    // Custom Print (Step 8)
+    // Schedule tab buttons
+    const btnGenerateSchedule = document.getElementById('btn-generate-schedule');
+    const btnUpdateForm = document.getElementById('btn-update-form');
+    const btnReviewTimeoffs = document.getElementById('btn-review-timeoffs');
+    const btnAutoAssign = document.getElementById('btn-auto-assign');
+
+    // Custom Print (Schedule tab)
     const customPrintMonth = document.getElementById('custom-print-month');
     const customPrintMinistry = document.getElementById('custom-print-ministry');
     const customPrintSheetName = document.getElementById('custom-print-sheet-name');
     const btnCustomPrint = document.getElementById('btn-custom-print');
 
-    // Weekly View (Step 9)
+    // Publish (Schedule tab)
+    const publishMinistryFilter = document.getElementById('publish-ministry-filter');
+    const btnPublishMinistry = document.getElementById('btn-publish-ministry');
+
+    // Daily tab
     const btnCopyEmail = document.getElementById('btn-copy-email');
     const btnCopyAgain = document.getElementById('btn-copy-again');
     const emailPreviewContainer = document.getElementById('email-preview-container');
@@ -804,116 +625,45 @@
     const emailPreviewText = document.getElementById('email-preview-text');
     const copySuccess = document.getElementById('copy-success');
 
-    // Publish (Step 10)
-    const btnPublishAll = document.getElementById('btn-publish-all');
-    const btnPublishMinistry = document.getElementById('btn-publish-ministry');
-    const publishMinistryFilter = document.getElementById('publish-ministry-filter');
-    const autoPublishToggle = document.getElementById('auto-publish-toggle');
-    const autoPublishStatus = document.getElementById('auto-publish-status');
+    // Setup tab
+    const btnGenerateCalendar = document.getElementById('btn-generate-calendar');
+    const btnValidate = document.getElementById('btn-validate');
 
-    // Dashboard Analytics
-    const btnDashboard = document.getElementById('btn-dashboard');
+    // Archive tab
+    const btnArchive = document.getElementById('btn-archive');
+    const btnViewArchives = document.getElementById('btn-view-archives');
+    const btnClearData = document.getElementById('btn-clear-data');
 
-    const statusMessage = document.getElementById('status-message');
-
-    // Phase elements
-    const phaseSetup = document.getElementById('phase-setup');
-    const phaseScheduling = document.getElementById('phase-scheduling');
-    const phaseCompletion = document.getElementById('phase-completion');
-
-    // Phase content elements
-    const phaseSetupContent = document.getElementById('phase-setup-content');
-    const phaseSchedulingContent = document.getElementById('phase-scheduling-content');
-    const phaseCompletionContent = document.getElementById('phase-completion-content');
-    const phaseAnalyticsContent = document.getElementById('phase-analytics-content');
-    
-    // Badge elements
+    // Badges
     const timeoffBadge = document.getElementById('timeoff-badge');
 
-    // Completion badge elements
-    const completionCalendar = document.getElementById('completion-calendar');
-    const completionValidation = document.getElementById('completion-validation');
-    const completionSchedule = document.getElementById('completion-schedule');
-    const completionFormUpdate = document.getElementById('completion-form-update');
-    const completionTimeoffs = document.getElementById('completion-timeoffs');
-    const completionAssignment = document.getElementById('completion-assignment');
-    const completionPrint = document.getElementById('completion-print');
-    const completionPublish = document.getElementById('completion-publish');
+    // Status
+    const statusMessage = document.getElementById('status-message');
 
+    // All buttons that should be disabled during operations
     let allButtons;
-    let currentPhase = 'setup';
+
+    // State
     let pendingTimeoffs = 0;
 
-    // Function to mark a step as complete
-    function markStepComplete(stepId) {
-      const badge = document.getElementById('completion-' + stepId);
-      if (badge) {
-        badge.classList.remove('hidden');
-      }
-    }
-
-    // Update phase progress indicator
-    function updatePhaseProgress(phase) {
-      // Reset all phases
-      [phaseSetup, phaseScheduling, phaseCompletion].forEach(p => {
-        p.className = 'phase-step';
-      });
-      
-      // Mark completed and active phases
-      switch(phase) {
-        case 'setup':
-          phaseSetup.className = 'phase-step active';
-          break;
-        case 'scheduling':
-          phaseSetup.className = 'phase-step completed';
-          phaseScheduling.className = 'phase-step active';
-          break;
-        case 'completion':
-          phaseSetup.className = 'phase-step completed';
-          phaseScheduling.className = 'phase-step completed';
-          phaseCompletion.className = 'phase-step active';
-          break;
-      }
-      
-      currentPhase = phase;
-    }
-    
-    // Update phase content states
-    function updatePhaseStates() {
-      const hasCalendar = monthSelect.options.length > 1;
-      const hasMonthSelected = monthSelect.value !== '';
-
-      // Enable/disable phase content based on dependencies
-      if (hasCalendar) {
-        phaseSchedulingContent.classList.remove('disabled');
-        phaseCompletionContent.classList.remove('disabled');
-        phaseAnalyticsContent.classList.remove('disabled');
-        updatePhaseProgress('scheduling');
-      } else {
-        phaseSchedulingContent.classList.add('disabled');
-        phaseCompletionContent.classList.add('disabled');
-        phaseAnalyticsContent.classList.add('disabled');
-        updatePhaseProgress('setup');
-      }
-    }
-    
-    // Enhanced button state management
+    // ========================
+    // ========================
+    // Button State Management
+    // ========================
     function updateButtonStates() {
       const hasCalendar = monthSelect.options.length > 1;
       const hasMonthSelected = monthSelect.value !== '';
 
-      console.log('updateButtonStates called:', { hasCalendar, hasMonthSelected });
-
-      // Month selection
+      // Schedule tab - month selector
       monthSelect.disabled = !hasCalendar;
 
-      // Scheduling phase buttons
-      btnStep1.disabled = !hasCalendar || !hasMonthSelected;
+      // Schedule tab - main actions (require month selection)
+      btnGenerateSchedule.disabled = !hasCalendar || !hasMonthSelected;
       btnUpdateForm.disabled = !hasCalendar || !hasMonthSelected;
-      btnTimeoffs.disabled = !hasCalendar || !hasMonthSelected;
-      btnStep2.disabled = !hasCalendar || !hasMonthSelected;
+      btnReviewTimeoffs.disabled = !hasCalendar || !hasMonthSelected;
+      btnAutoAssign.disabled = !hasCalendar || !hasMonthSelected;
 
-      // Step 8: Custom Print (requires month selection + sheet name)
+      // Custom Print (requires month + sheet name)
       customPrintMonth.disabled = !hasCalendar;
       customPrintMinistry.disabled = !hasCalendar;
       customPrintSheetName.disabled = !hasCalendar;
@@ -921,37 +671,28 @@
       const hasCustomPrintSheetName = customPrintSheetName.value.trim() !== '';
       btnCustomPrint.disabled = !hasCalendar || !hasCustomPrintMonth || !hasCustomPrintSheetName;
 
-      // Step 9: Weekly Email View (always enabled after calendar exists)
-      btnCopyEmail.disabled = !hasCalendar;
-
-      // Step 10: Publish buttons (require month selection)
+      // Publish (requires month + ministry selected)
       publishMinistryFilter.disabled = !hasCalendar || !hasMonthSelected;
-      btnPublishAll.disabled = !hasCalendar || !hasMonthSelected;
       const hasMinistrySelected = publishMinistryFilter.value !== '';
       btnPublishMinistry.disabled = !hasCalendar || !hasMonthSelected || !hasMinistrySelected;
 
-      // Dashboard Analytics (requires month selection)
-      btnDashboard.disabled = !hasCalendar || !hasMonthSelected;
+      // Daily tab - email copy (always enabled after calendar exists)
+      btnCopyEmail.disabled = !hasCalendar;
 
-      updatePhaseStates();
       updateBadges();
     }
-    
-    // Update notification badges
+
     function updateBadges() {
-      // Timeoff badge
       if (pendingTimeoffs > 0) {
-        timeoffBadge.textContent = `${pendingTimeoffs} pending`;
+        timeoffBadge.textContent = pendingTimeoffs + ' pending';
         timeoffBadge.classList.remove('hidden');
       } else {
         timeoffBadge.classList.add('hidden');
       }
     }
-    
-    // Fetch additional data for badges
+
     function refreshWorkflowData() {
       if (monthSelect.value) {
-        // Get pending timeoffs count
         google.script.run
           .withSuccessHandler((count) => {
             pendingTimeoffs = count || 0;
@@ -964,91 +705,64 @@
           .getPendingTimeoffsCount();
       }
     }
-    
-    // Initialization
-    window.addEventListener('load', () => {
-      allButtons = [btnAdmin, btnValidate, btnStep1, btnUpdateForm, btnTimeoffs, btnStep2, btnCustomPrint, btnCopyEmail, btnDashboard, btnPublishAll, btnPublishMinistry];
-      updatePhaseProgress('setup');
 
+    // ========================
+    // Completion Badges
+    // ========================
+    function markStepComplete(stepId) {
+      const badge = document.getElementById('completion-' + stepId);
+      if (badge) {
+        badge.classList.remove('hidden');
+      }
+    }
+
+    // ========================
+    // Initialization
+    // ========================
+    window.addEventListener('load', () => {
+      allButtons = [
+        btnGenerateCalendar, btnValidate,
+        btnGenerateSchedule, btnUpdateForm, btnReviewTimeoffs, btnAutoAssign,
+        btnCustomPrint, btnCopyEmail,
+        btnPublishMinistry,
+        btnArchive, btnViewArchives, btnClearData
+      ];
+
+      // Smart organize: hide config/reference sheets, show daily sheets leftmost
+      google.script.run
+        .withSuccessHandler(() => console.log('Sheet organization complete'))
+        .withFailureHandler((err) => console.log('Sheet organization skipped:', err.message || err))
+        .ADMIN_smartOrganize();
+
+      // Load month data for schedule tab
       google.script.run
         .withSuccessHandler(onMonthsLoaded)
         .withFailureHandler((error) => showError(error, 'calendar'))
         .getMonthsForSidebar();
 
-      // Load ministries for filter dropdowns (print and publish)
+      // Load ministries for filter dropdowns
       google.script.run
         .withSuccessHandler(onMinistriesLoaded)
         .withFailureHandler((error) => console.error('Failed to load ministries:', error))
         .getActiveMinistries();
 
-      // Load auto-publish status
-      google.script.run
-        .withSuccessHandler(onAutoPublishStatusLoaded)
-        .withFailureHandler((error) => console.error('Failed to load auto-publish status:', error))
-        .AUTOPUBLISH_getStatus();
-
-      // Load next 12 months for custom print dropdown
+      // Load months for custom print dropdown
       google.script.run
         .withSuccessHandler(onCustomPrintMonthsLoaded)
         .withFailureHandler((error) => console.error('Failed to load custom print months:', error))
         .getNext12Months();
     });
-    
-    // Month selection handler
-    monthSelect.addEventListener('change', () => {
-      updateButtonStates();
-      refreshWorkflowData();
-    });
-    
-    function onMinistriesLoaded(ministries) {
-      // Populate custom print ministry filter
-      customPrintMinistry.innerHTML = '<option value="All Ministries">All Ministries</option>';
 
-      // Populate publish filter dropdown
-      publishMinistryFilter.innerHTML = '<option value="">Select ministry...</option>';
-
-      // Add ministry options to dropdowns
-      ministries.forEach(ministry => {
-        // Add to custom print filter
-        const opt1 = document.createElement('option');
-        opt1.value = ministry;
-        opt1.textContent = ministry;
-        customPrintMinistry.appendChild(opt1);
-
-        // Add to publish filter dropdown
-        const opt2 = document.createElement('option');
-        opt2.value = ministry;
-        opt2.textContent = ministry;
-        publishMinistryFilter.appendChild(opt2);
-      });
-
-      console.log(`Loaded ${ministries.length} ministries for filter dropdowns`);
-
-      // Update button states now that ministries are loaded
-      updateButtonStates();
-    }
-
-    function onCustomPrintMonthsLoaded(months) {
-      customPrintMonth.innerHTML = '<option value="">Select month...</option>';
-
-      months.forEach(monthObj => {
-        const option = document.createElement('option');
-        option.value = monthObj.value;
-        option.textContent = monthObj.display;
-        customPrintMonth.appendChild(option);
-      });
-
-      console.log(`Loaded ${months.length} months for custom print dropdown`);
-    }
-
+    // ========================
+    // Data Load Handlers
+    // ========================
     function onMonthsLoaded(months) {
       if (months.length === 0) {
-        monthSelect.innerHTML = '<option value="">No calendar data found</option>';
-        showError({message: "Please run 'Generate Liturgical Calendar' first."}, 'calendar');
-        updatePhaseProgress('setup');
+        monthSelect.innerHTML = '<option value="">No calendar found</option>';
+        showError({message: "Generate the liturgical calendar first (Setup tab)."}, 'calendar');
         return;
       }
-      
+
       monthSelect.innerHTML = '<option value="">Select a month...</option>';
       months.forEach(monthObj => {
         const option = document.createElement('option');
@@ -1056,130 +770,172 @@
         option.textContent = monthObj.display;
         monthSelect.appendChild(option);
       });
-      
+
       updateButtonStates();
     }
-    
-    // Button click handlers with enhanced workflow management
-    btnAdmin.addEventListener('click', () => {
-      if (!confirm('This will regenerate the entire liturgical calendar. Any manual adjustments will be lost. Continue?')) {
-        return;
-      }
 
-      const msg = "Generating liturgical calendar...";
-      showLoading(msg);
+    function onMinistriesLoaded(ministries) {
+      // Custom print ministry filter
+      customPrintMinistry.innerHTML = '<option value="All Ministries">All Ministries</option>';
+      // Publish ministry filter
+      publishMinistryFilter.innerHTML = '<option value="">Select ministry...</option>';
 
-      google.script.run
-        .withSuccessHandler((message) => {
-          showSuccess(message);
-          markStepComplete('calendar');
-          updatePhaseProgress('scheduling');
-        })
-        .withFailureHandler((error) => showError(error, 'calendar'))
-        .triggerCalendarGeneration();
+      ministries.forEach(ministry => {
+        const opt1 = document.createElement('option');
+        opt1.value = ministry;
+        opt1.textContent = ministry;
+        customPrintMinistry.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = ministry;
+        opt2.textContent = ministry;
+        publishMinistryFilter.appendChild(opt2);
+      });
+
+      updateButtonStates();
+    }
+
+    function onCustomPrintMonthsLoaded(months) {
+      customPrintMonth.innerHTML = '<option value="">Select month...</option>';
+      months.forEach(monthObj => {
+        const option = document.createElement('option');
+        option.value = monthObj.value;
+        option.textContent = monthObj.display;
+        customPrintMonth.appendChild(option);
+      });
+    }
+
+    // ========================
+    // Month Selection
+    // ========================
+    monthSelect.addEventListener('change', () => {
+      updateButtonStates();
+      refreshWorkflowData();
     });
 
-    btnValidate.addEventListener('click', () => {
-      const msg = "Validating data...";
-      showLoading(msg);
+    // ========================
+    // DAILY TAB: Event Handlers
+    // ========================
+
+    // Copy Schedule for Email
+    btnCopyEmail.addEventListener('click', () => {
+      showLoading('Generating schedule for email...');
 
       google.script.run
-        .withSuccessHandler((message) => {
-          showSuccess(message);
-          markStepComplete('validation');
+        .withSuccessHandler((result) => {
+          emailPreviewText.value = result.text;
+          emailPreviewWeek.textContent = result.weekString;
+          emailPreviewContainer.style.display = 'block';
+          copyScheduleToClipboard(result.text);
+          statusMessage.className = 'status-message hidden';
+          updateButtonStates();
         })
-        .withFailureHandler((error) => showError(error, 'validation'))
-        .showDataValidation();
+        .withFailureHandler((error) => showError(error, 'print'))
+        .getScheduleForEmailCopy({});
     });
 
-    // *** MODIFIED btnStep1 listener ***
-    btnStep1.addEventListener('click', () => {
+    btnCopyAgain.addEventListener('click', () => {
+      copyScheduleToClipboard(emailPreviewText.value);
+    });
+
+    function copyScheduleToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        copySuccess.style.display = 'block';
+        setTimeout(() => { copySuccess.style.display = 'none'; }, 3000);
+      }).catch(() => {
+        emailPreviewText.select();
+        emailPreviewText.setSelectionRange(0, 99999);
+        try {
+          document.execCommand('copy');
+          copySuccess.style.display = 'block';
+          setTimeout(() => { copySuccess.style.display = 'none'; }, 3000);
+        } catch (e) {
+          showError({ message: 'Could not copy. Please select the text manually.' }, 'print');
+        }
+      });
+    }
+
+    // ========================
+    // SCHEDULE TAB: Event Handlers
+    // ========================
+
+    // Generate Schedule
+    btnGenerateSchedule.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
-      
+
       const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      
-      // --- NEW: Add confirmation logic ---
       const message = "Are you sure you want to generate the schedule for " + selectedText + "?\n\n" +
-                      "This will delete ALL existing assignments for this month (both 'Assigned' and 'Unassigned') and start over.\n\n" +
+                      "This will delete ALL existing assignments for this month and start over.\n\n" +
                       "This action cannot be undone.";
-      
+
       if (confirm(message)) {
-        // User clicked "OK", proceed with generation.
-        const msg = `Generating ministry roles for ${selectedText}...`;
-        showLoading(msg); // Show loading *after* confirm
-        
+        showLoading('Generating ministry roles for ' + selectedText + '...');
+
         google.script.run
-          .withSuccessHandler((message) => {
-            const friendlyMessage = message.replace(selectedMonth, selectedText);
-            showSuccess(friendlyMessage);
+          .withSuccessHandler((msg) => {
+            showSuccess(msg.replace(selectedMonth, selectedText));
             markStepComplete('schedule');
             refreshWorkflowData();
           })
           .withFailureHandler((error) => showError(error, 'schedule'))
           .triggerScheduleGeneration(selectedMonth);
-          
-      } else {
-        // User clicked "Cancel", do nothing.
-        return;
       }
-      // --- END: New logic ---
     });
 
+    // Update Timeoff Form
     btnUpdateForm.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
 
       const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const msg = `Updating timeoff form for ${selectedText}...`;
-      showLoading(msg);
+      showLoading('Updating timeoff form for ' + selectedText + '...');
 
       google.script.run
-        .withSuccessHandler((message) => {
-          showSuccess(message);
-          markStepComplete('form-update');
+        .withSuccessHandler((msg) => {
+          showSuccess(msg);
+          markStepComplete('timeoffs');
         })
         .withFailureHandler((error) => showError(error, 'form-update'))
         .TIMEOFFS_updateFormForMonth(selectedMonth);
     });
 
-    btnTimeoffs.addEventListener('click', () => {
+    // Review Timeoffs
+    btnReviewTimeoffs.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
-      
-      const msg = "Loading timeoff requests...";
-      showLoading(msg);
-      
+
+      showLoading('Loading timeoff requests...');
+
       google.script.run
-        .withSuccessHandler((message) => {
-          showSuccess(message);
+        .withSuccessHandler((msg) => {
+          showSuccess(msg);
           markStepComplete('timeoffs');
           refreshWorkflowData();
         })
         .withFailureHandler((error) => showError(error, 'timeoffs'))
         .reviewTimeoffs(selectedMonth);
     });
-    
-    btnStep2.addEventListener('click', () => {
+
+    // Auto-Assign
+    btnAutoAssign.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       if (!selectedMonth) return;
 
       const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const msg = `Auto-assigning volunteers for ${selectedText}...`;
-      showLoading(msg);
-      
+      showLoading('Auto-assigning volunteers for ' + selectedText + '...');
+
       google.script.run
-        .withSuccessHandler((message) => {
-          const friendlyMessage = message.replace(selectedMonth, selectedText);
-          showSuccess(friendlyMessage);
+        .withSuccessHandler((msg) => {
+          showSuccess(msg.replace(selectedMonth, selectedText));
           markStepComplete('assignment');
           refreshWorkflowData();
         })
         .withFailureHandler((error) => showError(error, 'assignment'))
         .triggerAssignment(selectedMonth);
     });
-    
-    // STEP 9: Custom Print button
+
+    // Custom Print
     btnCustomPrint.addEventListener('click', () => {
       const selectedMonth = customPrintMonth.value;
       const selectedMinistry = customPrintMinistry.value;
@@ -1189,22 +945,18 @@
         showError({ message: 'Please select a month to print' }, 'print');
         return;
       }
-
       if (!sheetName) {
         showError({ message: 'Please enter an output sheet name' }, 'print');
         return;
       }
 
-      const monthText = customPrintMonth.options[customPrintMonth.selectedIndex].text;
-      const filterText = selectedMinistry && selectedMinistry !== 'All Ministries' ? ` (${selectedMinistry})` : '';
-      showLoading(`Generating custom print: ${sheetName}...`);
+      showLoading('Generating print schedule: ' + sheetName + '...');
 
       google.script.run
         .withSuccessHandler((result) => {
           if (result.success) {
             showSuccess(result.message);
             markStepComplete('custom-print');
-            // Clear form for next use
             customPrintMonth.value = '';
             customPrintSheetName.value = '';
           } else {
@@ -1215,74 +967,17 @@
         .generateCustomPrint(selectedMonth, selectedMinistry, sheetName);
     });
 
-    // STEP 11: Copy Schedule for Email button
-    btnCopyEmail.addEventListener('click', () => {
-      showLoading('Generating schedule for email...');
-
-      google.script.run
-        .withSuccessHandler((result) => {
-          // Display the preview
-          emailPreviewText.value = result.text;
-          emailPreviewWeek.textContent = result.weekString;
-          emailPreviewContainer.style.display = 'block';
-
-          // Copy to clipboard
-          copyScheduleToClipboard(result.text);
-
-          // Clear loading state and re-enable buttons
-          statusMessage.className = 'status-message hidden';
-          updateButtonStates();
-          markStepComplete('weekly');
-        })
-        .withFailureHandler((error) => {
-          showError(error, 'print');
-        })
-        .getScheduleForEmailCopy({});
-    });
-
-    // Copy Again button
-    btnCopyAgain.addEventListener('click', () => {
-      copyScheduleToClipboard(emailPreviewText.value);
-    });
-
-    // Helper function to copy to clipboard
-    function copyScheduleToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        // Show success message
-        copySuccess.style.display = 'block';
-        setTimeout(() => {
-          copySuccess.style.display = 'none';
-        }, 3000);
-      }).catch(err => {
-        // Fallback: select text in textarea
-        emailPreviewText.select();
-        emailPreviewText.setSelectionRange(0, 99999);
-        try {
-          document.execCommand('copy');
-          copySuccess.style.display = 'block';
-          setTimeout(() => {
-            copySuccess.style.display = 'none';
-          }, 3000);
-        } catch (e) {
-          showError({ message: 'Could not copy to clipboard. Please select the text manually and copy.' }, 'print');
-        }
-      });
-    }
-
-    // Auto-suggest sheet name for custom print based on selections
-    // Uses abbreviated month-year format (e.g., "Feb 2026") to keep names concise
+    // Custom Print auto-suggest sheet name
     function updateCustomPrintSheetName() {
       const month = customPrintMonth.value;
       const ministry = customPrintMinistry.value;
 
       if (month && customPrintSheetName.value.trim() === '') {
-        // Only auto-fill if user hasn't typed anything
-        // Parse YYYY-MM value to produce short "Mon YYYY" format
         const [yr, mo] = month.split('-').map(Number);
         const shortMonth = new Date(yr, mo - 1, 1).toLocaleDateString('en-US', { month: 'short' });
-        const monthText = `${shortMonth} ${yr}`;
-        const ministryText = ministry && ministry !== 'All Ministries' ? `${ministry} ` : '';
-        customPrintSheetName.value = `${ministryText}${monthText}`;
+        const monthText = shortMonth + ' ' + yr;
+        const ministryText = ministry && ministry !== 'All Ministries' ? ministry + ' ' : '';
+        customPrintSheetName.value = ministryText + monthText;
       }
     }
 
@@ -1300,133 +995,74 @@
       updateButtonStates();
     });
 
-    // Dashboard Analytics
-    btnDashboard.addEventListener('click', () => {
-      const selectedMonth = monthSelect.value;
-      if (!selectedMonth) return;
-
-      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const msg = `Generating dashboard analytics for ${selectedText}...`;
-      showLoading(msg);
-
-      google.script.run
-        .withSuccessHandler((message) => {
-          showSuccess(message);
-          markStepComplete('dashboard');
-        })
-        .withFailureHandler((error) => showError(error, 'schedule'))
-        .DASHBOARD_generateSimplified(selectedMonth);
-    });
-
-    // Publish All Ministries button
-    btnPublishAll.addEventListener('click', () => {
-      const selectedMonth = monthSelect.value;
-      if (!selectedMonth) return;
-
-      const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const msg = `Publishing all ministry schedules for ${selectedText}...`;
-      showLoading(msg);
-
-      google.script.run
-        .withSuccessHandler((message) => {
-          showSuccess(message);
-          markStepComplete('publish');
-        })
-        .withFailureHandler((error) => showError(error, 'publish'))
-        .PUBLISH_publishAllMinistries(selectedMonth);
-    });
-
-    // Publish Individual Ministry button
+    // Publish Ministry
     btnPublishMinistry.addEventListener('click', () => {
       const selectedMonth = monthSelect.value;
       const selectedMinistry = publishMinistryFilter.value;
       if (!selectedMonth || !selectedMinistry) return;
 
       const selectedText = monthSelect.options[monthSelect.selectedIndex].text;
-      const msg = `Publishing ${selectedMinistry} schedule for ${selectedText}...`;
-      showLoading(msg);
+      showLoading('Publishing ' + selectedMinistry + ' schedule for ' + selectedText + '...');
 
       google.script.run
-        .withSuccessHandler((message) => {
-          showSuccess(message);
+        .withSuccessHandler((msg) => {
+          showSuccess(msg);
           markStepComplete('publish');
         })
         .withFailureHandler((error) => showError(error, 'publish'))
         .PUBLISH_syncMonthlyViewToPublic(selectedMonth, { ministryFilter: [selectedMinistry] });
     });
 
-    // Publish ministry filter change handler
     publishMinistryFilter.addEventListener('change', () => {
       updateButtonStates();
     });
 
-    // Auto-publish toggle handler
-    autoPublishToggle.addEventListener('change', () => {
-      const isEnabled = autoPublishToggle.checked;
+    // ========================
+    // SETUP TAB: Event Handlers
+    // ========================
 
-      if (isEnabled) {
-        // Enable auto-publish
-        showLoading('Enabling auto-publish...');
-        google.script.run
-          .withSuccessHandler((message) => {
-            showSuccess(message);
-            loadAutoPublishStatus();
-          })
-          .withFailureHandler((error) => {
-            showError(error, 'publish');
-            autoPublishToggle.checked = false;
-            loadAutoPublishStatus();
-          })
-          .AUTOPUBLISH_setupTrigger(30); // 30 minute interval
-      } else {
-        // Disable auto-publish
-        showLoading('Disabling auto-publish...');
-        google.script.run
-          .withSuccessHandler((message) => {
-            showSuccess(message);
-            loadAutoPublishStatus();
-          })
-          .withFailureHandler((error) => {
-            showError(error, 'publish');
-            autoPublishToggle.checked = true;
-            loadAutoPublishStatus();
-          })
-          .AUTOPUBLISH_removeTrigger();
+    btnGenerateCalendar.addEventListener('click', () => {
+      if (!confirm('This will regenerate the entire liturgical calendar. Any manual adjustments will be lost. Continue?')) {
+        return;
       }
+
+      showLoading('Generating liturgical calendar...');
+
+      google.script.run
+        .withSuccessHandler((msg) => {
+          showSuccess(msg);
+          markStepComplete('calendar');
+          // Refresh month list after calendar generation
+          monthSelect.innerHTML = '<option value="">Reloading months...</option>';
+          google.script.run
+            .withSuccessHandler(onMonthsLoaded)
+            .withFailureHandler((error) => showError(error, 'calendar'))
+            .getMonthsForSidebar();
+        })
+        .withFailureHandler((error) => showError(error, 'calendar'))
+        .triggerCalendarGeneration();
     });
 
-    // Load auto-publish status helper
-    function loadAutoPublishStatus() {
+    btnValidate.addEventListener('click', () => {
+      showLoading('Validating data...');
+
       google.script.run
-        .withSuccessHandler(onAutoPublishStatusLoaded)
-        .withFailureHandler((error) => console.error('Failed to load auto-publish status:', error))
-        .AUTOPUBLISH_getStatus();
-    }
+        .withSuccessHandler((msg) => {
+          showSuccess(msg);
+          markStepComplete('validation');
+        })
+        .withFailureHandler((error) => showError(error, 'validation'))
+        .showDataValidation();
+    });
 
-    function onAutoPublishStatusLoaded(status) {
-      autoPublishToggle.checked = status.enabled;
-
-      if (status.enabled && status.triggerExists) {
-        autoPublishStatus.textContent = `✓ Active - Publishing every ${status.interval} minutes`;
-        autoPublishStatus.style.color = '#137333';
-      } else if (status.enabled && !status.triggerExists) {
-        autoPublishStatus.textContent = '⚠ Enabled in config but no trigger found';
-        autoPublishStatus.style.color = '#f9ab00';
-      } else {
-        autoPublishStatus.textContent = 'Disabled';
-        autoPublishStatus.style.color = '#5f6368';
-      }
-    }
-
-    // Archive button event listeners
-    const btnArchive = document.getElementById('btn-archive');
-    const btnViewArchives = document.getElementById('btn-view-archives');
-    const btnClearData = document.getElementById('btn-clear-data');
+    // ========================
+    // ARCHIVE TAB: Event Handlers
+    // ========================
 
     btnArchive.addEventListener('click', () => {
       showLoading('Creating archive file...');
       google.script.run
-        .withSuccessHandler((message) => showSuccess('Archive created successfully!'))
+        .withSuccessHandler(() => showSuccess('Archive created successfully!'))
         .withFailureHandler((error) => showError(error, 'archive'))
         .ARCHIVE_promptArchiveCurrentYear();
     });
@@ -1434,101 +1070,99 @@
     btnViewArchives.addEventListener('click', () => {
       showLoading('Loading archives...');
       google.script.run
-        .withSuccessHandler((message) => showSuccess('Archives loaded'))
-        .withFailureHandler((error) => showError(error, 'view archives'))
+        .withSuccessHandler(() => showSuccess('Archives loaded'))
+        .withFailureHandler((error) => showError(error, 'archive'))
         .ARCHIVE_showArchiveList();
     });
 
     btnClearData.addEventListener('click', () => {
       showLoading('Clearing old data...');
       google.script.run
-        .withSuccessHandler((message) => showSuccess('Data cleared successfully'))
-        .withFailureHandler((error) => showError(error, 'clear data'))
+        .withSuccessHandler(() => showSuccess('Data cleared successfully'))
+        .withFailureHandler((error) => showError(error, 'archive'))
         .ARCHIVE_promptClearOldData();
     });
 
-    // Enhanced status functions
+    // ========================
+    // Status Messages
+    // ========================
     function showLoading(message) {
       statusMessage.className = 'status-message status-loading';
       statusMessage.innerHTML = '<div class="spinner"></div><span>' + message + '</span>';
       statusMessage.setAttribute('aria-busy', 'true');
       allButtons.forEach(btn => btn.disabled = true);
     }
-    
+
     function showSuccess(message) {
       statusMessage.className = 'status-message status-success';
-      statusMessage.innerHTML = '<span>✓</span><span>' + message + '</span>';
+      statusMessage.innerHTML = '<span>&#x2713;</span><span>' + message + '</span>';
       statusMessage.setAttribute('aria-busy', 'false');
       updateButtonStates();
-      
-      // Auto-hide success message after 5 seconds
+
       setTimeout(() => {
-        // Re-check class, in case another message has appeared
         if (statusMessage.classList.contains('status-success')) {
-           statusMessage.className = 'status-message hidden';
+          statusMessage.className = 'status-message hidden';
         }
       }, 5000);
-      
-      // If we just ran calendar generation, refresh month list
-      if (message.includes("liturgical calendar")) {
-        monthSelect.innerHTML = '<option value="">Reloading months...</option>';
-        google.script.run
-          .withSuccessHandler(onMonthsLoaded)
-          .withFailureHandler((error) => showError(error, 'calendar'))
-          .getMonthsForSidebar();
-      }
     }
-    
+
     function showError(error, context) {
       let errorMsg = error.message || error;
       let helpText = '';
 
-      // Add contextual troubleshooting based on operation
       switch(context) {
         case 'calendar':
           helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
-                     '• Check Config sheet has "Year to Schedule" set<br>' +
-                     '• Verify SaintsCalendar sheet exists<br>' +
-                     '• Check CalendarOverrides for conflicts';
+                     '&bull; Check Config sheet has "Year to Schedule" set<br>' +
+                     '&bull; Verify SaintsCalendar sheet exists<br>' +
+                     '&bull; Check CalendarOverrides for conflicts';
           break;
         case 'validation':
           helpText = '<br><br><strong>Tip:</strong> Check the error details above to identify which sheet needs fixing';
           break;
         case 'schedule':
           helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
-                     '• Verify MassTemplates sheet has templates<br>' +
-                     '• Check WeeklyMasses/MonthlyMasses/YearlyMasses sheets<br>' +
-                     '• Ensure selected month is in configured year';
+                     '&bull; Verify MassTemplates sheet has templates<br>' +
+                     '&bull; Check WeeklyMasses/MonthlyMasses/YearlyMasses sheets<br>' +
+                     '&bull; Ensure selected month is in configured year';
           break;
         case 'form-update':
           helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
-                     '• Verify schedule was generated for this month<br>' +
-                     '• Check Google Form ID in Config sheet<br>' +
-                     '• Ensure proper OAuth permissions for Forms API';
+                     '&bull; Verify schedule was generated for this month<br>' +
+                     '&bull; Check Google Form ID in Config sheet<br>' +
+                     '&bull; Ensure proper OAuth permissions for Forms API';
           break;
         case 'timeoffs':
           helpText = '<br><br><strong>Tip:</strong> Verify Timeoffs sheet exists and has the correct columns';
           break;
         case 'assignment':
           helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
-                     '• Ensure Volunteers sheet has active volunteers<br>' +
-                     '• Check volunteers have ministry roles assigned<br>' +
-                     '• Verify schedule was generated first';
+                     '&bull; Ensure Volunteers sheet has active volunteers<br>' +
+                     '&bull; Check volunteers have ministry roles assigned<br>' +
+                     '&bull; Verify schedule was generated first';
           break;
         case 'print':
           helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
-                     '• Verify schedule was generated for this month<br>' +
-                     '• Check LiturgicalCalendar sheet exists<br>' +
-                     '• Ensure assignments were created';
+                     '&bull; Verify schedule was generated for this month<br>' +
+                     '&bull; Check LiturgicalCalendar sheet exists<br>' +
+                     '&bull; Ensure assignments were created';
+          break;
+        case 'publish':
+          helpText = '<br><br><strong>Troubleshooting:</strong><br>' +
+                     '&bull; Verify schedule was generated and assigned<br>' +
+                     '&bull; Check publish configuration in Config sheet';
+          break;
+        case 'archive':
+          helpText = '<br><br><strong>Tip:</strong> Check that the year data exists before archiving';
           break;
       }
 
       statusMessage.className = 'status-message status-error';
-      statusMessage.innerHTML = '<span>⚠</span><span>Error: ' + errorMsg + helpText + '</span>';
+      statusMessage.innerHTML = '<span>&#x26A0;</span><span>Error: ' + errorMsg + helpText + '</span>';
       statusMessage.setAttribute('aria-busy', 'false');
       updateButtonStates();
     }
-    
+
   </script>
 </body>
 </html>
