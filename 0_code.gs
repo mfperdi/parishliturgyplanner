@@ -123,6 +123,8 @@ function onOpen(e) {
       .addSubMenu(SpreadsheetApp.getUi().createMenu('Admin Tools')
           .addItem('Authorize Permissions', 'authorizeAllPermissions')
           .addSeparator()
+          .addItem('Migrate to MassSchedule', 'MIGRATE_consolidateMassSchedule')
+          .addSeparator()
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Refresh Dropdowns Sheet', 'DROPDOWNS_refresh')
           .addItem('Setup Timeoff Validation', 'TIMEOFFS_setupValidation')
