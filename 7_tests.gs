@@ -1667,3 +1667,192 @@ function TEST_dualMonthlyViewsSystem_NonDestructive() {
     );
   }
 }
+
+
+// ====================================================================
+// MASS SCHEDULE READING TEST
+// ====================================================================
+
+/**
+ * Dry-run test for the consolidated MassSchedule sheet and
+ * SCHEDULE_findMassesForMonth().
+ *
+ * SAFE: read-only — never touches the Assignments sheet.
+ *
+ * Run from Script Editor → Run → TEST_massScheduleReading
+ * Then check View → Executions for the log output.
+ */
+function TEST_massScheduleReading() {
+  Logger.log('='.repeat(60));
+  Logger.log('TEST: MassSchedule Reading (dry run — no writes)');
+  Logger.log('='.repeat(60));
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const cols = CONSTANTS.COLS.MASS_SCHEDULE;
+  let passed = 0;
+  let failed = 0;
+
+  // ── Helper ──────────────────────────────────────────────────────────
+  function assert(label, condition, detail) {
+    if (condition) {
+      Logger.log(`  ✓ PASS  ${label}`);
+      passed++;
+    } else {
+      Logger.log(`  ✗ FAIL  ${label}${detail ? ' — ' + detail : ''}`);
+      failed++;
+    }
+  }
+
+  // ── 1. Sheet exists and has data ─────────────────────────────────────
+  Logger.log('\n[1] Sheet presence');
+  const sheet = ss.getSheetByName(CONSTANTS.SHEETS.MASS_SCHEDULE);
+  assert('MassSchedule sheet exists', !!sheet);
+  if (!sheet) {
+    Logger.log('Cannot continue — sheet missing.');
+    _TEST_massScheduleSummary(passed, failed);
+    return;
+  }
+
+  const lastRow = sheet.getLastRow();
+  assert('MassSchedule has at least one data row', lastRow > 1,
+         `last row = ${lastRow}`);
+
+  // ── 2. Row type distribution ──────────────────────────────────────────
+  Logger.log('\n[2] Row type distribution');
+  const massData = HELPER_readSheetData(CONSTANTS.SHEETS.MASS_SCHEDULE);
+
+  const weeklyRows  = massData.filter(r => (r[cols.RECURRENCE_TYPE - 1] || '').toString().trim() === 'Weekly');
+  const monthlyRows = massData.filter(r => (r[cols.RECURRENCE_TYPE - 1] || '').toString().trim() === 'Monthly');
+  const yearlyRows  = massData.filter(r => (r[cols.RECURRENCE_TYPE - 1] || '').toString().trim() === 'Yearly');
+  const unknownRows = massData.filter(r => {
+    const t = (r[cols.RECURRENCE_TYPE - 1] || '').toString().trim();
+    return t !== 'Weekly' && t !== 'Monthly' && t !== 'Yearly' && t !== '';
+  });
+
+  Logger.log(`  Weekly rows : ${weeklyRows.length}`);
+  Logger.log(`  Monthly rows: ${monthlyRows.length}`);
+  Logger.log(`  Yearly rows : ${yearlyRows.length}`);
+  Logger.log(`  Unknown type: ${unknownRows.length}`);
+
+  assert('At least one Weekly row present',  weeklyRows.length  > 0);
+  assert('No rows with unrecognised type',   unknownRows.length === 0,
+         unknownRows.length > 0
+           ? `Unknown types: ${[...new Set(unknownRows.map(r => r[cols.RECURRENCE_TYPE - 1]))].join(', ')}`
+           : '');
+
+  // ── 3. Required field checks on each row ─────────────────────────────
+  Logger.log('\n[3] Required fields per row');
+  let missingEventId = 0, missingTime = 0, missingTemplate = 0;
+
+  for (const row of massData) {
+    if (!row[cols.EVENT_ID - 1])      missingEventId++;
+    if (!row[cols.TIME - 1])          missingTime++;
+    if (!row[cols.TEMPLATE_NAME - 1]) missingTemplate++;
+  }
+
+  assert('All rows have Event ID',      missingEventId  === 0, `${missingEventId} missing`);
+  assert('All rows have Time',          missingTime     === 0, `${missingTime} missing`);
+  assert('All rows have Template Name', missingTemplate === 0, `${missingTemplate} missing`);
+
+  // ── 4. SCHEDULE_findMassesForMonth dry run ────────────────────────────
+  Logger.log('\n[4] SCHEDULE_findMassesForMonth dry run');
+
+  // Use the configured year; test the current calendar month.
+  let testMonthStr;
+  try {
+    const config = HELPER_readConfig();
+    const schedYear = parseInt(config['Year to Schedule'], 10);
+    const now = new Date();
+    testMonthStr = (now.getFullYear() === schedYear)
+      ? `${schedYear}-${(now.getMonth() + 1).toString().padStart(2, '0')}`
+      : `${schedYear}-01`;
+    Logger.log(`  Testing month: ${testMonthStr}`);
+  } catch (e) {
+    Logger.log(`  Could not read config: ${e.message} — defaulting to 2026-02`);
+    testMonthStr = '2026-02';
+  }
+
+  let masses = null;
+  let findError = null;
+  try {
+    const [y, m] = testMonthStr.split('-').map(Number);
+    masses = SCHEDULE_findMassesForMonth(m - 1, y); // month is 0-indexed inside the function
+  } catch (e) {
+    findError = e.message;
+  }
+
+  assert('SCHEDULE_findMassesForMonth ran without error', !findError, findError);
+
+  if (masses) {
+    assert('At least one mass found for test month', masses.length > 0,
+           `found ${masses.length}`);
+    Logger.log(`  Total masses found: ${masses.length}`);
+
+    // Check each mass object has the required keys.
+    const requiredKeys = ['date', 'time', 'templateName', 'eventId', 'isAnticipated'];
+    let malformed = 0;
+    for (const mass of masses) {
+      for (const key of requiredKeys) {
+        if (mass[key] === undefined) { malformed++; break; }
+      }
+    }
+    assert('All mass objects have required keys', malformed === 0,
+           `${malformed} malformed`);
+
+    // Log anticipated (vigil) count.
+    const anticipated = masses.filter(mass => mass.isAnticipated);
+    Logger.log(`  Anticipated (vigil) masses: ${anticipated.length}`);
+
+    // Check that every template referenced by the found masses resolves.
+    const templateMap = SCHEDULE_buildTemplateMap();
+    const unresolvedNames = new Set();
+    for (const mass of masses) {
+      if (!templateMap.has(mass.templateName)) {
+        unresolvedNames.add(mass.templateName);
+      }
+    }
+    assert('All mass templates resolve in MassTemplates sheet',
+           unresolvedNames.size === 0,
+           unresolvedNames.size > 0
+             ? `Unresolved: ${[...unresolvedNames].join(', ')}`
+             : '');
+
+    // Log a per-date summary of what was found.
+    Logger.log('\n  Per-date breakdown:');
+    const byDate = {};
+    for (const mass of masses) {
+      const dk = mass.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      byDate[dk] = (byDate[dk] || 0) + 1;
+    }
+    for (const [date, count] of Object.entries(byDate)) {
+      Logger.log(`    ${date}: ${count} role slot(s)`);
+    }
+  }
+
+  // ── 5. Summary ──────────────────────────────────────────────────────
+  _TEST_massScheduleSummary(passed, failed);
+}
+
+/** Internal: display summary dialog and log. */
+function _TEST_massScheduleSummary(passed, failed) {
+  Logger.log('\n' + '='.repeat(60));
+  Logger.log(`RESULT: ${passed} passed, ${failed} failed`);
+  Logger.log('='.repeat(60));
+
+  if (failed === 0) {
+    HELPER_showSuccess(
+      'MassSchedule Test — All Passed',
+      `All ${passed} checks passed.\n\n` +
+      'The MassSchedule sheet is correctly structured and\n' +
+      'SCHEDULE_findMassesForMonth reads it without errors.\n\n' +
+      'Check the execution log for the per-month breakdown.'
+    );
+  } else {
+    HELPER_showAlert(
+      'MassSchedule Test — Issues Found',
+      `${passed} passed, ${failed} failed.\n\n` +
+      'Check the execution log (View → Executions) for details.',
+      'warning'
+    );
+  }
+}
