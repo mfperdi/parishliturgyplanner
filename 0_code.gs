@@ -101,8 +101,7 @@ const ADMIN_SETUP_SHEETS = [
  */
 const ADMIN_REFERENCE_SHEETS = [
   'Assignments',                         // System data - edit via MonthlyView instead
-  'SaintsCalendar',
-  'CalendarOverrides',
+  'LiturgicalReference',
   'LiturgicalCalendar',
   'LiturgicalNotes',
   'Dropdowns',
@@ -124,6 +123,7 @@ function onOpen(e) {
           .addItem('Authorize Permissions', 'authorizeAllPermissions')
           .addSeparator()
           .addItem('Migrate to MassSchedule', 'MIGRATE_consolidateMassSchedule')
+          .addItem('Migrate to LiturgicalReference', 'MIGRATE_consolidateLiturgicalReference')
           .addSeparator()
           .addItem('Validate Data', 'showDataValidation')
           .addItem('Refresh Dropdowns Sheet', 'DROPDOWNS_refresh')
@@ -363,8 +363,8 @@ function ADMIN_organizeSheets() {
  * Sheet tiers:
  *   Tier 1 (Daily): MonthlyView, Volunteers, Timeoffs — always visible, blue tabs, leftmost
  *   Tier 2 (Output): WeeklyView — visible if it exists, green tab
- *   Tier 3 (Setup): Config, WeeklyMasses, etc. — hidden, orange tabs
- *   Tier 4 (Reference): SaintsCalendar, Ministries, etc. — hidden, gray tabs
+ *   Tier 3 (Setup): Config, MassSchedule, etc. — hidden, orange tabs
+ *   Tier 4 (Reference): LiturgicalReference, Ministries, etc. — hidden, gray tabs
  *   Custom print sheets — visible, green tabs
  *
  * @returns {boolean} True if organization succeeded

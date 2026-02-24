@@ -13,8 +13,7 @@ const CONSTANTS = {
     MINISTRIES: "Ministries",
     TEMPLATES: "MassTemplates",
     MASS_SCHEDULE: "MassSchedule",
-    SAINTS_CALENDAR: "SaintsCalendar",
-    OVERRIDES: "CalendarOverrides",
+    LITURGICAL_REFERENCE: "LiturgicalReference",
     LITURGICAL_NOTES: "LiturgicalNotes",
     CALENDAR: "LiturgicalCalendar",
     ASSIGNMENTS: "Assignments",
@@ -41,18 +40,15 @@ const CONSTANTS = {
       COLOR: 7
     },
     
-    // 'SaintsCalendar' sheet (6 columns)
-    SAINTS_CALENDAR: {
-      MONTH: 1,
-      DAY: 2,
-      LITURGICAL_CELEBRATION: 3,
-      RANK: 4,
-      COLOR: 5,
-      CALENDAR: 6
-    },
-    
-    // 'CalendarOverrides' sheet (7 columns)
-    OVERRIDES: {
+    // 'LiturgicalReference' sheet (7 columns)
+    // Consolidates former SaintsCalendar and CalendarOverrides sheets.
+    // Calendar column values: 'General Roman Calendar' | 'USA' | 'Diocese' | 'Parish'
+    //   - General Roman Calendar: applies everywhere
+    //   - USA (or other region code): applies when Calendar Region config matches
+    //   - Diocese: applies when a Diocese is configured
+    //   - Parish: always applies (parish-specific feasts and admin corrections)
+    // All entries go through normal liturgical precedence comparison.
+    LITURGICAL_REFERENCE: {
       MONTH: 1,
       DAY: 2,
       LITURGICAL_CELEBRATION: 3,

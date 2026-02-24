@@ -48,10 +48,10 @@ function VALIDATE_all() {
     results.errors.push(...consistencyResults.errors);
     results.warnings.push(...consistencyResults.warnings);
 
-    // 7. Liturgical notes validation
-    const notesResults = VALIDATE_liturgicalNotes();
-    results.errors.push(...notesResults.errors);
-    results.warnings.push(...notesResults.warnings);
+    // 7. LiturgicalReference validation
+    const litRefResults = VALIDATE_liturgicalReference();
+    results.errors.push(...litRefResults.errors);
+    results.warnings.push(...litRefResults.warnings);
 
     // Determine overall validity
     results.isValid = results.errors.length === 0;
@@ -675,73 +675,84 @@ function VALIDATE_consistency() {
 }
 
 /**
- * Validates LiturgicalNotes sheet
+ * Validates LiturgicalReference sheet (consolidated saints + parish entries)
  * @returns {object} Validation results
  */
-function VALIDATE_liturgicalNotes() {
+function VALIDATE_liturgicalReference() {
   const results = { errors: [], warnings: [] };
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const notesSheet = ss.getSheetByName(CONSTANTS.SHEETS.LITURGICAL_NOTES);
+    const refSheet = ss.getSheetByName(CONSTANTS.SHEETS.LITURGICAL_REFERENCE);
 
-    // If sheet doesn't exist, that's okay - it's optional
-    if (!notesSheet) {
-      Logger.log('LiturgicalNotes sheet does not exist - skipping validation');
+    if (!refSheet) {
+      results.warnings.push('LiturgicalReference: Sheet does not exist. Saints and parish feast days will not appear in the calendar.');
       return results;
     }
 
-    // Check if there's data
-    if (notesSheet.getLastRow() <= 1) {
-      results.warnings.push('LiturgicalNotes: Sheet exists but has no data (this is optional)');
+    if (refSheet.getLastRow() <= 1) {
+      results.warnings.push('LiturgicalReference: Sheet exists but has no data.');
       return results;
     }
 
-    // Get all liturgical celebrations from the calendar
-    const calendarSheet = ss.getSheetByName(CONSTANTS.SHEETS.CALENDAR);
-    const validCelebrations = new Set();
+    const refData = HELPER_readSheetData(CONSTANTS.SHEETS.LITURGICAL_REFERENCE);
+    const cols = CONSTANTS.COLS.LITURGICAL_REFERENCE;
+    const validCalendarValues = new Set([
+      'General Roman Calendar', 'USA', 'Canada', 'Mexico', 'Diocese', 'Parish'
+    ]);
+    const seen = new Set(); // track month/day/calendar combos for duplicates
+    let rowNum = 1;
 
-    if (calendarSheet && calendarSheet.getLastRow() > 1) {
-      const calendarData = HELPER_readSheetData(CONSTANTS.SHEETS.CALENDAR);
-      const calCols = CONSTANTS.COLS.CALENDAR;
+    for (const row of refData) {
+      rowNum++;
+      const month = HELPER_safeArrayAccess(row, cols.MONTH - 1);
+      const day = HELPER_safeArrayAccess(row, cols.DAY - 1);
+      const celebration = HELPER_safeArrayAccess(row, cols.LITURGICAL_CELEBRATION - 1);
+      const rank = HELPER_safeArrayAccess(row, cols.RANK - 1);
+      const color = HELPER_safeArrayAccess(row, cols.COLOR - 1);
+      const calendar = HELPER_safeArrayAccess(row, cols.CALENDAR - 1);
 
-      for (const row of calendarData) {
-        const celebration = HELPER_safeArrayAccess(row, calCols.LITURGICAL_CELEBRATION - 1);
-        if (celebration) validCelebrations.add(celebration);
+      // Required fields
+      if (!month || isNaN(parseInt(month, 10))) {
+        results.errors.push(`LiturgicalReference row ${rowNum}: Month is required and must be a number`);
+        continue;
       }
-    }
-
-    // Validate liturgical notes entries
-    const notesData = notesSheet.getDataRange().getValues();
-    const notesCols = CONSTANTS.COLS.LITURGICAL_NOTES;
-
-    // Skip header row
-    for (let i = 1; i < notesData.length; i++) {
-      const row = notesData[i];
-      const rowNum = i + 1; // +1 for 1-based indexing
-
-      const celebration = HELPER_safeArrayAccess(row, notesCols.CELEBRATION - 1);
-      const notes = HELPER_safeArrayAccess(row, notesCols.NOTES - 1);
-
-      // Celebration name required
-      if (!celebration || celebration.trim() === "") {
-        results.errors.push(`LiturgicalNotes row ${rowNum}: Liturgical Celebration is required`);
+      if (!day || isNaN(parseInt(day, 10))) {
+        results.errors.push(`LiturgicalReference row ${rowNum}: Day is required and must be a number`);
+        continue;
+      }
+      if (!celebration || String(celebration).trim() === '') {
+        results.errors.push(`LiturgicalReference row ${rowNum}: Liturgical Celebration is required`);
+        continue;
+      }
+      if (!rank || String(rank).trim() === '') {
+        results.errors.push(`LiturgicalReference row ${rowNum}: Rank is required`);
         continue;
       }
 
-      // Notes required (otherwise why have the entry?)
-      if (!notes || notes.trim() === "") {
-        results.warnings.push(`LiturgicalNotes row ${rowNum}: Notes are empty for '${celebration}'`);
+      // Recommended fields
+      if (!color || String(color).trim() === '') {
+        results.warnings.push(`LiturgicalReference row ${rowNum}: Color is empty for '${celebration}'`);
+      }
+      if (!calendar || String(calendar).trim() === '') {
+        results.warnings.push(`LiturgicalReference row ${rowNum}: Calendar is empty for '${celebration}' (will default to General Roman Calendar)`);
+      } else if (!validCalendarValues.has(String(calendar).trim())) {
+        results.warnings.push(`LiturgicalReference row ${rowNum}: Calendar value '${calendar}' is not standard. Expected: ${Array.from(validCalendarValues).join(', ')}`);
       }
 
-      // Check if celebration exists in calendar (if calendar has been generated)
-      if (validCelebrations.size > 0 && !validCelebrations.has(celebration)) {
-        results.warnings.push(`LiturgicalNotes row ${rowNum}: Celebration '${celebration}' not found in current liturgical calendar. Notes will not display unless calendar is regenerated or name matches exactly.`);
+      // Duplicate check: same month/day/calendar combination
+      const comboKey = `${month}/${day}/${calendar}`;
+      if (seen.has(comboKey)) {
+        results.warnings.push(`LiturgicalReference row ${rowNum}: Duplicate entry for ${month}/${day} with Calendar='${calendar}' ('${celebration}')`);
+      } else {
+        seen.add(comboKey);
       }
     }
 
+    Logger.log(`LiturgicalReference validation: ${refData.length} entries checked`);
+
   } catch (e) {
-    results.errors.push(`LiturgicalNotes validation error: ${e.message}`);
+    results.errors.push(`LiturgicalReference validation error: ${e.message}`);
   }
 
   return results;
