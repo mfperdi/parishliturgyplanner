@@ -9,7 +9,7 @@
  * Dynamic columns refreshed:
  *   Col  9 - All Ministry Names  (from Ministries sheet, active only)
  *   Col 10 - All Role Names      (from Ministries sheet, active only)
- *   Col 11 - All Mass Event IDs  (from WeeklyMasses + MonthlyMasses + YearlyMasses)
+ *   Col 11 - All Mass Event IDs  (from MassSchedule sheet)
  *   Col 12 - All Template Names  (from MassTemplates sheet)
  *
  * Col 15 (Assigned Volunteer Name) is intentionally left alone — it is managed
@@ -133,29 +133,16 @@ function DROPDOWNS_refreshRoleNames(sheet) {
 }
 
 /**
- * Col 11: All active Event IDs from WeeklyMasses, MonthlyMasses, YearlyMasses (unique, sorted).
+ * Col 11: All active Event IDs from the consolidated MassSchedule sheet (unique, sorted).
  */
 function DROPDOWNS_refreshMassEventIds(sheet) {
   const ids = new Set();
+  const cols = CONSTANTS.COLS.MASS_SCHEDULE;
 
-  const weeklyData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.WEEKLY_MASSES);
-  for (const row of weeklyData) {
-    const id = HELPER_safeArrayAccess(row, CONSTANTS.COLS.WEEKLY_MASSES.EVENT_ID - 1, '').toString().trim();
-    const active = HELPER_safeArrayAccess(row, CONSTANTS.COLS.WEEKLY_MASSES.IS_ACTIVE - 1, false);
-    if (id && (active === true || active === 'TRUE')) ids.add(id);
-  }
-
-  const monthlyData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MONTHLY_MASSES);
-  for (const row of monthlyData) {
-    const id = HELPER_safeArrayAccess(row, CONSTANTS.COLS.MONTHLY_MASSES.EVENT_ID - 1, '').toString().trim();
-    const active = HELPER_safeArrayAccess(row, CONSTANTS.COLS.MONTHLY_MASSES.IS_ACTIVE - 1, false);
-    if (id && (active === true || active === 'TRUE')) ids.add(id);
-  }
-
-  const yearlyData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.YEARLY_MASSES);
-  for (const row of yearlyData) {
-    const id = HELPER_safeArrayAccess(row, CONSTANTS.COLS.YEARLY_MASSES.EVENT_ID - 1, '').toString().trim();
-    const active = HELPER_safeArrayAccess(row, CONSTANTS.COLS.YEARLY_MASSES.IS_ACTIVE - 1, false);
+  const massData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MASS_SCHEDULE);
+  for (const row of massData) {
+    const id = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1, '').toString().trim();
+    const active = HELPER_safeArrayAccess(row, cols.IS_ACTIVE - 1, false);
     if (id && (active === true || active === 'TRUE')) ids.add(id);
   }
 

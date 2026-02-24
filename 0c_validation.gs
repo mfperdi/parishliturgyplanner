@@ -48,10 +48,10 @@ function VALIDATE_all() {
     results.errors.push(...consistencyResults.errors);
     results.warnings.push(...consistencyResults.warnings);
 
-    // 7. Liturgical notes validation
-    const notesResults = VALIDATE_liturgicalNotes();
-    results.errors.push(...notesResults.errors);
-    results.warnings.push(...notesResults.warnings);
+    // 7. LiturgicalReference validation
+    const litRefResults = VALIDATE_liturgicalReference();
+    results.errors.push(...litRefResults.errors);
+    results.warnings.push(...litRefResults.warnings);
 
     // Determine overall validity
     results.isValid = results.errors.length === 0;
@@ -352,7 +352,7 @@ function VALIDATE_templates() {
 }
 
 /**
- * Validates all Mass configuration sheets (Weekly, Monthly, Yearly)
+ * Validates the consolidated MassSchedule sheet (Weekly, Monthly, and Yearly rows)
  * @returns {object} Validation results
  */
 function VALIDATE_masses() {
@@ -369,20 +369,9 @@ function VALIDATE_masses() {
       if (templateName) validTemplates.add(templateName);
     }
 
-    // Validate WeeklyMasses
-    const weeklyResults = validateWeeklyMasses(validTemplates);
-    results.errors.push(...weeklyResults.errors);
-    results.warnings.push(...weeklyResults.warnings);
-
-    // Validate MonthlyMasses
-    const monthlyResults = validateMonthlyMasses(validTemplates);
-    results.errors.push(...monthlyResults.errors);
-    results.warnings.push(...monthlyResults.warnings);
-
-    // Validate YearlyMasses
-    const yearlyResults = validateYearlyMasses(validTemplates);
-    results.errors.push(...yearlyResults.errors);
-    results.warnings.push(...yearlyResults.warnings);
+    const massScheduleResults = validateMassSchedule(validTemplates);
+    results.errors.push(...massScheduleResults.errors);
+    results.warnings.push(...massScheduleResults.warnings);
 
   } catch (e) {
     results.errors.push(`Mass configuration error: ${e.message}`);
@@ -392,192 +381,127 @@ function VALIDATE_masses() {
 }
 
 /**
- * Helper: Validates WeeklyMasses sheet
+ * Helper: Validates the MassSchedule sheet (all recurrence types)
  */
-function validateWeeklyMasses(validTemplates) {
+function validateMassSchedule(validTemplates) {
   const results = { errors: [], warnings: [] };
 
   try {
-    const weeklyData = HELPER_readSheetData(CONSTANTS.SHEETS.WEEKLY_MASSES);
-    const cols = CONSTANTS.COLS.WEEKLY_MASSES;
+    const massData = HELPER_readSheetData(CONSTANTS.SHEETS.MASS_SCHEDULE);
+    const cols = CONSTANTS.COLS.MASS_SCHEDULE;
 
-    const eventIds = new Set();
+    const validRecurrenceTypes = ['Weekly', 'Monthly', 'Yearly'];
     const validDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const validWeeks = ['1st', '2nd', '3rd', '4th', '5th', 'Last'];
+    const allEventIds = new Set();
 
-    for (let i = 0; i < weeklyData.length; i++) {
-      const row = weeklyData[i];
+    let weeklyCount = 0;
+    let monthlyCount = 0;
+    let yearlyCount = 0;
+
+    for (let i = 0; i < massData.length; i++) {
+      const row = massData[i];
       const rowNum = i + 2;
 
+      const recurrenceType = HELPER_safeArrayAccess(row, cols.RECURRENCE_TYPE - 1, '').toString().trim();
       const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
-      const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
       const time = HELPER_safeArrayAccess(row, cols.TIME - 1);
       const templateName = HELPER_safeArrayAccess(row, cols.TEMPLATE_NAME - 1);
+      const overrideType = HELPER_safeArrayAccess(row, cols.OVERRIDE_TYPE - 1, '').toLowerCase();
 
-      // Event ID: Required and unique
+      // Recurrence Type: Required and valid
+      if (!recurrenceType || !validRecurrenceTypes.includes(recurrenceType)) {
+        results.errors.push(`MassSchedule row ${rowNum}: Invalid Recurrence Type '${recurrenceType}'. Must be: ${validRecurrenceTypes.join(', ')}`);
+        continue; // Skip further checks for this row
+      }
+
+      if (recurrenceType === 'Weekly') weeklyCount++;
+      else if (recurrenceType === 'Monthly') monthlyCount++;
+      else if (recurrenceType === 'Yearly') yearlyCount++;
+
+      // Event ID: Required and unique across all rows
       if (!eventId) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Event ID is required`);
+        results.errors.push(`MassSchedule row ${rowNum}: Event ID is required`);
       } else {
-        if (eventIds.has(eventId)) {
-          results.errors.push(`WeeklyMasses row ${rowNum}: Duplicate Event ID '${eventId}'`);
+        if (allEventIds.has(eventId)) {
+          results.errors.push(`MassSchedule row ${rowNum}: Duplicate Event ID '${eventId}'`);
         }
-        eventIds.add(eventId);
+        allEventIds.add(eventId);
       }
 
-      // Day of Week: Valid value
-      if (!dayOfWeek || !validDays.includes(dayOfWeek)) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Invalid Day of Week '${dayOfWeek}'. Must be: ${validDays.join(', ')}`);
-      }
-
-      // Time: Required
+      // Time: Required for all types
       if (!time) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Time is required`);
+        results.errors.push(`MassSchedule row ${rowNum}: Time is required`);
       }
 
-      // Template Name: Must exist
+      // Template Name: Required for all types and must exist
       if (!templateName) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Template Name is required`);
+        results.errors.push(`MassSchedule row ${rowNum}: Template Name is required`);
       } else if (!validTemplates.has(templateName)) {
-        results.errors.push(`WeeklyMasses row ${rowNum}: Template '${templateName}' does not exist in MassTemplates`);
+        results.errors.push(`MassSchedule row ${rowNum}: Template '${templateName}' does not exist in MassTemplates`);
       }
-    }
 
-    if (weeklyData.length === 0) {
-      results.warnings.push("WeeklyMasses: No weekly masses defined");
-    }
+      // --- Type-specific validations ---
 
-  } catch (e) {
-    results.errors.push(`WeeklyMasses error: ${e.message}`);
-  }
-
-  return results;
-}
-
-/**
- * Helper: Validates MonthlyMasses sheet
- */
-function validateMonthlyMasses(validTemplates) {
-  const results = { errors: [], warnings: [] };
-
-  try {
-    const monthlyData = HELPER_readSheetData(CONSTANTS.SHEETS.MONTHLY_MASSES);
-    const cols = CONSTANTS.COLS.MONTHLY_MASSES;
-
-    const eventIds = new Set();
-    const validWeeks = ['1st', '2nd', '3rd', '4th', '5th', 'Last'];
-    const validDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const validOverrides = ['', 'overrideday', 'append'];
-
-    for (let i = 0; i < monthlyData.length; i++) {
-      const row = monthlyData[i];
-      const rowNum = i + 2;
-
-      const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
-      const weekOfMonth = HELPER_safeArrayAccess(row, cols.WEEK_OF_MONTH - 1, '').toString();
-      const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
-      const templateName = HELPER_safeArrayAccess(row, cols.TEMPLATE_NAME - 1);
-      const overrideType = HELPER_safeArrayAccess(row, cols.OVERRIDE_TYPE - 1, '').toLowerCase();
-
-      // Event ID: Required and unique
-      if (!eventId) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Event ID is required`);
-      } else {
-        if (eventIds.has(eventId)) {
-          results.errors.push(`MonthlyMasses row ${rowNum}: Duplicate Event ID '${eventId}'`);
+      if (recurrenceType === 'Weekly') {
+        const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
+        if (!dayOfWeek || !validDays.includes(dayOfWeek)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Weekly): Invalid Day of Week '${dayOfWeek}'. Must be: ${validDays.join(', ')}`);
         }
-        eventIds.add(eventId);
-      }
-
-      // Week of Month: Valid value
-      if (!weekOfMonth || !validWeeks.includes(weekOfMonth)) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Invalid Week of Month '${weekOfMonth}'. Must be: ${validWeeks.join(', ')}`);
-      }
-
-      // Day of Week: Valid value
-      if (!dayOfWeek || !validDays.includes(dayOfWeek)) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Invalid Day of Week '${dayOfWeek}'`);
-      }
-
-      // Template Name: Must exist
-      if (!templateName) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Template Name is required`);
-      } else if (!validTemplates.has(templateName)) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Template '${templateName}' does not exist`);
-      }
-
-      // Override Type: Valid value
-      if (!validOverrides.includes(overrideType)) {
-        results.errors.push(`MonthlyMasses row ${rowNum}: Invalid Override Type '${overrideType}'. Must be: ${validOverrides.join(', ')}`);
-      }
-    }
-
-  } catch (e) {
-    results.errors.push(`MonthlyMasses error: ${e.message}`);
-  }
-
-  return results;
-}
-
-/**
- * Helper: Validates YearlyMasses sheet
- */
-function validateYearlyMasses(validTemplates) {
-  const results = { errors: [], warnings: [] };
-
-  try {
-    const yearlyData = HELPER_readSheetData(CONSTANTS.SHEETS.YEARLY_MASSES);
-    const cols = CONSTANTS.COLS.YEARLY_MASSES;
-
-    const eventIds = new Set();
-    const validOverrides = ['', 'override', 'append'];
-
-    for (let i = 0; i < yearlyData.length; i++) {
-      const row = yearlyData[i];
-      const rowNum = i + 2;
-
-      const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
-      const date = HELPER_safeArrayAccess(row, cols.DATE - 1);
-      const liturgicalCelebration = HELPER_safeArrayAccess(row, cols.LITURGICAL_CELEBRATION - 1);
-      const templateName = HELPER_safeArrayAccess(row, cols.TEMPLATE_NAME - 1);
-      const overrideType = HELPER_safeArrayAccess(row, cols.OVERRIDE_TYPE - 1, '').toLowerCase();
-
-      // Event ID: Required and unique
-      if (!eventId) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Event ID is required`);
-      } else {
-        if (eventIds.has(eventId)) {
-          results.errors.push(`YearlyMasses row ${rowNum}: Duplicate Event ID '${eventId}'`);
-        }
-        eventIds.add(eventId);
-      }
-
-      // Either Date OR Liturgical Celebration required
-      if (!date && !liturgicalCelebration) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Either Date or Liturgical Celebration is required`);
-      }
-
-      // If date provided, validate it
-      if (date && date !== "") {
-        const testDate = new Date(date);
-        if (isNaN(testDate.getTime())) {
-          results.errors.push(`YearlyMasses row ${rowNum}: Invalid Date format`);
+        // Override Type must be blank for Weekly rows
+        if (overrideType !== '') {
+          results.warnings.push(`MassSchedule row ${rowNum} (Weekly): Override Type should be blank for Weekly rows (found: '${overrideType}')`);
         }
       }
 
-      // Template Name: Must exist
-      if (!templateName) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Template Name is required`);
-      } else if (!validTemplates.has(templateName)) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Template '${templateName}' does not exist`);
+      if (recurrenceType === 'Monthly') {
+        const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
+        const weekOfMonth = HELPER_safeArrayAccess(row, cols.WEEK_OF_MONTH - 1, '').toString();
+        const validMonthlyOverrides = ['', 'overrideday', 'append'];
+
+        if (!dayOfWeek || !validDays.includes(dayOfWeek)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Monthly): Invalid Day of Week '${dayOfWeek}'`);
+        }
+        if (!weekOfMonth || !validWeeks.includes(weekOfMonth)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Monthly): Invalid Week of Month '${weekOfMonth}'. Must be: ${validWeeks.join(', ')}`);
+        }
+        if (!validMonthlyOverrides.includes(overrideType)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Monthly): Invalid Override Type '${overrideType}'. Must be: ${validMonthlyOverrides.join(', ')}`);
+        }
       }
 
-      // Override Type: Valid value
-      if (!validOverrides.includes(overrideType)) {
-        results.errors.push(`YearlyMasses row ${rowNum}: Invalid Override Type '${overrideType}'. Must be: ${validOverrides.join(', ')}`);
+      if (recurrenceType === 'Yearly') {
+        const date = HELPER_safeArrayAccess(row, cols.DATE - 1);
+        const liturgicalCelebration = HELPER_safeArrayAccess(row, cols.LITURGICAL_CELEBRATION - 1);
+        const validYearlyOverrides = ['', 'override', 'append'];
+
+        // Either Date OR Liturgical Celebration required
+        if (!date && !liturgicalCelebration) {
+          results.errors.push(`MassSchedule row ${rowNum} (Yearly): Either Date or Liturgical Celebration is required`);
+        }
+
+        // If date provided, validate it
+        if (date && date !== "") {
+          const testDate = new Date(date);
+          if (isNaN(testDate.getTime())) {
+            results.errors.push(`MassSchedule row ${rowNum} (Yearly): Invalid Date format`);
+          }
+        }
+
+        if (!validYearlyOverrides.includes(overrideType)) {
+          results.errors.push(`MassSchedule row ${rowNum} (Yearly): Invalid Override Type '${overrideType}'. Must be: ${validYearlyOverrides.join(', ')}`);
+        }
       }
     }
 
+    if (weeklyCount === 0) {
+      results.warnings.push("MassSchedule: No Weekly rows defined");
+    }
+
+    Logger.log(`MassSchedule validation: ${weeklyCount} Weekly, ${monthlyCount} Monthly, ${yearlyCount} Yearly rows`);
+
   } catch (e) {
-    results.errors.push(`YearlyMasses error: ${e.message}`);
+    results.errors.push(`MassSchedule error: ${e.message}`);
   }
 
   return results;
@@ -751,106 +675,100 @@ function VALIDATE_consistency() {
 }
 
 /**
- * Validates LiturgicalNotes sheet
+ * Validates LiturgicalReference sheet (consolidated saints + parish entries)
  * @returns {object} Validation results
  */
-function VALIDATE_liturgicalNotes() {
+function VALIDATE_liturgicalReference() {
   const results = { errors: [], warnings: [] };
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const notesSheet = ss.getSheetByName(CONSTANTS.SHEETS.LITURGICAL_NOTES);
+    const refSheet = ss.getSheetByName(CONSTANTS.SHEETS.LITURGICAL_REFERENCE);
 
-    // If sheet doesn't exist, that's okay - it's optional
-    if (!notesSheet) {
-      Logger.log('LiturgicalNotes sheet does not exist - skipping validation');
+    if (!refSheet) {
+      results.warnings.push('LiturgicalReference: Sheet does not exist. Saints and parish feast days will not appear in the calendar.');
       return results;
     }
 
-    // Check if there's data
-    if (notesSheet.getLastRow() <= 1) {
-      results.warnings.push('LiturgicalNotes: Sheet exists but has no data (this is optional)');
+    if (refSheet.getLastRow() <= 1) {
+      results.warnings.push('LiturgicalReference: Sheet exists but has no data.');
       return results;
     }
 
-    // Get all liturgical celebrations from the calendar
-    const calendarSheet = ss.getSheetByName(CONSTANTS.SHEETS.CALENDAR);
-    const validCelebrations = new Set();
+    const refData = HELPER_readSheetData(CONSTANTS.SHEETS.LITURGICAL_REFERENCE);
+    const cols = CONSTANTS.COLS.LITURGICAL_REFERENCE;
+    const validCalendarValues = new Set([
+      'General Roman Calendar', 'USA', 'Canada', 'Mexico', 'Diocese', 'Parish'
+    ]);
+    const seen = new Set(); // track month/day/calendar combos for duplicates
+    let rowNum = 1;
 
-    if (calendarSheet && calendarSheet.getLastRow() > 1) {
-      const calendarData = HELPER_readSheetData(CONSTANTS.SHEETS.CALENDAR);
-      const calCols = CONSTANTS.COLS.CALENDAR;
+    for (const row of refData) {
+      rowNum++;
+      const month = HELPER_safeArrayAccess(row, cols.MONTH - 1);
+      const day = HELPER_safeArrayAccess(row, cols.DAY - 1);
+      const celebration = HELPER_safeArrayAccess(row, cols.LITURGICAL_CELEBRATION - 1);
+      const rank = HELPER_safeArrayAccess(row, cols.RANK - 1);
+      const color = HELPER_safeArrayAccess(row, cols.COLOR - 1);
+      const calendar = HELPER_safeArrayAccess(row, cols.CALENDAR - 1);
 
-      for (const row of calendarData) {
-        const celebration = HELPER_safeArrayAccess(row, calCols.LITURGICAL_CELEBRATION - 1);
-        if (celebration) validCelebrations.add(celebration);
+      // Required fields
+      if (!month || isNaN(parseInt(month, 10))) {
+        results.errors.push(`LiturgicalReference row ${rowNum}: Month is required and must be a number`);
+        continue;
       }
-    }
-
-    // Validate liturgical notes entries
-    const notesData = notesSheet.getDataRange().getValues();
-    const notesCols = CONSTANTS.COLS.LITURGICAL_NOTES;
-
-    // Skip header row
-    for (let i = 1; i < notesData.length; i++) {
-      const row = notesData[i];
-      const rowNum = i + 1; // +1 for 1-based indexing
-
-      const celebration = HELPER_safeArrayAccess(row, notesCols.CELEBRATION - 1);
-      const notes = HELPER_safeArrayAccess(row, notesCols.NOTES - 1);
-
-      // Celebration name required
-      if (!celebration || celebration.trim() === "") {
-        results.errors.push(`LiturgicalNotes row ${rowNum}: Liturgical Celebration is required`);
+      if (!day || isNaN(parseInt(day, 10))) {
+        results.errors.push(`LiturgicalReference row ${rowNum}: Day is required and must be a number`);
+        continue;
+      }
+      if (!celebration || String(celebration).trim() === '') {
+        results.errors.push(`LiturgicalReference row ${rowNum}: Liturgical Celebration is required`);
+        continue;
+      }
+      if (!rank || String(rank).trim() === '') {
+        results.errors.push(`LiturgicalReference row ${rowNum}: Rank is required`);
         continue;
       }
 
-      // Notes required (otherwise why have the entry?)
-      if (!notes || notes.trim() === "") {
-        results.warnings.push(`LiturgicalNotes row ${rowNum}: Notes are empty for '${celebration}'`);
+      // Recommended fields
+      if (!color || String(color).trim() === '') {
+        results.warnings.push(`LiturgicalReference row ${rowNum}: Color is empty for '${celebration}'`);
+      }
+      if (!calendar || String(calendar).trim() === '') {
+        results.warnings.push(`LiturgicalReference row ${rowNum}: Calendar is empty for '${celebration}' (will default to General Roman Calendar)`);
+      } else if (!validCalendarValues.has(String(calendar).trim())) {
+        results.warnings.push(`LiturgicalReference row ${rowNum}: Calendar value '${calendar}' is not standard. Expected: ${Array.from(validCalendarValues).join(', ')}`);
       }
 
-      // Check if celebration exists in calendar (if calendar has been generated)
-      if (validCelebrations.size > 0 && !validCelebrations.has(celebration)) {
-        results.warnings.push(`LiturgicalNotes row ${rowNum}: Celebration '${celebration}' not found in current liturgical calendar. Notes will not display unless calendar is regenerated or name matches exactly.`);
+      // Duplicate check: same month/day/calendar combination
+      const comboKey = `${month}/${day}/${calendar}`;
+      if (seen.has(comboKey)) {
+        results.warnings.push(`LiturgicalReference row ${rowNum}: Duplicate entry for ${month}/${day} with Calendar='${calendar}' ('${celebration}')`);
+      } else {
+        seen.add(comboKey);
       }
     }
 
+    Logger.log(`LiturgicalReference validation: ${refData.length} entries checked`);
+
   } catch (e) {
-    results.errors.push(`LiturgicalNotes validation error: ${e.message}`);
+    results.errors.push(`LiturgicalReference validation error: ${e.message}`);
   }
 
   return results;
 }
 
 /**
- * Helper: Get all valid Event IDs from mass sheets
+ * Helper: Get all valid Event IDs from the MassSchedule sheet
  */
 function getAllValidEventIds() {
   const eventIds = new Set();
 
   try {
-    // Weekly Masses
-    const weeklyData = HELPER_readSheetData(CONSTANTS.SHEETS.WEEKLY_MASSES);
-    const weeklyCols = CONSTANTS.COLS.WEEKLY_MASSES;
-    for (const row of weeklyData) {
-      const eventId = HELPER_safeArrayAccess(row, weeklyCols.EVENT_ID - 1);
-      if (eventId) eventIds.add(eventId);
-    }
-
-    // Monthly Masses
-    const monthlyData = HELPER_readSheetData(CONSTANTS.SHEETS.MONTHLY_MASSES);
-    const monthlyCols = CONSTANTS.COLS.MONTHLY_MASSES;
-    for (const row of monthlyData) {
-      const eventId = HELPER_safeArrayAccess(row, monthlyCols.EVENT_ID - 1);
-      if (eventId) eventIds.add(eventId);
-    }
-
-    // Yearly Masses
-    const yearlyData = HELPER_readSheetData(CONSTANTS.SHEETS.YEARLY_MASSES);
-    const yearlyCols = CONSTANTS.COLS.YEARLY_MASSES;
-    for (const row of yearlyData) {
-      const eventId = HELPER_safeArrayAccess(row, yearlyCols.EVENT_ID - 1);
+    const massData = HELPER_readSheetData(CONSTANTS.SHEETS.MASS_SCHEDULE);
+    const cols = CONSTANTS.COLS.MASS_SCHEDULE;
+    for (const row of massData) {
+      const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
       if (eventId) eventIds.add(eventId);
     }
   } catch (e) {

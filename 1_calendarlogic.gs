@@ -21,14 +21,12 @@ function CALENDAR_generateLiturgicalCalendar() {
   const calendarRegion = config["Calendar Region"];
   const diocese = config["Diocese"]; // Optional diocese-specific calendar (e.g., "Diocese of Sacramento")
 
-  const overrideData = HELPER_readSheetData(CONSTANTS.SHEETS.OVERRIDES);
-  const saintsData = HELPER_readSheetData(CONSTANTS.SHEETS.SAINTS_CALENDAR);
+  const litRefData = HELPER_readSheetData(CONSTANTS.SHEETS.LITURGICAL_REFERENCE);
   // 2. Calculate all critical (moveable) feast dates
   // This function is in 1a_CalendarDates.gs
   const dates = CALENDAR_calculateLiturgicalDates(scheduleYear, config);
-  // 3. Build lookup maps for overrides and saints
-  const overrideMap = CALENDAR_buildOverrideMap(overrideData, scheduleYear);
-  const saintMap = CALENDAR_buildSaintMap(saintsData, calendarRegion, diocese);
+  // 3. Build lookup map from consolidated LiturgicalReference sheet
+  const litRefMap = CALENDAR_buildLiturgicalReferenceMap(litRefData, calendarRegion, diocese);
   // 4. --- Main Generation Loop ---
   Logger.log(`Starting calendar generation for ${scheduleYear}...`);
   const newCalendarRows = [];
@@ -45,54 +43,35 @@ function CALENDAR_generateLiturgicalCalendar() {
     const dayKey = (currentDate.getMonth() + 1) + "/" + currentDate.getDate();
     // "M/D"
     
-    // --- A. Check for a manual override ---
-    const override = overrideMap.get(dayKey);
-    // --- B. Get the seasonal and saint celebrations ---
-    
+    // --- A. Get the seasonal celebration and any reference entry for this date ---
     // This function is in 1b_CalendarSeasons.gs
     const seasonal = CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates);
-    const saint = saintMap.get(dayKey);
+    const ref = litRefMap.get(dayKey);
 
-    // --- C. & D. Determine the final celebration (Override > Saint > Seasonal) ---
-    // This new logic uses the numerical precedence system from 0b_helper.gs
-    
+    // --- B. Determine the final celebration via precedence (ref vs. seasonal) ---
+    // All entries in LiturgicalReference go through normal precedence comparison.
+
     let finalCelebration;
-    let optionalMemorial = ""; // For the new column
+    let optionalMemorial = ""; // For the Optional Memorial column
 
-    if (override) {
-      // 1. Override always wins
-      finalCelebration = {
-        celebration: override.celebration,
-        rank: override.rank, // Use override's rank
-        color: override.color,
-        season: seasonal.season // Use the *actual* season
-      };
+    // SPECIAL HANDLING: Optional Memorials ALWAYS go to separate column
+    if (ref && ref.rank === 'Optional Memorial') {
+      finalCelebration = seasonal;
+      optionalMemorial = ref.celebration;
     } else {
-      // 2. No override, so compare seasonal vs. saint
+      const seasonalPrecedence = HELPER_getPrecedence(seasonal.rank);
+      const refPrecedence = ref ? HELPER_getPrecedence(ref.rank) : 99; // 99 = no entry
 
-      // SPECIAL HANDLING: Optional Memorials ALWAYS go to separate column
-      if (saint && saint.rank === 'Optional Memorial') {
-        // Optional Memorial goes to separate column, seasonal celebration wins
-        finalCelebration = seasonal;
-        optionalMemorial = saint.celebration;
+      // The core logic: lower number wins.
+      if (ref && refPrecedence < seasonalPrecedence) {
+        finalCelebration = {
+          celebration: ref.celebration,
+          rank: ref.rank,
+          color: ref.color,
+          season: seasonal.season // Always use the actual liturgical season
+        };
       } else {
-        // For all other saints/feasts, use precedence comparison
-        const seasonalPrecedence = HELPER_getPrecedence(seasonal.rank);
-        const saintPrecedence = saint ? HELPER_getPrecedence(saint.rank) : 99; // 99 = no saint
-
-        // The core logic: lower number wins.
-        if (saint && saintPrecedence < seasonalPrecedence) {
-          // Saint wins
-          finalCelebration = {
-            celebration: saint.celebration,
-            rank: saint.rank, // Use saint's detailed rank
-            color: saint.color,
-            season: seasonal.season
-          };
-        } else {
-          // Seasonal day wins
-          finalCelebration = seasonal;
-        }
+        finalCelebration = seasonal;
       }
     }
     
@@ -130,87 +109,61 @@ function CALENDAR_generateLiturgicalCalendar() {
 }
 
 /**
- * Builds a Map of manual overrides for the year.
- * @param {Array<Array<any>>} overrideData Data from 'CalendarOverrides' sheet.
- * @param {number} scheduleYear The year being scheduled.
- * @returns {Map<string, object>} A map where key is "M/D"
- * and value is { celebration, rank, color, season }.
- */
-function CALENDAR_buildOverrideMap(overrideData, scheduleYear) {
-  const map = new Map();
-  const overrideCols = CONSTANTS.COLS.OVERRIDES;
-  for (const row of overrideData) {
-    const month = parseInt(row[overrideCols.MONTH - 1], 10);
-    const day = parseInt(row[overrideCols.DAY - 1], 10);
-    const celebration = row[overrideCols.LITURGICAL_CELEBRATION - 1];
-    const rank = row[overrideCols.RANK - 1];
-    const color = row[overrideCols.COLOR - 1];
-    let calendar = row[overrideCols.CALENDAR - 1];
-    // e.g., "Parish"
-
-    if (!month || !day || !celebration || !rank) continue;
-    const key = month + "/" + day;
-    
-    map.set(key, {
-      celebration: celebration,
-      rank: rank, // Keep as text
-      color: color,
-      season: calendar || "Override" // This is used to show *source*
-    });
-  }
-  Logger.log(`Built override map with ${map.size} entries.`);
-  return map;
-}
-
-/**
- * Builds a Map of all saints and fixed feasts for the year.
- * @param {Array<Array<any>>} saintsData Data from 'SaintsCalendar' sheet.
+ * Builds a Map of all liturgical reference entries (saints, feasts, parish entries).
+ * Reads from the consolidated 'LiturgicalReference' sheet.
+ *
+ * Filtering logic (Calendar column):
+ *   'General Roman Calendar' → always included
+ *   region match (e.g., 'USA') → included when calendarRegion matches
+ *   'Diocese' → included when a diocese is configured
+ *   'Parish' → always included (parish-specific feasts and corrections)
+ *
+ * When multiple entries fall on the same date, the higher-ranked one wins.
+ * All entries go through normal precedence comparison in the main loop.
+ *
+ * @param {Array<Array<any>>} refData Data from 'LiturgicalReference' sheet.
  * @param {string} calendarRegion The region to filter by (e.g., "USA").
- * @param {string} [diocese] Optional diocese to include (e.g., "Diocese of Sacramento").
- * @returns {Map<string, object>} A map where key is "M/D"
- * and value is { celebration, rank, color, season: 'Saints' }.
+ * @param {string} [diocese] Optional diocese config value.
+ * @returns {Map<string, object>} Map keyed by "M/D" →
+ *   { celebration, rank, color }
  */
-function CALENDAR_buildSaintMap(saintsData, calendarRegion, diocese) {
+function CALENDAR_buildLiturgicalReferenceMap(refData, calendarRegion, diocese) {
   const map = new Map();
-  const saintsCols = CONSTANTS.COLS.SAINTS_CALENDAR;
-  for (const row of saintsData) {
-    const month = parseInt(row[saintsCols.MONTH - 1], 10);
-    const day = parseInt(row[saintsCols.DAY - 1], 10);
-    const celebration = row[saintsCols.LITURGICAL_CELEBRATION - 1];
-    const rank = row[saintsCols.RANK - 1];
-    const color = row[saintsCols.COLOR - 1];
-    let calendarName = row[saintsCols.CALENDAR - 1];
-    if (!calendarName) calendarName = "General Roman Calendar";
-    // Default
+  const cols = CONSTANTS.COLS.LITURGICAL_REFERENCE;
+
+  for (const row of refData) {
+    const month = parseInt(row[cols.MONTH - 1], 10);
+    const day = parseInt(row[cols.DAY - 1], 10);
+    const celebration = row[cols.LITURGICAL_CELEBRATION - 1];
+    const rank = row[cols.RANK - 1];
+    const color = row[cols.COLOR - 1];
+    let calendarName = row[cols.CALENDAR - 1];
+    if (!calendarName) calendarName = 'General Roman Calendar';
 
     if (!month || !day || !celebration || !rank) continue;
-    // Add the saint if they are "General Roman Calendar", match the user's region,
-    // match the user's diocese, or are explicitly for the Parish.
-    if (calendarName === "General Roman Calendar" ||
-        calendarName === calendarRegion ||
-        calendarName === "Parish" ||
-        (diocese && calendarName === diocese)) {
-      
-      const key = month + "/" + day;
-      const newSaint = {
-        celebration: celebration,
-        rank: rank, // Keep as text (e.g., "Solemnity")
-        color: color,
-        season: "Saints"
-      };
-      // Check if a saint already exists for this day
-      if (map.has(key)) {
-        // A saint is already on this day.
-        // Compare ranks using the NEW precedence function
-        const existingSaint = map.get(key);
-        if (HELPER_getPrecedence(newSaint.rank) < HELPER_getPrecedence(existingSaint.rank)) {
-          map.set(key, newSaint);
-        }
-      } else {
-        map.set(key, newSaint);
+
+    // Filter: include only entries relevant to this parish's calendar configuration
+    if (calendarName !== 'General Roman Calendar' &&
+        calendarName !== calendarRegion &&
+        calendarName !== 'Parish' &&
+        !(diocese && calendarName === 'Diocese')) {
+      continue;
+    }
+
+    const key = month + '/' + day;
+    const newEntry = { celebration, rank, color };
+
+    // If multiple entries on the same date, keep the higher-ranked one
+    if (map.has(key)) {
+      const existing = map.get(key);
+      if (HELPER_getPrecedence(newEntry.rank) < HELPER_getPrecedence(existing.rank)) {
+        map.set(key, newEntry);
       }
+    } else {
+      map.set(key, newEntry);
     }
   }
-  Logger.log(`Built saints map with ${map.size} entries for region: ${calendarRegion}.`);
+
+  Logger.log(`Built liturgical reference map with ${map.size} entries for region: ${calendarRegion}.`);
   return map;
 }
