@@ -86,7 +86,7 @@ function CALENDAR_getSeasonalCelebration(currentDate, dayOfWeek, dates) {
       return { celebration: "Good Friday of the Passion of the Lord", season: "Triduum", rank: "TRIDUUM", color: "Red" };
     }
       if (currTime === dates.holySaturday.getTime()) {
-      return { celebration: "Holy Saturday", season: "Triduum", rank: "TRIDUUM", color: "White" };
+      return { celebration: "Easter Vigil", season: "Triduum", rank: "TRIDUUM", color: "White" };
     }
     
     // Find the 1st Sunday of Lent (the Sunday *after* Ash Wednesday)
