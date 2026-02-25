@@ -694,7 +694,11 @@ function ONEDIT_checkSameDayConflict(volunteer, allAssignmentsData, date, curren
 /**
  * Checks if the volunteer is scheduled too frequently:
  *   - More than 2 assignments already in this month (adding this would be 3+)
- *   - Any existing assignment is within 7 days of this one
+ *   - Any existing assignment (in any month) is within 7 days of this one
+ *
+ * The monthly count check is scoped to the same month-year.
+ * The spacing check spans all months so back-to-back assignments across
+ * month boundaries (e.g., last Sunday of April / first Sunday of May) are caught.
  *
  * @param {object} volunteer - Volunteer object
  * @param {Array} allAssignmentsData - All rows from the Assignments sheet (no header)
@@ -722,17 +726,19 @@ function ONEDIT_checkMonthlyFrequency(volunteer, allAssignmentsData, monthYear, 
     const rowVolName = HELPER_safeArrayAccess(row, cols.ASSIGNED_VOLUNTEER_NAME - 1, '');
     if (!rowVolName || rowVolName.toLowerCase() !== volunteer.fullName.toLowerCase()) continue;
 
-    const rowMonthYear = HELPER_safeArrayAccess(row, cols.MONTH_YEAR - 1);
-    if (ONEDIT_normalizeMonthYear(rowMonthYear) !== monthYearStr) continue;
-
-    monthCount++;
-
     const rowDate = HELPER_safeArrayAccess(row, cols.DATE - 1);
     if (!rowDate) continue;
 
     const rowDateObj = new Date(rowDate);
     rowDateObj.setHours(12, 0, 0, 0);
 
+    // Monthly count: only same month
+    const rowMonthYear = HELPER_safeArrayAccess(row, cols.MONTH_YEAR - 1);
+    if (ONEDIT_normalizeMonthYear(rowMonthYear) === monthYearStr) {
+      monthCount++;
+    }
+
+    // Spacing: check across all months
     const daysDiff = Math.abs(newDate.getTime() - rowDateObj.getTime()) / (1000 * 60 * 60 * 24);
     if (daysDiff < closestDaysDiff) {
       closestDaysDiff = daysDiff;
