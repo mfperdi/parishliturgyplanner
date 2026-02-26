@@ -320,6 +320,30 @@
       display: none !important;
     }
 
+    /* Inline nav button (e.g. "Copy Again" next to preview) */
+    .btn-nav {
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #1a73e8;
+      background: white;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn-nav:hover {
+      background: #f0f4ff;
+      border-color: #1a73e8;
+    }
+
+    .btn-nav:focus {
+      outline: 2px solid #1a73e8;
+      outline-offset: 2px;
+    }
+
     /* Accessibility */
     .btn:focus, .tab-btn:focus {
       outline: 2px solid #1a73e8;
@@ -338,19 +362,19 @@
   <!-- Tab Bar -->
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="daily" title="Everyday tasks">
-      <span class="tab-icon">&#x1F3E0;</span>
+      <span class="tab-icon" aria-hidden="true">&#x1F3E0;</span>
       Daily
     </button>
     <button class="tab-btn" data-tab="schedule" title="Monthly scheduling workflow">
-      <span class="tab-icon">&#x1F4C5;</span>
+      <span class="tab-icon" aria-hidden="true">&#x1F4C5;</span>
       Schedule
     </button>
     <button class="tab-btn" data-tab="setup" title="One-time setup tasks">
-      <span class="tab-icon">&#x2699;&#xFE0F;</span>
+      <span class="tab-icon" aria-hidden="true">&#x2699;&#xFE0F;</span>
       Setup
     </button>
     <button class="tab-btn" data-tab="archive" title="Archive management">
-      <span class="tab-icon">&#x1F4E6;</span>
+      <span class="tab-icon" aria-hidden="true">&#x1F4E6;</span>
       Archive
     </button>
   </div>
@@ -492,6 +516,9 @@
           <select id="publish-ministry-filter" class="form-select" disabled>
             <option value="">Select ministry...</option>
           </select>
+        </div>
+        <div id="publish-month-hint" class="hint" style="margin-top: 0; margin-bottom: 8px; display: none;">
+          Will publish for: <strong id="publish-month-hint-text"></strong>
         </div>
         <button id="btn-publish-ministry" class="btn btn-secondary" disabled>
           Publish Selected Ministry
@@ -689,6 +716,17 @@
       } else {
         timeoffBadge.classList.add('hidden');
       }
+
+      // Update publish month hint
+      const publishMonthHint = document.getElementById('publish-month-hint');
+      const publishMonthHintText = document.getElementById('publish-month-hint-text');
+      if (monthSelect.value && monthSelect.options[monthSelect.selectedIndex]) {
+        const monthDisplay = monthSelect.options[monthSelect.selectedIndex].text;
+        publishMonthHintText.textContent = monthDisplay;
+        publishMonthHint.style.display = 'block';
+      } else {
+        publishMonthHint.style.display = 'none';
+      }
     }
 
     function refreshWorkflowData() {
@@ -808,7 +846,19 @@
     // ========================
     // Month Selection
     // ========================
+
+    // Completion badge IDs that are tied to a specific month's workflow
+    const MONTH_STEP_BADGES = ['schedule', 'timeoffs', 'assignment', 'custom-print', 'publish'];
+
+    function resetMonthBadges() {
+      MONTH_STEP_BADGES.forEach(stepId => {
+        const badge = document.getElementById('completion-' + stepId);
+        if (badge) badge.classList.add('hidden');
+      });
+    }
+
     monthSelect.addEventListener('change', () => {
+      resetMonthBadges();
       updateButtonStates();
       refreshWorkflowData();
     });
@@ -1060,25 +1110,43 @@
     // ========================
 
     btnArchive.addEventListener('click', () => {
-      showLoading('Creating archive file...');
+      // Do NOT show loading here — the server function starts with its own
+      // confirmation dialog (HELPER_confirmAction). Showing a spinner while
+      // the user is being asked a yes/no question is misleading.
+      // The server function shows its own toast + success/error dialogs.
+      btnArchive.disabled = true;
       google.script.run
-        .withSuccessHandler(() => showSuccess('Archive created successfully!'))
+        .withSuccessHandler(() => {
+          // The server always returns void (cancelled or complete).
+          // It shows its own success/error dialogs — just re-enable buttons.
+          updateButtonStates();
+        })
         .withFailureHandler((error) => showError(error, 'archive'))
         .ARCHIVE_promptArchiveCurrentYear();
     });
 
     btnViewArchives.addEventListener('click', () => {
+      // This one fetches data then shows a server-side list dialog.
+      // Loading is appropriate since it waits for a server fetch.
       showLoading('Loading archives...');
       google.script.run
-        .withSuccessHandler(() => showSuccess('Archives loaded'))
+        .withSuccessHandler(() => {
+          statusMessage.className = 'status-message hidden';
+          updateButtonStates();
+        })
         .withFailureHandler((error) => showError(error, 'archive'))
         .ARCHIVE_showArchiveList();
     });
 
     btnClearData.addEventListener('click', () => {
-      showLoading('Clearing old data...');
+      // Same as Archive: starts with server-side confirmation dialogs.
+      // The server shows its own success/error dialogs — don't show loading.
+      btnClearData.disabled = true;
       google.script.run
-        .withSuccessHandler(() => showSuccess('Data cleared successfully'))
+        .withSuccessHandler(() => {
+          // Server returns void regardless of cancel/confirm.
+          updateButtonStates();
+        })
         .withFailureHandler((error) => showError(error, 'archive'))
         .ARCHIVE_promptClearOldData();
     });
@@ -1086,11 +1154,19 @@
     // ========================
     // Status Messages
     // ========================
+
+    // All form inputs that should be frozen during an operation
+    const allInputs = [
+      monthSelect, customPrintMonth, customPrintMinistry, customPrintSheetName,
+      publishMinistryFilter
+    ];
+
     function showLoading(message) {
       statusMessage.className = 'status-message status-loading';
-      statusMessage.innerHTML = '<div class="spinner"></div><span>' + message + '</span>';
+      statusMessage.innerHTML = '<div class="spinner"></div><span>' + escapeHtml(message) + '</span>';
       statusMessage.setAttribute('aria-busy', 'true');
       allButtons.forEach(btn => btn.disabled = true);
+      allInputs.forEach(input => { if (input) input.disabled = true; });
     }
 
     function showSuccess(message) {
@@ -1106,8 +1182,17 @@
       }, 5000);
     }
 
+    // Escape special HTML characters in text before inserting via innerHTML
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
     function showError(error, context) {
-      let errorMsg = error.message || error;
+      let errorMsg = escapeHtml(error.message || error);
       let helpText = '';
 
       switch(context) {
