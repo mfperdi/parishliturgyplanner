@@ -153,25 +153,28 @@ const CONSTANTS = {
       REVIEW_NOTES: 9       // Admin review notes and warnings
     },
 
-    // 'Dropdowns' sheet (16 columns) - provides data validation lists for the spreadsheet
-    // Columns 1-8 and 13-14, 16 are static; columns 9-12 and 15 are managed by DROPDOWNS_refresh()
+    // 'Dropdowns' sheet (18 columns) - provides data validation lists for the spreadsheet
+    // Static columns: 1-10, 15-16, 18
+    // Dynamic columns managed by DROPDOWNS_refresh(): 11-14, 17
     DROPDOWNS: {
       LITURGICAL_SEASONS: 1,
       LITURGICAL_RANKS: 2,
       LITURGICAL_COLORS: 3,
-      READING_CYCLE: 4,
-      OVERRIDE_TYPE: 5,
-      DAY_OF_MONTH: 6,
-      DAY_OF_WEEK: 7,
-      VOLUNTEER_STATUS: 8,
-      ALL_MINISTRY_NAMES: 9,
-      ALL_ROLE_NAMES: 10,
-      ALL_MASS_EVENT_IDS: 11,
-      ALL_TEMPLATE_NAMES: 12,
-      AVAILABILITY_TYPE: 13,
-      TIMEOFF_APPROVAL_STATUS: 14,
-      ASSIGNED_VOLUNTEER_NAME: 15,
-      ASSIGNMENT_STATUS: 16
+      LITURGICAL_CELEBRATIONS: 4,   // static
+      READING_CYCLE: 5,
+      OVERRIDE_TYPE: 6,
+      RECURRENCE_TYPE: 7,           // static
+      DAY_OF_MONTH: 8,
+      DAY_OF_WEEK: 9,
+      VOLUNTEER_STATUS: 10,
+      ALL_MINISTRY_NAMES: 11,
+      ALL_ROLE_NAMES: 12,
+      ALL_MASS_EVENT_IDS: 13,
+      ALL_TEMPLATE_NAMES: 14,
+      AVAILABILITY_TYPE: 15,
+      TIMEOFF_APPROVAL_STATUS: 16,
+      ASSIGNED_VOLUNTEER_NAME: 17,
+      ASSIGNMENT_STATUS: 18
     }
   },
   

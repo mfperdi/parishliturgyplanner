@@ -5,17 +5,14 @@
  * Refreshes the dynamic columns in the Dropdowns sheet so that data
  * validation throughout the spreadsheet stays in sync with actual data.
  *
- * Static columns (1-8, 13-14, 16) are left untouched.
+ * Static columns (1-10, 15-16, 18) are left untouched.
  * Dynamic columns refreshed:
- *   Col  9 - All Ministry Names  (from Ministries sheet, active only)
- *   Col 10 - All Role Names      (from Ministries sheet, active only)
- *   Col 11 - All Mass Event IDs  (from MassSchedule sheet)
- *   Col 12 - All Template Names  (from MassTemplates sheet)
- *
- * Col 15 (Assigned Volunteer Name) is intentionally left alone — it is managed
- * by a live SORT/UNIQUE/VSTACK formula in the sheet that already includes
- * active volunteers, Family Team group names, and Assigned Group values from
- * the mass configuration sheets.
+ *   Col 11 - All Ministry Names        (from Ministries sheet, active only)
+ *   Col 12 - All Role Names            (from Ministries sheet, active only)
+ *   Col 13 - All Mass Event IDs        (from MassSchedule sheet)
+ *   Col 14 - All Template Names        (from MassTemplates sheet)
+ *   Col 17 - Assigned Volunteer Names  (groups from MassSchedule + Volunteers,
+ *                                       then active volunteer names)
  */
 
 // ============================================================================
@@ -44,7 +41,7 @@ function DROPDOWNS_refresh() {
     results.push(DROPDOWNS_refreshRoleNames(sheet));
     results.push(DROPDOWNS_refreshMassEventIds(sheet));
     results.push(DROPDOWNS_refreshTemplateNames(sheet));
-    // Col 15 (Assigned Volunteer Name) is left alone — managed by a live formula.
+    results.push(DROPDOWNS_refreshAssignedVolunteerNames(sheet));
 
     // Also fix the Assignments sheet validation to "Show warning" mode so group
     // names and other non-list values can be entered without hard rejection.
@@ -165,6 +162,49 @@ function DROPDOWNS_refreshTemplateNames(sheet) {
   const sorted = Array.from(names).sort();
   DROPDOWNS_writeColumn(sheet, CONSTANTS.COLS.DROPDOWNS.ALL_TEMPLATE_NAMES, sorted);
   return `✓ Template Names: ${sorted.length} entries`;
+}
+
+/**
+ * Col 15: Assigned Volunteer Names — writes a sorted, de-duplicated list of:
+ *   - Active / Substitute Only / Ministry Sponsor volunteer names (Volunteers!D)
+ *   - Family Team group names (Volunteers!H)
+ *   - Assigned Group values from MassSchedule (MassSchedule!O)
+ *
+ * Groups are listed first so they appear at the top of the dropdown.
+ * Replaces the legacy live formula that referenced WeeklyMasses / MonthlyMasses /
+ * YearlyMasses, which no longer exist after the sheets were consolidated.
+ */
+function DROPDOWNS_refreshAssignedVolunteerNames(sheet) {
+  const groupNames = new Set();
+  const names = [];
+
+  // Volunteer names and Family Team groups
+  const volData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.VOLUNTEERS);
+  const volCols = CONSTANTS.COLS.VOLUNTEERS;
+  for (const row of volData) {
+    const status = HELPER_safeArrayAccess(row, volCols.STATUS - 1, '').toString().trim();
+    const name = HELPER_safeArrayAccess(row, volCols.FULL_NAME - 1, '').toString().trim();
+    const familyTeam = HELPER_safeArrayAccess(row, volCols.FAMILY_TEAM - 1, '').toString().trim();
+    if ((status === 'Active' || status === 'Substitute Only' || status === 'Ministry Sponsor') && name) {
+      names.push(name);
+    }
+    if (familyTeam) groupNames.add(familyTeam);
+  }
+
+  // Assigned Group values from MassSchedule (covers groups like "School", "Spanish")
+  const massData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MASS_SCHEDULE);
+  const massCols = CONSTANTS.COLS.MASS_SCHEDULE;
+  for (const row of massData) {
+    const group = HELPER_safeArrayAccess(row, massCols.ASSIGNED_GROUP - 1, '').toString().trim();
+    if (group) groupNames.add(group);
+  }
+
+  const sortedGroups = Array.from(groupNames).sort();
+  names.sort();
+  const combined = [...sortedGroups, ...names];
+
+  DROPDOWNS_writeColumn(sheet, CONSTANTS.COLS.DROPDOWNS.ASSIGNED_VOLUNTEER_NAME, combined);
+  return `✓ Assigned Volunteer Names: ${combined.length} entries (${sortedGroups.length} groups + ${names.length} volunteers)`;
 }
 
 // ============================================================================
