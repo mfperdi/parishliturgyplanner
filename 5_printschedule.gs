@@ -1042,14 +1042,16 @@ function trimSheet(sheet, numColumns) {
  */
 function PRINT_getActiveVolunteerNames() {
   try {
-    const data = HELPER_readSheetDataCached(CONSTANTS.SHEETS.VOLUNTEERS);
-    const cols = CONSTANTS.COLS.VOLUNTEERS;
+    const volData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.VOLUNTEERS);
+    const volCols = CONSTANTS.COLS.VOLUNTEERS;
     const names = [];
     const groupNames = new Set();
-    for (const row of data) {
-      const status = HELPER_safeArrayAccess(row, cols.STATUS - 1, '');
-      const name = HELPER_safeArrayAccess(row, cols.FULL_NAME - 1, '');
-      const familyTeam = HELPER_safeArrayAccess(row, cols.FAMILY_TEAM - 1, '');
+
+    // Collect active volunteer names and Family Team group names
+    for (const row of volData) {
+      const status = HELPER_safeArrayAccess(row, volCols.STATUS - 1, '');
+      const name = HELPER_safeArrayAccess(row, volCols.FULL_NAME - 1, '');
+      const familyTeam = HELPER_safeArrayAccess(row, volCols.FAMILY_TEAM - 1, '');
       if (status === 'Active' && name) {
         names.push(name);
       }
@@ -1057,6 +1059,20 @@ function PRINT_getActiveVolunteerNames() {
         groupNames.add(familyTeam.toString().trim());
       }
     }
+
+    // Also collect Assigned Group values from MassSchedule so groups like
+    // "School" or "Spanish" appear even if no volunteer has that Family Team
+    try {
+      const massData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MASS_SCHEDULE);
+      const massCols = CONSTANTS.COLS.MASS_SCHEDULE;
+      for (const row of massData) {
+        const group = HELPER_safeArrayAccess(row, massCols.ASSIGNED_GROUP - 1, '').toString().trim();
+        if (group) groupNames.add(group);
+      }
+    } catch (e) {
+      Logger.log(`Warning: Could not load MassSchedule groups: ${e.message}`);
+    }
+
     names.sort();
     // Groups first so they appear at the top of the dropdown
     const sortedGroups = Array.from(groupNames).sort();

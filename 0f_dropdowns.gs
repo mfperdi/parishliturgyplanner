@@ -7,15 +7,16 @@
  *
  * Static columns (1-8, 13-14, 16) are left untouched.
  * Dynamic columns refreshed:
- *   Col  9 - All Ministry Names  (from Ministries sheet, active only)
- *   Col 10 - All Role Names      (from Ministries sheet, active only)
- *   Col 11 - All Mass Event IDs  (from MassSchedule sheet)
- *   Col 12 - All Template Names  (from MassTemplates sheet)
+ *   Col  9 - All Ministry Names        (from Ministries sheet, active only)
+ *   Col 10 - All Role Names            (from Ministries sheet, active only)
+ *   Col 11 - All Mass Event IDs        (from MassSchedule sheet)
+ *   Col 12 - All Template Names        (from MassTemplates sheet)
+ *   Col 15 - Assigned Volunteer Names  (live SORT/UNIQUE/VSTACK formula
+ *                                       referencing Volunteers + MassSchedule)
  *
- * Col 15 (Assigned Volunteer Name) is intentionally left alone — it is managed
- * by a live SORT/UNIQUE/VSTACK formula in the sheet that already includes
- * active volunteers, Family Team group names, and Assigned Group values from
- * the mass configuration sheets.
+ * Col 15 uses a spill formula so it stays live after refresh. The formula
+ * was updated from the legacy 3-sheet layout (WeeklyMasses / MonthlyMasses /
+ * YearlyMasses) to the consolidated MassSchedule sheet.
  */
 
 // ============================================================================
@@ -44,7 +45,7 @@ function DROPDOWNS_refresh() {
     results.push(DROPDOWNS_refreshRoleNames(sheet));
     results.push(DROPDOWNS_refreshMassEventIds(sheet));
     results.push(DROPDOWNS_refreshTemplateNames(sheet));
-    // Col 15 (Assigned Volunteer Name) is left alone — managed by a live formula.
+    results.push(DROPDOWNS_refreshAssignedVolunteerNames(sheet));
 
     // Also fix the Assignments sheet validation to "Show warning" mode so group
     // names and other non-list values can be entered without hard rejection.
@@ -165,6 +166,36 @@ function DROPDOWNS_refreshTemplateNames(sheet) {
   const sorted = Array.from(names).sort();
   DROPDOWNS_writeColumn(sheet, CONSTANTS.COLS.DROPDOWNS.ALL_TEMPLATE_NAMES, sorted);
   return `✓ Template Names: ${sorted.length} entries`;
+}
+
+/**
+ * Col 15: Assigned Volunteer Names — a spill formula that combines:
+ *   - Active / Substitute Only / Ministry Sponsor volunteer names (Volunteers!D)
+ *   - Family Team group names (Volunteers!H)
+ *   - Assigned Group values from MassSchedule (MassSchedule!O)
+ *
+ * Replaces the legacy formula that referenced WeeklyMasses / MonthlyMasses /
+ * YearlyMasses, which no longer exist after the sheets were consolidated.
+ */
+function DROPDOWNS_refreshAssignedVolunteerNames(sheet) {
+  const col = CONSTANTS.COLS.DROPDOWNS.ASSIGNED_VOLUNTEER_NAME; // 15
+
+  // Clear any stale data in the column (row 2 onwards) before writing the formula
+  const maxRows = sheet.getMaxRows();
+  if (maxRows > 1) {
+    sheet.getRange(2, col, maxRows - 1, 1).clearContent();
+  }
+
+  // MassSchedule column O = col 15 (ASSIGNED_GROUP)
+  const formula =
+    '=SORT(UNIQUE(VSTACK(' +
+    'IFERROR(FILTER(Volunteers!D2:D,(Volunteers!I2:I="Active")+(Volunteers!I2:I="Substitute Only")+(Volunteers!I2:I="Ministry Sponsor")),),' +
+    'IFERROR(FILTER(Volunteers!H2:H,Volunteers!H2:H<>""),),' +
+    'IFERROR(FILTER(MassSchedule!O2:O,MassSchedule!O2:O<>""),)' +
+    ')))';
+
+  sheet.getRange(2, col).setFormula(formula);
+  return '✓ Assigned Volunteer Names: formula updated (Volunteers + MassSchedule groups)';
 }
 
 // ============================================================================
