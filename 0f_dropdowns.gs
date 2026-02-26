@@ -11,12 +11,8 @@
  *   Col 10 - All Role Names            (from Ministries sheet, active only)
  *   Col 11 - All Mass Event IDs        (from MassSchedule sheet)
  *   Col 12 - All Template Names        (from MassTemplates sheet)
- *   Col 15 - Assigned Volunteer Names  (live SORT/UNIQUE/VSTACK formula
- *                                       referencing Volunteers + MassSchedule)
- *
- * Col 15 uses a spill formula so it stays live after refresh. The formula
- * was updated from the legacy 3-sheet layout (WeeklyMasses / MonthlyMasses /
- * YearlyMasses) to the consolidated MassSchedule sheet.
+ *   Col 15 - Assigned Volunteer Names  (groups from MassSchedule + Volunteers,
+ *                                       then active volunteer names)
  */
 
 // ============================================================================
@@ -169,33 +165,46 @@ function DROPDOWNS_refreshTemplateNames(sheet) {
 }
 
 /**
- * Col 15: Assigned Volunteer Names — a spill formula that combines:
+ * Col 15: Assigned Volunteer Names — writes a sorted, de-duplicated list of:
  *   - Active / Substitute Only / Ministry Sponsor volunteer names (Volunteers!D)
  *   - Family Team group names (Volunteers!H)
  *   - Assigned Group values from MassSchedule (MassSchedule!O)
  *
- * Replaces the legacy formula that referenced WeeklyMasses / MonthlyMasses /
+ * Groups are listed first so they appear at the top of the dropdown.
+ * Replaces the legacy live formula that referenced WeeklyMasses / MonthlyMasses /
  * YearlyMasses, which no longer exist after the sheets were consolidated.
  */
 function DROPDOWNS_refreshAssignedVolunteerNames(sheet) {
-  const col = CONSTANTS.COLS.DROPDOWNS.ASSIGNED_VOLUNTEER_NAME; // 15
+  const groupNames = new Set();
+  const names = [];
 
-  // Clear any stale data in the column (row 2 onwards) before writing the formula
-  const maxRows = sheet.getMaxRows();
-  if (maxRows > 1) {
-    sheet.getRange(2, col, maxRows - 1, 1).clearContent();
+  // Volunteer names and Family Team groups
+  const volData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.VOLUNTEERS);
+  const volCols = CONSTANTS.COLS.VOLUNTEERS;
+  for (const row of volData) {
+    const status = HELPER_safeArrayAccess(row, volCols.STATUS - 1, '').toString().trim();
+    const name = HELPER_safeArrayAccess(row, volCols.FULL_NAME - 1, '').toString().trim();
+    const familyTeam = HELPER_safeArrayAccess(row, volCols.FAMILY_TEAM - 1, '').toString().trim();
+    if ((status === 'Active' || status === 'Substitute Only' || status === 'Ministry Sponsor') && name) {
+      names.push(name);
+    }
+    if (familyTeam) groupNames.add(familyTeam);
   }
 
-  // MassSchedule column O = col 15 (ASSIGNED_GROUP)
-  const formula =
-    '=SORT(UNIQUE(VSTACK(' +
-    'IFERROR(FILTER(Volunteers!D2:D,(Volunteers!I2:I="Active")+(Volunteers!I2:I="Substitute Only")+(Volunteers!I2:I="Ministry Sponsor")),),' +
-    'IFERROR(FILTER(Volunteers!H2:H,Volunteers!H2:H<>""),),' +
-    'IFERROR(FILTER(MassSchedule!O2:O,MassSchedule!O2:O<>""),)' +
-    ')))';
+  // Assigned Group values from MassSchedule (covers groups like "School", "Spanish")
+  const massData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MASS_SCHEDULE);
+  const massCols = CONSTANTS.COLS.MASS_SCHEDULE;
+  for (const row of massData) {
+    const group = HELPER_safeArrayAccess(row, massCols.ASSIGNED_GROUP - 1, '').toString().trim();
+    if (group) groupNames.add(group);
+  }
 
-  sheet.getRange(2, col).setFormula(formula);
-  return '✓ Assigned Volunteer Names: formula updated (Volunteers + MassSchedule groups)';
+  const sortedGroups = Array.from(groupNames).sort();
+  names.sort();
+  const combined = [...sortedGroups, ...names];
+
+  DROPDOWNS_writeColumn(sheet, CONSTANTS.COLS.DROPDOWNS.ASSIGNED_VOLUNTEER_NAME, combined);
+  return `✓ Assigned Volunteer Names: ${combined.length} entries (${sortedGroups.length} groups + ${names.length} volunteers)`;
 }
 
 // ============================================================================
