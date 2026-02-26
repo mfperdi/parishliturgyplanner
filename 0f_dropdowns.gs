@@ -5,13 +5,13 @@
  * Refreshes the dynamic columns in the Dropdowns sheet so that data
  * validation throughout the spreadsheet stays in sync with actual data.
  *
- * Static columns (1-8, 13-14, 16) are left untouched.
+ * Static columns (1-10, 15-16, 18) are left untouched.
  * Dynamic columns refreshed:
- *   Col  9 - All Ministry Names        (from Ministries sheet, active only)
- *   Col 10 - All Role Names            (from Ministries sheet, active only)
- *   Col 11 - All Mass Event IDs        (from MassSchedule sheet)
- *   Col 12 - All Template Names        (from MassTemplates sheet)
- *   Col 15 - Assigned Volunteer Names  (groups from MassSchedule + Volunteers,
+ *   Col 11 - All Ministry Names        (from Ministries sheet, active only)
+ *   Col 12 - All Role Names            (from Ministries sheet, active only)
+ *   Col 13 - All Mass Event IDs        (from MassSchedule sheet)
+ *   Col 14 - All Template Names        (from MassTemplates sheet)
+ *   Col 17 - Assigned Volunteer Names  (groups from MassSchedule + Volunteers,
  *                                       then active volunteer names)
  */
 
