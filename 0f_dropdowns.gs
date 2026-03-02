@@ -2,11 +2,13 @@
  * ====================================================================
  * DROPDOWNS SHEET MANAGEMENT
  * ====================================================================
- * Refreshes the dynamic columns in the Dropdowns sheet so that data
- * validation throughout the spreadsheet stays in sync with actual data.
+ * Refreshes all columns in the Dropdowns sheet so that data validation
+ * throughout the spreadsheet stays in sync with actual data.
  *
- * Static columns (1-10, 15-16, 18) are left untouched.
- * Dynamic columns refreshed:
+ * Static columns (1-3, 5-10, 15-16, 18) are restored to known correct values.
+ * Col 4 (Liturgical Celebrations) is left untouched (large reference list).
+ *
+ * Dynamic columns refreshed from sheet data:
  *   Col 11 - All Ministry Names        (from Ministries sheet, active only)
  *   Col 12 - All Role Names            (from Ministries sheet, active only)
  *   Col 13 - All Mass Event IDs        (from MassSchedule sheet)
@@ -37,6 +39,11 @@ function DROPDOWNS_refresh() {
     }
 
     const results = [];
+
+    // Restore static columns first (fixes any corruption)
+    results.push(DROPDOWNS_refreshStaticColumns(sheet));
+
+    // Then refresh dynamic columns from sheet data
     results.push(DROPDOWNS_refreshMinistryNames(sheet));
     results.push(DROPDOWNS_refreshRoleNames(sheet));
     results.push(DROPDOWNS_refreshMassEventIds(sheet));
@@ -63,7 +70,73 @@ function DROPDOWNS_refresh() {
 }
 
 // ============================================================================
-// COLUMN REFRESH HELPERS
+// STATIC COLUMN REFRESH
+// ============================================================================
+
+/**
+ * Restores all static columns (1-10, 15-16, 18) to their correct values.
+ * These columns have fixed, known values that don't depend on sheet data.
+ * Running this repairs any accidental overwrites or corruption.
+ */
+function DROPDOWNS_refreshStaticColumns(sheet) {
+  const cols = CONSTANTS.COLS.DROPDOWNS;
+
+  // Col 1: Liturgical Seasons
+  DROPDOWNS_writeColumn(sheet, cols.LITURGICAL_SEASONS,
+    ['Advent', 'Christmas', 'Lent', 'Triduum', 'Easter', 'Ordinary Time']);
+
+  // Col 2: Liturgical Ranks (simplified display names)
+  DROPDOWNS_writeColumn(sheet, cols.LITURGICAL_RANKS,
+    ['Solemnity', 'Sunday', 'Feast', 'Memorial', 'Optional Memorial', 'Weekday']);
+
+  // Col 3: Liturgical Colors (standard liturgical set)
+  DROPDOWNS_writeColumn(sheet, cols.LITURGICAL_COLORS,
+    ['White', 'Red', 'Violet', 'Rose', 'Green', 'Gold']);
+
+  // Col 5: Reading Cycle
+  DROPDOWNS_writeColumn(sheet, cols.READING_CYCLE,
+    ['A', 'B', 'C', 'I', 'II', 'ABC']);
+
+  // Col 6: Override Type
+  DROPDOWNS_writeColumn(sheet, cols.OVERRIDE_TYPE,
+    ['Append', 'Override']);
+
+  // Col 7: Recurrence Type
+  DROPDOWNS_writeColumn(sheet, cols.RECURRENCE_TYPE,
+    ['Weekly', 'Monthly', 'Yearly']);
+
+  // Col 8: Day of Month
+  DROPDOWNS_writeColumn(sheet, cols.DAY_OF_MONTH,
+    ['1st', '2nd', '3rd', '4th', 'Last']);
+
+  // Col 9: Day of Week
+  DROPDOWNS_writeColumn(sheet, cols.DAY_OF_WEEK,
+    ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
+
+  // Col 10: Volunteer Status (from CONSTANTS)
+  DROPDOWNS_writeColumn(sheet, cols.VOLUNTEER_STATUS,
+    CONSTANTS.STATUS.VOLUNTEER);
+
+  // Col 15: Availability Type (from CONSTANTS)
+  DROPDOWNS_writeColumn(sheet, cols.AVAILABILITY_TYPE,
+    [CONSTANTS.TIMEOFF_TYPES.NOT_AVAILABLE, CONSTANTS.TIMEOFF_TYPES.ONLY_AVAILABLE]);
+
+  // Col 16: Timeoff Approval Status (from CONSTANTS)
+  DROPDOWNS_writeColumn(sheet, cols.TIMEOFF_APPROVAL_STATUS,
+    CONSTANTS.STATUS.TIMEOFF);
+
+  // Col 18: Assignment Status (from CONSTANTS)
+  DROPDOWNS_writeColumn(sheet, cols.ASSIGNMENT_STATUS,
+    CONSTANTS.STATUS.ASSIGNMENT);
+
+  // Note: Col 4 (Liturgical Celebrations) is left untouched — it's a large
+  // reference list maintained manually from SaintsCalendar / CalendarOverrides.
+
+  return '✓ Static columns restored (1-3, 5-10, 15-16, 18)';
+}
+
+// ============================================================================
+// COLUMN WRITE HELPER
 // ============================================================================
 
 /**
@@ -92,7 +165,7 @@ function DROPDOWNS_writeColumn(sheet, colNum, values) {
 }
 
 /**
- * Col 9: Active ministry names from the Ministries sheet (unique, sorted).
+ * Col 11: Active ministry names from the Ministries sheet (unique, sorted).
  */
 function DROPDOWNS_refreshMinistryNames(sheet) {
   const data = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MINISTRIES);
@@ -111,7 +184,7 @@ function DROPDOWNS_refreshMinistryNames(sheet) {
 }
 
 /**
- * Col 10: Active role names from the Ministries sheet (unique, sorted).
+ * Col 12: Active role names from the Ministries sheet (unique, sorted).
  */
 function DROPDOWNS_refreshRoleNames(sheet) {
   const data = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MINISTRIES);
@@ -130,7 +203,7 @@ function DROPDOWNS_refreshRoleNames(sheet) {
 }
 
 /**
- * Col 11: All active Event IDs from the consolidated MassSchedule sheet (unique, sorted).
+ * Col 13: All active Event IDs from the consolidated MassSchedule sheet (unique, sorted).
  */
 function DROPDOWNS_refreshMassEventIds(sheet) {
   const ids = new Set();
@@ -149,7 +222,7 @@ function DROPDOWNS_refreshMassEventIds(sheet) {
 }
 
 /**
- * Col 12: All template names from MassTemplates sheet (unique, sorted).
+ * Col 14: All template names from MassTemplates sheet (unique, sorted).
  */
 function DROPDOWNS_refreshTemplateNames(sheet) {
   const data = HELPER_readSheetDataCached(CONSTANTS.SHEETS.TEMPLATES);
@@ -165,7 +238,7 @@ function DROPDOWNS_refreshTemplateNames(sheet) {
 }
 
 /**
- * Col 15: Assigned Volunteer Names — writes a sorted, de-duplicated list of:
+ * Col 17: Assigned Volunteer Names — writes a sorted, de-duplicated list of:
  *   - Active / Substitute Only / Ministry Sponsor volunteer names (Volunteers!D)
  *   - Family Team group names (Volunteers!H)
  *   - Assigned Group values from MassSchedule (MassSchedule!O)
