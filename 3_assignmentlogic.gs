@@ -72,6 +72,11 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
   // Determine spacing thresholds based on month workload
   assignmentContext.spacingThresholds = calculateSpacingThresholds(assignmentContext.unassignedRoles);
 
+  // Build weekly Event ID map for preference matching
+  // When yearly/monthly masses override weekly masses (e.g., Easter replacing regular Sunday),
+  // volunteers who prefer the weekly mass Event ID should still be eligible for the override mass
+  assignmentContext.weeklyEventIdMap = buildWeeklyEventIdMap();
+
   // Process assignments
   const results = processAssignments(assignmentContext, volunteers, timeoffMaps, assignmentsSheet, skillToMinistryMap);
 
@@ -285,6 +290,47 @@ function buildTimeoffMap(timeoffData, month, year, monthString = null) {
 
   Logger.log(`Built timeoff maps: ${result.blacklist.size} blacklists, ${result.whitelist.size} whitelists`);
   return result;
+}
+
+/**
+ * Build a map of weekly mass Event IDs by day-of-week + time.
+ * Used to match volunteer preferences when yearly/monthly masses override weekly masses.
+ * Example: Easter Sunday 10am replaces regular Sunday 10am (SUN-1000).
+ *          Volunteers who prefer SUN-1000 should still be eligible for the Easter mass.
+ * @returns {Map<string, Set<string>>} Map of "dayIndex_HH:MM" → Set of weekly Event IDs
+ */
+function buildWeeklyEventIdMap() {
+  const massData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MASS_SCHEDULE);
+  const cols = CONSTANTS.COLS.MASS_SCHEDULE;
+  const map = new Map();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  for (const row of massData) {
+    const recurrence = (HELPER_safeArrayAccess(row, cols.RECURRENCE_TYPE - 1) || '').toString().trim();
+    if (recurrence !== 'Weekly') continue;
+    if (row[cols.IS_ACTIVE - 1] === false) continue;
+
+    const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
+    const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
+    const time = row[cols.TIME - 1];
+
+    if (!dayOfWeek || !eventId || !time) continue;
+
+    const dayIndex = dayNames.indexOf(dayOfWeek);
+    if (dayIndex === -1) continue;
+
+    // Normalize time to HH:MM for consistent matching
+    const timeObj = new Date(time);
+    const timeKey = `${dayIndex}_${timeObj.getHours().toString().padStart(2, '0')}:${timeObj.getMinutes().toString().padStart(2, '0')}`;
+
+    if (!map.has(timeKey)) {
+      map.set(timeKey, new Set());
+    }
+    map.get(timeKey).add(eventId);
+  }
+
+  Logger.log(`Built weekly Event ID map with ${map.size} day+time slots`);
+  return map;
 }
 
 /**
@@ -703,9 +749,22 @@ function isVolunteerEligibleForRole(volunteer, roleInfo, timeoffMaps, assignment
     return false;
   }
 
-  // 3. Check mass preference
+  // 3. Check mass preference (with weekly alias fallback for override masses)
   if (volunteer.massPrefs && volunteer.massPrefs.length > 0) {
-    if (!eventId || !volunteer.massPrefs.includes(eventId)) {
+    let matchesPreference = eventId && volunteer.massPrefs.includes(eventId);
+
+    // Check if this mass replaces a weekly mass the volunteer prefers
+    if (!matchesPreference && context && context.weeklyEventIdMap) {
+      const dayIndex = roleInfo.date.getDay();
+      const timeObj = new Date(roleInfo.time);
+      const timeKey = `${dayIndex}_${timeObj.getHours().toString().padStart(2, '0')}:${timeObj.getMinutes().toString().padStart(2, '0')}`;
+      const weeklyIds = context.weeklyEventIdMap.get(timeKey);
+      if (weeklyIds) {
+        matchesPreference = volunteer.massPrefs.some(pref => weeklyIds.has(pref));
+      }
+    }
+
+    if (!matchesPreference) {
       return false;
     }
   }
@@ -859,7 +918,22 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
     // 3. Check Mass Preference (if volunteer has preferences, must match Event ID)
     // Mass time preferences are ALWAYS respected - never overridden by fallbacks
     if (volunteer.massPrefs && volunteer.massPrefs.length > 0) {
-      if (!eventId || !volunteer.massPrefs.includes(eventId)) {
+      let matchesPreference = eventId && volunteer.massPrefs.includes(eventId);
+
+      // If no direct match, check if this mass replaces a weekly mass the volunteer prefers.
+      // This handles yearly/monthly overrides (e.g., Easter replacing regular Sunday Mass).
+      // Volunteers who prefer the regular Sunday Event ID should still be eligible.
+      if (!matchesPreference && context && context.weeklyEventIdMap) {
+        const dayIndex = roleInfo.date.getDay();
+        const timeObj = new Date(roleInfo.time);
+        const timeKey = `${dayIndex}_${timeObj.getHours().toString().padStart(2, '0')}:${timeObj.getMinutes().toString().padStart(2, '0')}`;
+        const weeklyIds = context.weeklyEventIdMap.get(timeKey);
+        if (weeklyIds) {
+          matchesPreference = volunteer.massPrefs.some(pref => weeklyIds.has(pref));
+        }
+      }
+
+      if (!matchesPreference) {
         continue;
       }
     }
