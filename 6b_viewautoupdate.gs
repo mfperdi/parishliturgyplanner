@@ -23,6 +23,31 @@ function AUTOVIEW_onChangeHandler(e) {
   try {
     Logger.log('=== Auto-Update Views: onChange fired ===');
 
+    // Skip single-cell EDIT events — these are handled by the onEdit trigger
+    // which does targeted cell-level sync (much faster than full regeneration).
+    // Only regenerate for structural changes (bulk operations, script updates, etc.)
+    if (e && e.changeType === 'EDIT') {
+      Logger.log('Auto-Update Views: Skipping EDIT event (handled by onEdit sync).');
+      return;
+    }
+
+    // Debounce: prevent infinite regeneration loops.
+    // When this handler regenerates a view sheet, that change fires onChange again.
+    // The debounce ensures we don't re-regenerate within 30 seconds.
+    try {
+      const props = PropertiesService.getScriptProperties();
+      const lastRun = props.getProperty('_AUTOVIEW_LAST_RUN');
+      const now = Date.now();
+      if (lastRun && (now - parseInt(lastRun)) < 30000) {
+        Logger.log('Auto-Update Views: Skipping (debounce — last run < 30s ago).');
+        return;
+      }
+      props.setProperty('_AUTOVIEW_LAST_RUN', now.toString());
+    } catch (debounceErr) {
+      // PropertiesService might not be available — continue without debounce
+      Logger.log(`Auto-Update Views: Debounce check failed: ${debounceErr.message}`);
+    }
+
     // Check if auto-update is enabled in Config
     const config = HELPER_readConfigSafe();
     const enabled = config['Auto-Update Views Enabled'];
