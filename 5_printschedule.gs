@@ -68,7 +68,7 @@ function generatePrintableSchedule(monthString, options = {}) {
     const numColumns = showMinistryColumn ? 6 : 5;
 
     // Generate the schedule using modular approach
-    let currentRow = createScheduleHeader(scheduleSheet, scheduleData, displayName, config, numColumns);
+    let currentRow = createScheduleHeader(scheduleSheet, scheduleData, displayName, config, numColumns, monthString);
     currentRow = createScheduleContent(scheduleSheet, scheduleData, currentRow, config, numColumns);
     
     if (config.includeSummary) {
@@ -464,8 +464,9 @@ function determineLiturgicalYear(assignments) {
  * Layout: Logo in A1:A4 (vertical merge), content in B1:numColumns
  * @param {object} scheduleData - Complete schedule data including assignments
  * @param {number} numColumns - Total number of columns in the schedule (5 or 6)
+ * @param {string} monthString - The month this schedule covers (e.g. "2026-04"), stored in hidden column for auto-update
  */
-function createScheduleHeader(sheet, scheduleData, displayName, config, numColumns = 6) {
+function createScheduleHeader(sheet, scheduleData, displayName, config, numColumns = 6, monthString = '') {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // Read config for logo URL and header text
@@ -581,8 +582,12 @@ function createScheduleHeader(sheet, scheduleData, displayName, config, numColum
 
   // Write _ROW_ marker in hidden column (numColumns+1) at row 1
   // This flags the sheet as an editable view sheet with write-back capability
+  // Row 2 stores the month string (e.g. "2026-04") so auto-update can find matching views
   try {
     sheet.getRange(1, numColumns + 1).setValue('_ROW_');
+    if (monthString) {
+      sheet.getRange(2, numColumns + 1).setValue(monthString);
+    }
   } catch (e) {
     Logger.log(`Could not write _ROW_ marker: ${e.message}`);
   }

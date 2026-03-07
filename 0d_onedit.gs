@@ -97,10 +97,11 @@ function onEdit(e) {
     // Get the edited value
     const editedValue = e.value || "";
 
-    // If cell was cleared, clear both ID and Name
+    // If cell was cleared, clear both ID and Name and sync to view sheets
     if (!editedValue || editedValue.trim() === "") {
       ONEDIT_safeClearContent(sheet.getRange(row, volIdCol));
       ONEDIT_safeClearContent(sheet.getRange(row, volNameCol));
+      ONEDIT_syncToViewSheets(row, '');
       return;
     }
 
@@ -193,6 +194,8 @@ function ONEDIT_validateAssignment(sheet, row, editedCol) {
       // Fill in both ID and Name for consistency (safe for typed columns)
       ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID), volunteer.volunteerId);
       ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME), volunteer.fullName);
+      // Sync to MonthlyView (targeted cell update, not full regeneration)
+      ONEDIT_syncToViewSheets(row, volunteer.fullName);
       return;
     }
 
@@ -212,6 +215,8 @@ function ONEDIT_validateAssignment(sheet, row, editedCol) {
     // Fill in both ID and Name for consistency (safe for typed columns)
     ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_ID), volunteer.volunteerId);
     ONEDIT_safeSetValue(sheet.getRange(row, cols.ASSIGNED_VOLUNTEER_NAME), volunteer.fullName);
+    // Sync to MonthlyView (targeted cell update, not full regeneration)
+    ONEDIT_syncToViewSheets(row, volunteer.fullName);
 
   } catch (error) {
     Logger.log(`Error validating assignment: ${error.message}`);
@@ -757,6 +762,63 @@ function ONEDIT_checkMonthlyFrequency(volunteer, allAssignmentsData, monthYear, 
   }
 
   return warnings.length > 0 ? warnings.join('\n\n') : null;
+}
+
+// ============================================================================
+// TWO-WAY SYNC: ASSIGNMENTS ↔ MONTHLYVIEW
+// ============================================================================
+
+/**
+ * Syncs a volunteer name change from the Assignments sheet to the MonthlyView
+ * (and any other view sheet with a _ROW_ hidden column).
+ *
+ * Instead of regenerating the entire MonthlyView, this scans the hidden column
+ * for the matching Assignments row and updates just the volunteer cell.
+ *
+ * @param {number} assignmentsRow - 1-based row number in the Assignments sheet
+ * @param {string} volunteerName - The volunteer name to write (or '' for UNASSIGNED)
+ */
+function ONEDIT_syncToViewSheets(assignmentsRow, volunteerName) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const displayName = volunteerName || 'UNASSIGNED';
+
+    // Check all sheets for view sheet markers
+    const sheets = ss.getSheets();
+    for (const sheet of sheets) {
+      const sheetName = sheet.getName();
+      // Skip the Assignments sheet itself
+      if (sheetName === CONSTANTS.SHEETS.ASSIGNMENTS) continue;
+
+      const lastCol = sheet.getLastColumn();
+      if (lastCol < 2) continue;
+
+      // Check if this is a view sheet (has _ROW_ marker in row 1 of last column)
+      const marker = sheet.getRange(1, lastCol).getValue();
+      if (marker !== '_ROW_') continue;
+
+      // Scan the hidden column for the matching Assignments row number
+      const lastRow = sheet.getLastRow();
+      if (lastRow < 7) continue; // No data rows
+
+      const hiddenColData = sheet.getRange(7, lastCol, lastRow - 6, 1).getValues();
+      const volunteerCol = lastCol - 1;
+
+      for (let i = 0; i < hiddenColData.length; i++) {
+        const rowId = hiddenColData[i][0];
+        if (rowId && Number(rowId) === assignmentsRow) {
+          // Found the matching row — update the volunteer cell
+          const viewRow = i + 7; // offset for header rows
+          ONEDIT_safeSetValue(sheet.getRange(viewRow, volunteerCol), displayName);
+          Logger.log(`Synced to ${sheetName} row ${viewRow}: "${displayName}"`);
+          break; // Each Assignments row appears at most once per view
+        }
+      }
+    }
+  } catch (error) {
+    // Non-fatal: don't disrupt the user
+    Logger.log(`View sheet sync error: ${error.message}`);
+  }
 }
 
 /**
