@@ -23,6 +23,31 @@ function AUTOVIEW_onChangeHandler(e) {
   try {
     Logger.log('=== Auto-Update Views: onChange fired ===');
 
+    // Skip single-cell EDIT events — these are handled by the onEdit trigger
+    // which does targeted cell-level sync (much faster than full regeneration).
+    // Only regenerate for structural changes (bulk operations, script updates, etc.)
+    if (e && e.changeType === 'EDIT') {
+      Logger.log('Auto-Update Views: Skipping EDIT event (handled by onEdit sync).');
+      return;
+    }
+
+    // Debounce: prevent infinite regeneration loops.
+    // When this handler regenerates a view sheet, that change fires onChange again.
+    // The debounce ensures we don't re-regenerate within 30 seconds.
+    try {
+      const props = PropertiesService.getScriptProperties();
+      const lastRun = props.getProperty('_AUTOVIEW_LAST_RUN');
+      const now = Date.now();
+      if (lastRun && (now - parseInt(lastRun)) < 30000) {
+        Logger.log('Auto-Update Views: Skipping (debounce — last run < 30s ago).');
+        return;
+      }
+      props.setProperty('_AUTOVIEW_LAST_RUN', now.toString());
+    } catch (debounceErr) {
+      // PropertiesService might not be available — continue without debounce
+      Logger.log(`Auto-Update Views: Debounce check failed: ${debounceErr.message}`);
+    }
+
     // Check if auto-update is enabled in Config
     const config = HELPER_readConfigSafe();
     const enabled = config['Auto-Update Views Enabled'];
@@ -53,42 +78,66 @@ function AUTOVIEW_onChangeHandler(e) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const results = [];
 
-    // Regenerate MonthlyView if it exists
-    const monthlyViewSheet = ss.getSheetByName('MonthlyView');
-    if (monthlyViewSheet) {
-      try {
-        Logger.log(`Auto-Update Views: Regenerating MonthlyView for ${monthString}...`);
-        generatePrintableSchedule(monthString, { sheetName: 'MonthlyView' });
-        results.push('MonthlyView ✓');
-        Logger.log('Auto-Update Views: MonthlyView regenerated successfully.');
-      } catch (monthlyErr) {
-        results.push('MonthlyView ✗');
-        Logger.log(`Auto-Update Views: Error regenerating MonthlyView: ${monthlyErr.message}`);
-      }
-    } else {
-      Logger.log('Auto-Update Views: MonthlyView does not exist. Skipping.');
-    }
+    // Scan ALL sheets for view sheet markers (_ROW_ in row 1 of last column)
+    // This finds MonthlyView, WeeklyView, and custom-named views like "Apr 2026"
+    const allSheets = ss.getSheets();
 
-    // Regenerate WeeklyView if it exists
-    const weeklyViewSheet = ss.getSheetByName('WeeklyView');
-    if (weeklyViewSheet) {
+    for (const sheet of allSheets) {
+      const sheetName = sheet.getName();
+
+      // Skip non-view sheets (Assignments, Config, etc.)
+      if (sheetName === CONSTANTS.SHEETS.ASSIGNMENTS) continue;
+
+      const lastCol = sheet.getLastColumn();
+      if (lastCol < 2) continue;
+
+      // Check for _ROW_ marker (indicates this is a generated view sheet)
+      let marker;
       try {
-        Logger.log(`Auto-Update Views: Regenerating WeeklyView for ${monthString}...`);
-        generateWeeklyView(null, { sheetName: 'WeeklyView' });
-        results.push('WeeklyView ✓');
-        Logger.log('Auto-Update Views: WeeklyView regenerated successfully.');
-      } catch (weeklyErr) {
-        results.push('WeeklyView ✗');
-        Logger.log(`Auto-Update Views: Error regenerating WeeklyView: ${weeklyErr.message}`);
+        marker = sheet.getRange(1, lastCol).getValue();
+      } catch (readErr) {
+        continue;
       }
-    } else {
-      Logger.log('Auto-Update Views: WeeklyView does not exist. Skipping.');
+      if (marker !== '_ROW_') continue;
+
+      // Read the month string from row 2 of the hidden column
+      // (written by createScheduleHeader during schedule generation)
+      let viewMonth = '';
+      try {
+        viewMonth = sheet.getRange(2, lastCol).getValue();
+      } catch (readErr) {
+        // Older view sheets may not have the month stored — skip them
+      }
+
+      // Only regenerate views that match the current month
+      // Views without a stored month (legacy) are skipped — regenerate manually once
+      if (!viewMonth || viewMonth.toString() !== monthString) {
+        Logger.log(`Auto-Update Views: "${sheetName}" is for month "${viewMonth}" (current: ${monthString}). Skipping.`);
+        continue;
+      }
+
+      // Regenerate this view sheet
+      try {
+        // WeeklyView uses a different generator
+        if (sheetName === 'WeeklyView') {
+          Logger.log(`Auto-Update Views: Regenerating WeeklyView for ${monthString}...`);
+          generateWeeklyView(null, { sheetName: 'WeeklyView' });
+        } else {
+          Logger.log(`Auto-Update Views: Regenerating "${sheetName}" for ${monthString}...`);
+          generatePrintableSchedule(monthString, { sheetName: sheetName });
+        }
+        results.push(`${sheetName} ✓`);
+        Logger.log(`Auto-Update Views: "${sheetName}" regenerated successfully.`);
+      } catch (regenErr) {
+        results.push(`${sheetName} ✗`);
+        Logger.log(`Auto-Update Views: Error regenerating "${sheetName}": ${regenErr.message}`);
+      }
     }
 
     if (results.length > 0) {
       Logger.log(`Auto-Update Views complete: ${results.join(', ')}`);
     } else {
-      Logger.log('Auto-Update Views: No existing views found to update.');
+      Logger.log('Auto-Update Views: No matching view sheets found to update.');
     }
 
   } catch (e) {
@@ -121,7 +170,7 @@ function AUTOVIEW_setupTrigger() {
     // Enable in Config
     AUTOVIEW_setConfigValue('Auto-Update Views Enabled', true);
 
-    return '✅ Auto-Update Views enabled!\n\nMonthlyView and WeeklyView will automatically regenerate whenever the Assignments sheet changes.\n\nNote: Views must already exist (generate them manually first).';
+    return '✅ Auto-Update Views enabled!\n\nAll generated view sheets (MonthlyView, WeeklyView, and custom-named views like "Apr 2026") will automatically regenerate when bulk changes are made to the Assignments sheet.\n\nNote: Views must already exist (generate them manually first). Single-cell edits sync instantly without full regeneration.';
 
   } catch (e) {
     Logger.log(`ERROR in AUTOVIEW_setupTrigger: ${e.message}`);

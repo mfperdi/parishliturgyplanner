@@ -72,6 +72,11 @@ function executeAssignmentLogic(monthString, month, scheduleYear) {
   // Determine spacing thresholds based on month workload
   assignmentContext.spacingThresholds = calculateSpacingThresholds(assignmentContext.unassignedRoles);
 
+  // Build weekly Event ID map for preference matching
+  // When yearly/monthly masses override weekly masses (e.g., Easter replacing regular Sunday),
+  // volunteers who prefer the weekly mass Event ID should still be eligible for the override mass
+  assignmentContext.weeklyEventIdMap = buildWeeklyEventIdMap();
+
   // Process assignments
   const results = processAssignments(assignmentContext, volunteers, timeoffMaps, assignmentsSheet, skillToMinistryMap);
 
@@ -285,6 +290,47 @@ function buildTimeoffMap(timeoffData, month, year, monthString = null) {
 
   Logger.log(`Built timeoff maps: ${result.blacklist.size} blacklists, ${result.whitelist.size} whitelists`);
   return result;
+}
+
+/**
+ * Build a map of weekly mass Event IDs by day-of-week + time.
+ * Used to match volunteer preferences when yearly/monthly masses override weekly masses.
+ * Example: Easter Sunday 10am replaces regular Sunday 10am (SUN-1000).
+ *          Volunteers who prefer SUN-1000 should still be eligible for the Easter mass.
+ * @returns {Map<string, Set<string>>} Map of "dayIndex_HH:MM" → Set of weekly Event IDs
+ */
+function buildWeeklyEventIdMap() {
+  const massData = HELPER_readSheetDataCached(CONSTANTS.SHEETS.MASS_SCHEDULE);
+  const cols = CONSTANTS.COLS.MASS_SCHEDULE;
+  const map = new Map();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  for (const row of massData) {
+    const recurrence = (HELPER_safeArrayAccess(row, cols.RECURRENCE_TYPE - 1) || '').toString().trim();
+    if (recurrence !== 'Weekly') continue;
+    if (row[cols.IS_ACTIVE - 1] === false) continue;
+
+    const dayOfWeek = HELPER_safeArrayAccess(row, cols.DAY_OF_WEEK - 1);
+    const eventId = HELPER_safeArrayAccess(row, cols.EVENT_ID - 1);
+    const time = row[cols.TIME - 1];
+
+    if (!dayOfWeek || !eventId || !time) continue;
+
+    const dayIndex = dayNames.indexOf(dayOfWeek);
+    if (dayIndex === -1) continue;
+
+    // Normalize time to HH:MM for consistent matching
+    const timeObj = new Date(time);
+    const timeKey = `${dayIndex}_${timeObj.getHours().toString().padStart(2, '0')}:${timeObj.getMinutes().toString().padStart(2, '0')}`;
+
+    if (!map.has(timeKey)) {
+      map.set(timeKey, new Set());
+    }
+    map.get(timeKey).add(eventId);
+  }
+
+  Logger.log(`Built weekly Event ID map with ${map.size} day+time slots`);
+  return map;
 }
 
 /**
@@ -506,16 +552,15 @@ function processAssignments(context, volunteers, timeoffMaps, assignmentsSheet, 
       );
 
       if (result.volunteer) {
-        // Track warnings for fallback passes 2 and 3
-        if (result.fallbackLevel >= 2) {
-          const warningType = result.fallbackLevel === 2 ? 'No spacing constraints' : 'Ignored mass preferences';
+        // Track warnings for fallback pass 2 (spacing relaxation)
+        if (result.fallbackLevel === 2) {
           results.fallbackWarnings.push({
             date: HELPER_formatDate(roleInfo.date, 'default'),
             time: roleInfo.time,
             role: roleInfo.role,
             volunteer: result.volunteer.name,
             level: result.fallbackLevel,
-            type: warningType
+            type: 'No spacing constraints'
           });
         }
 
@@ -704,9 +749,22 @@ function isVolunteerEligibleForRole(volunteer, roleInfo, timeoffMaps, assignment
     return false;
   }
 
-  // 3. Check mass preference
+  // 3. Check mass preference (with weekly alias fallback for override masses)
   if (volunteer.massPrefs && volunteer.massPrefs.length > 0) {
-    if (!eventId || !volunteer.massPrefs.includes(eventId)) {
+    let matchesPreference = eventId && volunteer.massPrefs.includes(eventId);
+
+    // Check if this mass replaces a weekly mass the volunteer prefers
+    if (!matchesPreference && context && context.weeklyEventIdMap) {
+      const dayIndex = roleInfo.date.getDay();
+      const timeObj = new Date(roleInfo.time);
+      const timeKey = `${dayIndex}_${timeObj.getHours().toString().padStart(2, '0')}:${timeObj.getMinutes().toString().padStart(2, '0')}`;
+      const weeklyIds = context.weeklyEventIdMap.get(timeKey);
+      if (weeklyIds) {
+        matchesPreference = volunteer.massPrefs.some(pref => weeklyIds.has(pref));
+      }
+    }
+
+    if (!matchesPreference) {
       return false;
     }
   }
@@ -756,10 +814,14 @@ function isVolunteerEligibleForRole(volunteer, roleInfo, timeoffMaps, assignment
 /**
  * Simplified volunteer finding with extracted scoring logic
  * PERFORMANCE: Reduced logging to prevent slowdowns
- * FALLBACK LOGIC: Progressively relaxes constraints to ensure all slots are filled
+ * FALLBACK LOGIC: Relaxes spacing constraints but NEVER overrides volunteer preferences
+ *
+ * Volunteer preferences (mass time, role) are always respected as hard constraints.
+ * If no volunteer with matching preferences is available, the role is left unassigned
+ * for manual assignment by the admin.
  *
  * @returns {Object} { volunteer, fallbackLevel } where fallbackLevel indicates which pass succeeded:
- *   0 = full constraints, 1 = relaxed spacing, 2 = no spacing, 3 = no mass preference, null = failed
+ *   0 = full constraints, 1 = relaxed spacing, 2 = no spacing, null = no eligible volunteer found
  */
 function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context) {
   let fallbackLevel = 0;
@@ -781,15 +843,12 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
     candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context, 0);
   }
 
-  // FALLBACK PASS 3: Remove mass preference requirement if still no candidates
-  if (candidates.length === 0) {
-    fallbackLevel = 3;
-    Logger.log(`⚠️ No volunteers without spacing, trying without mass preference filter...`);
-    candidates = filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context, 0, true);
-  }
+  // NOTE: Mass time preferences and role preferences are NEVER overridden.
+  // If no volunteer matches after relaxing spacing, the role stays unassigned
+  // for manual assignment by the admin.
 
   if (candidates.length === 0) {
-    Logger.log(`❌ CRITICAL: No eligible volunteers found even with all fallbacks for ${roleInfo.role} on ${roleInfo.date.toDateString()}`);
+    Logger.log(`⚠️ No eligible volunteers for ${roleInfo.role} on ${roleInfo.date.toDateString()} - leaving unassigned for manual assignment`);
     return { volunteer: null, fallbackLevel: null };
   }
 
@@ -821,9 +880,8 @@ function findOptimalVolunteer(roleInfo, volunteers, timeoffMaps, assignmentCount
  * - Already assigned checks (same day and same liturgical celebration)
  *
  * @param {number} spacingMultiplier - Multiplier for spacing constraints (0=none, 0.5=relaxed, 1.0=full)
- * @param {boolean} ignoreMassPreference - If true, ignore mass preference filtering
  */
-function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context, spacingMultiplier = 1.0, ignoreMassPreference = false) {
+function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, massAssignments, skillToMinistryMap, liturgicalAssignments, context, spacingMultiplier = 1.0) {
   const candidates = [];
   const roleLower = roleInfo.role.toLowerCase();
   const massDateString = roleInfo.date.toDateString();
@@ -858,11 +916,24 @@ function filterCandidates(roleInfo, volunteers, timeoffMaps, assignmentCounts, m
     }
 
     // 3. Check Mass Preference (if volunteer has preferences, must match Event ID)
-    // FALLBACK: Skip this check if ignoreMassPreference is true
-    if (!ignoreMassPreference && volunteer.massPrefs && volunteer.massPrefs.length > 0) {
-      // Volunteer has preferred mass times - MUST match Event ID
-      if (!eventId || !volunteer.massPrefs.includes(eventId)) {
-        // This mass is not in their preferences - exclude
+    // Mass time preferences are ALWAYS respected - never overridden by fallbacks
+    if (volunteer.massPrefs && volunteer.massPrefs.length > 0) {
+      let matchesPreference = eventId && volunteer.massPrefs.includes(eventId);
+
+      // If no direct match, check if this mass replaces a weekly mass the volunteer prefers.
+      // This handles yearly/monthly overrides (e.g., Easter replacing regular Sunday Mass).
+      // Volunteers who prefer the regular Sunday Event ID should still be eligible.
+      if (!matchesPreference && context && context.weeklyEventIdMap) {
+        const dayIndex = roleInfo.date.getDay();
+        const timeObj = new Date(roleInfo.time);
+        const timeKey = `${dayIndex}_${timeObj.getHours().toString().padStart(2, '0')}:${timeObj.getMinutes().toString().padStart(2, '0')}`;
+        const weeklyIds = context.weeklyEventIdMap.get(timeKey);
+        if (weeklyIds) {
+          matchesPreference = volunteer.massPrefs.some(pref => weeklyIds.has(pref));
+        }
+      }
+
+      if (!matchesPreference) {
         continue;
       }
     }
@@ -1205,37 +1276,25 @@ function formatAssignmentResults(results, monthString) {
   const total = results.groupAssignments + results.individualAssignments;
   let message = `Assignment complete for ${monthString}! ` +
                 `Group assignments: ${results.groupAssignments}, ` +
-                `Individual assignments: ${results.individualAssignments}, ` +
-                `Unassigned: ${results.skipped}`;
+                `Individual assignments: ${results.individualAssignments}`;
 
-  // Add warnings if fallback passes were used
+  if (results.skipped > 0) {
+    message += `\n\n⚠️ ${results.skipped} role(s) left unassigned - no eligible volunteers found ` +
+               `(all preferences, timeoffs, and role restrictions were respected). ` +
+               `Please assign these manually in the Assignments sheet.`;
+  }
+
+  // Add warnings if fallback passes were used (spacing relaxation)
   if (results.fallbackWarnings && results.fallbackWarnings.length > 0) {
-    message += '\n\n⚠️ FALLBACK WARNINGS:\n';
-    message += `${results.fallbackWarnings.length} assignment(s) required relaxed constraints:\n\n`;
-
-    // Group by type
     const noSpacing = results.fallbackWarnings.filter(w => w.level === 2);
-    const ignoredPrefs = results.fallbackWarnings.filter(w => w.level === 3);
 
     if (noSpacing.length > 0) {
-      message += `🔶 NO SPACING CONSTRAINTS (${noSpacing.length}):\n`;
-      message += 'These volunteers were assigned without spacing requirements:\n';
+      message += `\n\n🔶 SPACING RELAXED (${noSpacing.length}):\n`;
+      message += 'These volunteers were assigned with reduced spacing between assignments:\n';
       noSpacing.forEach(w => {
         message += `  • ${w.date} ${w.time} - ${w.role}: ${w.volunteer}\n`;
       });
-      message += '\n';
     }
-
-    if (ignoredPrefs.length > 0) {
-      message += `🔶 IGNORED MASS PREFERENCES (${ignoredPrefs.length}):\n`;
-      message += 'These volunteers were assigned outside their preferred mass times:\n';
-      ignoredPrefs.forEach(w => {
-        message += `  • ${w.date} ${w.time} - ${w.role}: ${w.volunteer}\n`;
-      });
-      message += '\n';
-    }
-
-    message += '💡 These assignments will carry higher frequency penalties for future months.';
   }
 
   return message;
